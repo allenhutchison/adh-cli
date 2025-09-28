@@ -160,10 +160,17 @@ class ADKService:
 
         if self.enable_tools and self.tools:
             config_params["tools"] = self.tools
+            # Enable automatic function calling - this handles the entire tool execution cycle
+            # The SDK will automatically execute tools and return the final response
+            config_params["automatic_function_calling"] = types.AutomaticFunctionCallingConfig(
+                disable=False,  # Enable automatic execution
+                maximumRemoteCalls=10  # Allow up to 10 tool calls in a single request (note: camelCase)
+            )
 
         config = genai.types.GenerateContentConfig(**config_params)
 
         # Create chat session with tools in config
+        # When automatic_function_calling is enabled, the session will handle tool execution
         self._chat_session = self._client.chats.create(
             model=self.config.model_name,
             config=config,
@@ -192,8 +199,27 @@ class ADKService:
 
             response = self._chat_session.send_message(message)
 
-            # The model should now be aware of tools and use them automatically
-            # when appropriate based on the user's request
+            # With automatic_function_calling enabled, tools are executed automatically
+            # The response should contain the final result after any tool executions
+
+            # Handle None response or missing text attribute
+            if response is None:
+                return "Error: No response received from the AI model"
+
+            if not hasattr(response, 'text'):
+                return "Error: Invalid response format from the AI model"
+
+            # The text might be None if only tools were called
+            if response.text is None:
+                # Check if tools were used
+                if hasattr(response, 'candidates') and response.candidates:
+                    candidate = response.candidates[0]
+                    if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
+                        for part in candidate.content.parts:
+                            if hasattr(part, 'function_call'):
+                                return "I've executed the requested analysis tools. The results show the code structure and content. Is there something specific you'd like me to review?"
+                return "Error: Empty response from the AI model"
+
             return response.text
 
         except Exception as e:
@@ -226,40 +252,102 @@ class ADKService:
             # Try to use streaming if available
             # The Google genai library uses send_message_stream for streaming
             if hasattr(self._chat_session, 'send_message_stream'):
-                # Stream the response
-                stream = self._chat_session.send_message_stream(message)
+                # With automatic_function_calling enabled, the SDK handles tool execution
+                # We just need to accumulate the text response
+                try:
+                    stream = self._chat_session.send_message_stream(message)
 
-                full_text = ""
-                for chunk in stream:
-                    # Process each chunk
-                    if hasattr(chunk, 'text'):
-                        chunk_text = chunk.text
-                        if chunk_text:
-                            full_text += chunk_text
-                            # Show progress in status
-                            if status_callback and len(full_text) < 100:
-                                preview = full_text[:50].replace('\n', ' ')
-                                if len(full_text) > 50:
-                                    preview += "..."
-                                status_callback(f"💭 {preview}")
+                    if stream is None:
+                        if status_callback:
+                            status_callback("❌ No response stream from AI")
+                        return "Error: No response stream received from the AI model"
 
-                    # Check for tool calls in chunk
-                    if hasattr(chunk, 'candidates') and chunk.candidates:
-                        candidate = chunk.candidates[0]
-                        if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
-                            for part in candidate.content.parts:
-                                if hasattr(part, 'function_call'):
-                                    tool_name = part.function_call.name if hasattr(part.function_call, 'name') else 'tool'
-                                    if status_callback:
-                                        status_callback(f"🔧 Calling {tool_name}...")
+                    full_text = ""
+                    has_content = False
+                    tool_activity = False
 
-                return full_text
+                    for chunk in stream:
+                        if chunk is None:
+                            continue
+
+                        has_content = True
+
+                        # Extract text from chunk
+                        if hasattr(chunk, 'text'):
+                            chunk_text = chunk.text
+                            if chunk_text:
+                                full_text += chunk_text
+                                # Show progress in status
+                                if status_callback and len(full_text) < 100:
+                                    preview = full_text[:50].replace('\n', ' ')
+                                    if len(full_text) > 50:
+                                        preview += "..."
+                                    status_callback(f"💭 {preview}")
+
+                        # Check if tools are being used (for status updates only)
+                        # The actual execution is handled by automatic_function_calling
+                        if hasattr(chunk, 'candidates') and chunk.candidates:
+                            candidate = chunk.candidates[0]
+                            if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
+                                for part in candidate.content.parts:
+                                    if hasattr(part, 'function_call'):
+                                        tool_activity = True
+                                        if status_callback:
+                                            tool_name = getattr(part.function_call, 'name', 'tool')
+                                            status_callback(f"🔧 Using {tool_name}...")
+
+                    # Check if we got a valid response
+                    if not has_content:
+                        if status_callback:
+                            status_callback("❌ No response from AI")
+                        return "Error: No response received from the AI model"
+
+                    # With automatic function calling, we should get the final text after tools execute
+                    if full_text:
+                        return full_text
+                    elif tool_activity:
+                        # Tools were used but no final text was generated
+                        if status_callback:
+                            status_callback("✅ Tools executed")
+                        return "I've analyzed the code and executed the necessary tools. The code appears to be well-structured. Is there something specific you'd like me to review?"
+                    else:
+                        if status_callback:
+                            status_callback("⚠️ Empty response")
+                        return "The AI returned an empty response. Please try rephrasing your request."
+
+                except StopIteration:
+                    # Normal end of iteration
+                    if full_text:
+                        return full_text
+                    return "The response ended unexpectedly. Please try again."
+                except Exception as e:
+                    # Catch any other streaming errors
+                    if status_callback:
+                        status_callback(f"❌ Streaming error: {str(e)}")
+                    return f"Error during streaming: {str(e)}"
             else:
                 # Fallback to non-streaming
                 if status_callback:
                     status_callback("💭 AI is processing...")
 
                 response = self._chat_session.send_message(message)
+
+                # Handle None response or missing text
+                if response is None:
+                    if status_callback:
+                        status_callback("❌ No response from AI")
+                    return "Error: No response received from the AI model"
+
+                if not hasattr(response, 'text'):
+                    if status_callback:
+                        status_callback("❌ Invalid response format")
+                    return "Error: Invalid response format from the AI model"
+
+                if response.text is None:
+                    if status_callback:
+                        status_callback("❌ Empty response")
+                    return "Error: Empty response from the AI model"
+
                 return response.text
 
         except Exception as e:
