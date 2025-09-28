@@ -215,7 +215,7 @@ class ChatScreen(Screen):
             content = Text(message)
 
         # Add the row with speaker and content
-        table.add_row(speaker + ":", content)
+        table.add_row(speaker + ": ", content)
 
         # Write the table to the log
         self.chat_log.write(table)
