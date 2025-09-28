@@ -16,10 +16,9 @@ class SettingsScreen(Screen):
     ]
 
     MODEL_OPTIONS = [
-        ("models/gemini-2.0-flash-exp", "Gemini 2.0 Flash Experimental"),
-        ("models/gemini-1.5-flash", "Gemini 1.5 Flash"),
-        ("models/gemini-1.5-flash-8b", "Gemini 1.5 Flash 8B"),
-        ("models/gemini-1.5-pro", "Gemini 1.5 Pro"),
+        ("Gemini Flash Latest", "gemini-flash-latest"),
+        ("Gemini Flash Lite Latest", "gemini-flash-lite-latest"),
+        ("Gemini 2.5 Pro", "gemini-2.5-pro"),
     ]
 
     def compose(self) -> ComposeResult:

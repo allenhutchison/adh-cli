@@ -61,8 +61,8 @@ class ChatScreen(Screen):
     """
 
     BINDINGS = [
-        Binding("escape", "app.pop_screen", "Back"),
         Binding("ctrl+l", "clear_chat", "Clear Chat"),
+        Binding("s", "show_settings", "Settings"),
     ]
 
     def __init__(self):
@@ -92,7 +92,7 @@ class ChatScreen(Screen):
         with Horizontal(id="control-buttons"):
             yield Button("Clear Chat", id="btn-clear", variant="warning")
             yield Button("Export", id="btn-export", variant="success")
-            yield Button("← Back", id="btn-back", variant="default")
+            yield Button("Settings", id="btn-settings", variant="default")
 
     def on_mount(self) -> None:
         """Initialize services when screen is mounted."""
@@ -128,10 +128,11 @@ class ChatScreen(Screen):
         """Clear the chat log."""
         self.action_clear_chat()
 
-    @on(Button.Pressed, "#btn-back")
-    def on_back_pressed(self) -> None:
-        """Go back to the main screen."""
-        self.app.pop_screen()
+    @on(Button.Pressed, "#btn-settings")
+    def on_settings_pressed(self) -> None:
+        """Open settings modal."""
+        from .settings_modal import SettingsModal
+        self.app.push_screen(SettingsModal())
 
     @on(Button.Pressed, "#btn-export")
     def on_export_pressed(self) -> None:
@@ -152,6 +153,7 @@ class ChatScreen(Screen):
 
         # Clear input immediately after getting the message
         input_widget.value = ""
+        input_widget.focus()
 
         if not self.adk_service:
             self.chat_log.write("[red]ADK service not initialized. Please configure API key.[/red]")
@@ -177,3 +179,8 @@ class ChatScreen(Screen):
             if self.adk_service:
                 # Restart chat session
                 self.adk_service.start_chat()
+
+    def action_show_settings(self) -> None:
+        """Show settings modal."""
+        from .settings_modal import SettingsModal
+        self.app.push_screen(SettingsModal())

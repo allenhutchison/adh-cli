@@ -26,9 +26,7 @@ class ADHApp(App):
     BINDINGS = [
         Binding("q", "quit", "Quit", priority=True),
         Binding("d", "toggle_dark", "Toggle Dark Mode"),
-        Binding("h", "push_screen('main')", "Home"),
-        Binding("c", "push_screen('chat')", "Chat"),
-        Binding("s", "push_screen('settings')", "Settings"),
+        Binding("s", "show_settings", "Settings"),
     ]
 
     SCREENS = {
@@ -47,7 +45,12 @@ class ADHApp(App):
 
     def on_mount(self) -> None:
         """Initialize the app after mounting."""
-        self.push_screen("main")
+        self.push_screen("chat")
+
+    def action_show_settings(self) -> None:
+        """Show settings as a modal."""
+        from .screens.settings_modal import SettingsModal
+        self.push_screen(SettingsModal())
 
     def action_toggle_dark(self) -> None:
         """Toggle dark mode."""
