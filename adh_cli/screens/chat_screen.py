@@ -6,6 +6,11 @@ from textual.containers import Container, Horizontal, ScrollableContainer, Verti
 from textual.screen import Screen
 from textual.widgets import Input, Label, RichLog, Static
 from textual.binding import Binding
+from rich.markdown import Markdown
+from rich.text import Text
+from rich.table import Table
+from rich.console import Group
+from rich.padding import Padding
 
 from ..services.adk_service import ADKService, ADKConfig
 from ..services.clipboard_service import ClipboardService
@@ -89,7 +94,6 @@ class ChatScreen(Screen):
         with Container(id="chat-container"):
             log = RichLog(id="chat-log", wrap=True, highlight=True, markup=True, auto_scroll=True)
             log.border_title = "ADH Chat"
-            # Enable text selection if available
             log.can_focus = True
             yield log
 
@@ -128,7 +132,8 @@ class ChatScreen(Screen):
 
         # Immediately clear input and show message - synchronously for instant feedback
         input_widget.value = ""
-        self.chat_log.write(f"[blue]You:[/blue] {message}")
+        # Display user message with gutter effect
+        self._add_message("You", message, is_user=True)
 
         # Check service availability
         if not self.adk_service:
@@ -170,8 +175,8 @@ class ChatScreen(Screen):
                 thread=True
             ).wait()
 
-            # Show response
-            self.chat_log.write(f"[green]AI:[/green] {response}")
+            # Show response with markdown rendering
+            self._add_message("AI", response, is_user=False)
         except Exception as e:
             self.chat_log.write(f"[red]Error: {str(e)}[/red]")
         finally:
@@ -183,6 +188,38 @@ class ChatScreen(Screen):
             else:
                 status_line.remove_class("command-mode")
                 status_line.update("INPUT MODE - Press ESC for commands")
+
+    def _add_message(self, speaker: str, message: str, is_user: bool = False) -> None:
+        """Add a message with a gutter-style speaker label.
+
+        Args:
+            speaker: The speaker name (You/AI)
+            message: The message content
+            is_user: Whether this is a user message
+        """
+        # Create a table for the gutter effect
+        table = Table(show_header=False, show_edge=False, padding=0, box=None)
+
+        # Add columns: one for speaker (fixed width), one for content (expand)
+        table.add_column(width=6, justify="right", style="bold blue" if is_user else "bold green")
+        table.add_column(ratio=1)
+
+        # Check if message has markdown
+        has_markdown = any(marker in message for marker in ['```', '**', '##', '- ', '* ', '1. '])
+
+        if has_markdown and not is_user:
+            # For AI markdown responses, render the markdown
+            content = Markdown(message)
+        else:
+            # For user messages or simple text, just use plain text
+            content = Text(message)
+
+        # Add the row with speaker and content
+        table.add_row(speaker + ":", content)
+
+        # Write the table to the log
+        self.chat_log.write(table)
+        self.chat_log.write("")  # Add spacing between messages
 
     def action_clear_chat(self) -> None:
         """Clear the chat log."""
@@ -256,13 +293,16 @@ class ChatScreen(Screen):
             # Build plain text from chat log lines
             chat_lines = []
             for line in self.chat_log.lines:
-                # Extract plain text from Strip objects
                 if hasattr(line, 'text'):
-                    chat_lines.append(line.text)
-                else:
-                    chat_lines.append(str(line))
+                    text = line.text.strip()
+                    if text:  # Only add non-empty lines
+                        chat_lines.append(text)
 
             chat_text = "\n".join(chat_lines)
+
+            if not chat_text:
+                self.chat_log.write("[yellow]No chat history to export.[/yellow]")
+                return
 
             # Save to file
             with open("chat_export.txt", "w") as f:
@@ -288,14 +328,11 @@ class ChatScreen(Screen):
         try:
             # Build chat text from chat log lines
             chat_lines = []
-
             for line in self.chat_log.lines:
-                # The line is a Strip object from textual.strip
-                # It has a .text property that gives us the plain text
                 if hasattr(line, 'text'):
-                    clean_line = line.text.strip()
-                    if clean_line:  # Only add non-empty lines
-                        chat_lines.append(clean_line)
+                    text = line.text.strip()
+                    if text:  # Only add non-empty lines
+                        chat_lines.append(text)
 
             chat_text = "\n".join(chat_lines)
 

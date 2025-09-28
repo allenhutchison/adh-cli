@@ -1,1 +1,0 @@
-"""Widgets module for ADH CLI."""
