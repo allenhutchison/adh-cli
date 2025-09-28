@@ -47,9 +47,12 @@ class ChatScreen(Screen):
     def on_mount(self) -> None:
         """Initialize services when screen is mounted."""
         try:
-            self.adk_service = ADKService()
+            # Initialize ADK service with tools enabled
+            self.adk_service = ADKService(enable_tools=True)
             self.chat_log = self.query_one("#chat-log", RichLog)
             self.chat_log.write("[system]Chat session started. ADK service connected.[/system]")
+            self.chat_log.write("[dim]🔧 Tools enabled: execute_command, list_directory, read_file[/dim]")
+            self.chat_log.write("[dim]Try asking me to run commands, list files, or read files![/dim]")
         except ValueError as e:
             self.chat_log = self.query_one("#chat-log", RichLog)
             self.chat_log.write(f"[red]Error: {str(e)}[/red]")
@@ -117,4 +120,5 @@ class ChatScreen(Screen):
             self.chat_log.clear()
             self.chat_log.write("[system]Chat cleared.[/system]")
             if self.adk_service:
+                # Restart chat session
                 self.adk_service.start_chat()

@@ -1,20 +1,25 @@
 """Google ADK (AI Development Kit) service integration."""
 
 import os
-from typing import Optional, List, Dict, Any
+import json
+from typing import Optional, List, Dict, Any, Callable
 from google import genai
+from google.genai import types
 from dataclasses import dataclass
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
 
+# Import our tools
+from ..tools import shell_tools
+
 
 @dataclass
 class ADKConfig:
     """Configuration for Google ADK."""
     api_key: Optional[str] = None
-    model_name: str = "models/gemini-2.0-flash-exp"
+    model_name: str = "gemini-flash-latest"
     temperature: float = 0.7
     max_tokens: int = 2048
     top_p: float = 0.95
@@ -24,11 +29,18 @@ class ADKConfig:
 class ADKService:
     """Service class for Google ADK interactions."""
 
-    def __init__(self, config: Optional[ADKConfig] = None):
-        """Initialize the ADK service."""
+    def __init__(self, config: Optional[ADKConfig] = None, enable_tools: bool = False):
+        """Initialize the ADK service.
+
+        Args:
+            config: Configuration for the ADK service
+            enable_tools: Whether to enable tool/function calling
+        """
         self.config = config or ADKConfig()
         self._client = None
         self._chat_session = None
+        self.enable_tools = enable_tools
+        self.tools = [shell_tools.execute_command, shell_tools.list_directory, shell_tools.read_file] if enable_tools else []
         self._initialize()
 
     def _initialize(self) -> None:
@@ -66,7 +78,7 @@ class ADKService:
         return response.text
 
     def start_chat(self, history: Optional[List[Dict[str, str]]] = None) -> None:
-        """Start a chat session."""
+        """Start a chat session with optional tool support."""
         if not self._client:
             raise RuntimeError("ADK service not initialized")
 
@@ -79,13 +91,20 @@ class ADKService:
                     "parts": [{"text": msg.get("content", "")}]
                 })
 
-        config = genai.types.GenerateContentConfig(
-            temperature=self.config.temperature,
-            top_p=self.config.top_p,
-            top_k=self.config.top_k,
-            max_output_tokens=self.config.max_tokens,
-        )
+        # Build config with tools if enabled
+        config_params = {
+            "temperature": self.config.temperature,
+            "top_p": self.config.top_p,
+            "top_k": self.config.top_k,
+            "max_output_tokens": self.config.max_tokens,
+        }
 
+        if self.enable_tools and self.tools:
+            config_params["tools"] = self.tools
+
+        config = genai.types.GenerateContentConfig(**config_params)
+
+        # Create chat session with tools in config
         self._chat_session = self._client.chats.create(
             model=self.config.model_name,
             config=config,
@@ -93,12 +112,19 @@ class ADKService:
         )
 
     def send_message(self, message: str) -> str:
-        """Send a message in the chat session."""
+        """Send a message in the chat session, handling tool calls if needed."""
         if not self._chat_session:
             self.start_chat()
 
-        response = self._chat_session.send_message(message)
-        return response.text
+        try:
+            response = self._chat_session.send_message(message)
+
+            # The model should now be aware of tools and use them automatically
+            # when appropriate based on the user's request
+            return response.text
+
+        except Exception as e:
+            return f"Error: {str(e)}"
 
     def list_models(self) -> List[str]:
         """List available models."""

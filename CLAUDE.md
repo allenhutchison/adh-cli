@@ -90,7 +90,21 @@ Global bindings defined in `ADHApp.BINDINGS`:
 - Actions: q (Quit), d (Toggle dark mode)
 - Screen-specific: ESC (Back), Ctrl+L (Clear chat in ChatScreen)
 
+### Tool System
+The application includes a tool system that allows the AI to execute commands:
+- **execute_command**: Run shell commands with safety checks
+- **list_directory**: List directory contents with structured output
+- **read_file**: Read text files up to 10MB
+
+Implementation details:
+- Tools are defined in `adh_cli/tools/shell_tools.py`
+- ADKService uses pattern matching to detect when the AI wants to use tools
+- Tool handlers are registered in `_setup_tool_handlers()` method
+- Safety features include command blocking, file size limits, and timeout controls
+- Enable tools by passing `enable_tools=True` when initializing ADKService
+
 ### Error Handling
 - API key validation on service initialization
 - Graceful error display in chat UI for API failures
 - User-friendly messages for configuration issues
+- Tool execution errors are caught and displayed in chat
