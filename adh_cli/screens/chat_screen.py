@@ -198,7 +198,7 @@ class ChatScreen(Screen):
             is_user: Whether this is a user message
         """
         # Create a table for the gutter effect
-        table = Table(show_header=False, show_edge=False, padding=0, box=None)
+        table = Table(show_header=False, show_edge=False, padding=(0, 1), box=None)
 
         # Add columns: one for speaker (fixed width), one for content (expand)
         table.add_column(width=6, justify="right", style="bold blue" if is_user else "bold green")
@@ -215,7 +215,7 @@ class ChatScreen(Screen):
             content = Text(message)
 
         # Add the row with speaker and content
-        table.add_row(speaker + ": ", content)
+        table.add_row(speaker + ":", content)
 
         # Write the table to the log
         self.chat_log.write(table)
