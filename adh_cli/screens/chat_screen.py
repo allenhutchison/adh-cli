@@ -13,6 +13,53 @@ from ..services.adk_service import ADKService, ADKConfig
 class ChatScreen(Screen):
     """Chat screen for AI interactions."""
 
+    CSS = """
+    ChatScreen {
+        layout: vertical;
+    }
+
+    #chat-title {
+        height: 3;
+        padding: 1 2;
+        background: $boost;
+        color: $text;
+        text-align: center;
+        content-align: center middle;
+    }
+
+    #chat-container {
+        height: 1fr;
+        padding: 0 1;
+    }
+
+    #chat-log {
+        height: 100%;
+        border: solid $primary;
+        padding: 0 1;
+        background: $surface;
+    }
+
+    #input-container {
+        height: 3;
+        padding: 0 1;
+    }
+
+    #chat-input {
+        width: 1fr;
+        margin-right: 1;
+    }
+
+    #control-buttons {
+        height: 3;
+        padding: 0 1;
+        align: center middle;
+    }
+
+    #control-buttons Button {
+        margin: 0 1;
+    }
+    """
+
     BINDINGS = [
         Binding("escape", "app.pop_screen", "Back"),
         Binding("ctrl+l", "clear_chat", "Clear Chat"),
@@ -26,23 +73,26 @@ class ChatScreen(Screen):
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the chat screen."""
-        with Container(classes="container"):
-            yield Static("[bold]ADK Chat Interface[/bold]", id="chat-title")
+        # Title at the top
+        yield Static("[bold]💬 ADK Chat[/bold]", id="chat-title")
 
-            with Vertical():
-                yield RichLog(id="chat-log", wrap=True, highlight=True, markup=True)
+        # Main chat container that takes up most space
+        with Container(id="chat-container"):
+            yield RichLog(id="chat-log", wrap=True, highlight=True, markup=True)
 
-                with Horizontal(id="input-container"):
-                    yield Input(
-                        placeholder="Type your message here...",
-                        id="chat-input"
-                    )
-                    yield Button("Send", id="btn-send", variant="primary")
+        # Input area at the bottom
+        with Horizontal(id="input-container"):
+            yield Input(
+                placeholder="Type your message here... (Enter to send)",
+                id="chat-input"
+            )
+            yield Button("Send", id="btn-send", variant="primary")
 
-                with Horizontal(id="control-buttons"):
-                    yield Button("Clear", id="btn-clear", variant="warning")
-                    yield Button("Export", id="btn-export")
-                    yield Button("Back", id="btn-back", variant="default")
+        # Compact control buttons at very bottom
+        with Horizontal(id="control-buttons"):
+            yield Button("Clear Chat", id="btn-clear", variant="warning")
+            yield Button("Export", id="btn-export", variant="success")
+            yield Button("← Back", id="btn-back", variant="default")
 
     def on_mount(self) -> None:
         """Initialize services when screen is mounted."""
@@ -59,6 +109,9 @@ class ChatScreen(Screen):
             self.chat_log.write(
                 "[yellow]Please set your GOOGLE_API_KEY environment variable or configure it in settings.[/yellow]"
             )
+
+        # Focus the input field
+        self.query_one("#chat-input", Input).focus()
 
     @on(Input.Submitted, "#chat-input")
     async def on_input_submitted(self, event: Input.Submitted) -> None:
@@ -97,12 +150,14 @@ class ChatScreen(Screen):
         if not message:
             return
 
+        # Clear input immediately after getting the message
+        input_widget.value = ""
+
         if not self.adk_service:
             self.chat_log.write("[red]ADK service not initialized. Please configure API key.[/red]")
             return
 
         self.chat_log.write(f"[blue]You:[/blue] {message}")
-        input_widget.value = ""
 
         try:
             worker = self.app.run_worker(
