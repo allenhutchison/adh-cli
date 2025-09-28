@@ -10,6 +10,7 @@ dependencies = [
     "rich>=13.7.0",
     "click>=8.1.7",
     "python-dotenv>=1.0.0",
+    "pyyaml>=6.0.0",
 ]
 
 [project.optional-dependencies]

@@ -2,36 +2,20 @@
 
 import subprocess
 import os
-import shlex
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 from pathlib import Path
 
 
 def execute_command(command: str, working_directory: Optional[str] = None, timeout: int = 30) -> Dict[str, Any]:
     """Execute a shell command and return the output.
 
-    This tool allows the AI to run shell commands and see their output.
-    Common use cases include listing files, checking system info, running scripts,
-    or executing development tools.
-
     Args:
-        command: The shell command to execute. Can be any valid shell command.
-        working_directory: Optional directory to run the command in. Defaults to current directory.
-        timeout: Maximum seconds to wait for command completion. Defaults to 30.
+        command: The shell command to execute
+        working_directory: Optional directory to run the command in
+        timeout: Maximum seconds to wait for command completion
 
     Returns:
-        A dictionary containing:
-        - success: Boolean indicating if command executed successfully
-        - stdout: Standard output from the command
-        - stderr: Standard error output if any
-        - return_code: Exit code of the command
-        - error: Error message if command failed
-
-    Examples:
-        - "ls -la" to list files
-        - "python --version" to check Python version
-        - "git status" to check git repository status
-        - "cat file.txt" to read a file
+        Dictionary with success, stdout, stderr, return_code, and error fields
     """
     result = {
         "success": False,
@@ -92,20 +76,13 @@ def execute_command(command: str, working_directory: Optional[str] = None, timeo
 def list_directory(path: str = ".", show_hidden: bool = False, detailed: bool = True) -> Dict[str, Any]:
     """List contents of a directory with details.
 
-    This tool provides a safer alternative to 'ls' with structured output.
-
     Args:
-        path: Directory path to list. Defaults to current directory.
-        show_hidden: Whether to show hidden files (starting with .). Defaults to False.
-        detailed: Whether to show detailed info (size, permissions, etc). Defaults to True.
+        path: Directory path to list
+        show_hidden: Whether to show hidden files
+        detailed: Whether to show detailed info
 
     Returns:
-        A dictionary containing:
-        - success: Boolean indicating if operation succeeded
-        - path: The directory path that was listed
-        - files: List of files with their details
-        - directories: List of subdirectories
-        - error: Error message if failed
+        Dictionary with success, path, files, directories, and error fields
     """
     result = {
         "success": False,
@@ -159,19 +136,12 @@ def list_directory(path: str = ".", show_hidden: bool = False, detailed: bool = 
 def read_file(file_path: str, max_lines: int = 1000) -> Dict[str, Any]:
     """Read the contents of a text file.
 
-    This tool safely reads text files and returns their contents.
-
     Args:
         file_path: Path to the file to read
-        max_lines: Maximum number of lines to read. Defaults to 1000.
+        max_lines: Maximum number of lines to read
 
     Returns:
-        A dictionary containing:
-        - success: Boolean indicating if file was read successfully
-        - content: The file contents
-        - line_count: Number of lines in the file
-        - truncated: Whether the output was truncated
-        - error: Error message if failed
+        Dictionary with success, content, line_count, truncated, and error fields
     """
     result = {
         "success": False,
