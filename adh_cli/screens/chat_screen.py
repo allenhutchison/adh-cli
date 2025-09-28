@@ -18,42 +18,22 @@ class ChatScreen(Screen):
         layout: vertical;
     }
 
-    #chat-title {
-        height: 3;
-        padding: 1 2;
-        background: $boost;
-        color: $text;
-        text-align: center;
-        content-align: center middle;
-    }
-
-    #status-line {
-        dock: bottom;
-        height: 1;
-        background: $panel;
-        color: $text;
-        padding: 0 1;
-    }
-
-    #status-line.command-mode {
-        background: $primary;
-    }
-
     #chat-container {
         height: 1fr;
-        padding: 0 1;
+        padding: 1 1 0 1;
     }
 
     #chat-log {
         height: 100%;
         border: solid $primary;
+        border-title-align: center;
         padding: 0 1;
         background: $surface;
     }
 
     #input-container {
-        height: 3;
-        padding: 0 1;
+        height: auto;
+        padding: 0 1 1 1;
     }
 
     #chat-input {
@@ -62,6 +42,19 @@ class ChatScreen(Screen):
 
     #chat-input:focus {
         border: solid $secondary;
+    }
+
+    #status-line {
+        dock: bottom;
+        height: 1;
+        background: $panel;
+        color: $text;
+        padding: 0 1;
+        width: 100%;
+    }
+
+    #status-line.command-mode {
+        background: $primary;
     }
 
     """
@@ -80,25 +73,24 @@ class ChatScreen(Screen):
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the chat screen."""
-        # Title at the top
-        yield Static("[bold]💬 ADK Chat[/bold]", id="chat-title")
+        # Status line docked at the bottom
+        yield Static(
+            "INPUT MODE - Press ESC for commands",
+            id="status-line"
+        )
 
         # Main chat container that takes up most space
         with Container(id="chat-container"):
-            yield RichLog(id="chat-log", wrap=True, highlight=True, markup=True)
+            log = RichLog(id="chat-log", wrap=True, highlight=True, markup=True)
+            log.border_title = "ADH Chat"
+            yield log
 
-        # Input area at the bottom
+        # Input area (above the docked status line)
         with Horizontal(id="input-container"):
             yield Input(
                 placeholder="Type your message here... (Enter to send, ESC for command mode)",
                 id="chat-input"
             )
-
-        # Status line at the very bottom
-        yield Static(
-            "INPUT MODE - Press ESC for commands",
-            id="status-line"
-        )
 
     def on_mount(self) -> None:
         """Initialize services when screen is mounted."""
