@@ -1,0 +1,5 @@
+textual>=0.47.0
+google-genai>=0.1.0
+rich>=13.7.0
+click>=8.1.7
+python-dotenv>=1.0.0
