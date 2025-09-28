@@ -8,6 +8,7 @@ from textual.widgets import Input, Label, RichLog, Static
 from textual.binding import Binding
 
 from ..services.adk_service import ADKService, ADKConfig
+from ..services.clipboard_service import ClipboardService
 
 
 class ChatScreen(Screen):
@@ -247,12 +248,37 @@ class ChatScreen(Screen):
             event.prevent_default()
 
     def action_export_chat(self) -> None:
-        """Export chat history."""
-        if self.chat_log:
+        """Export chat history to file and optionally to clipboard."""
+        if not self.chat_log:
+            return
+
+        try:
+            # Build plain text from chat log lines
+            chat_lines = []
+            for line in self.chat_log.lines:
+                # Extract plain text from Strip objects
+                if hasattr(line, 'text'):
+                    chat_lines.append(line.text)
+                else:
+                    chat_lines.append(str(line))
+
+            chat_text = "\n".join(chat_lines)
+
+            # Save to file
             with open("chat_export.txt", "w") as f:
-                for line in self.chat_log.lines:
-                    f.write(str(line) + "\n")
-            self.chat_log.write("[green]Chat exported to chat_export.txt[/green]")
+                f.write(chat_text)
+
+            # Also copy to clipboard for convenience
+            success, message = ClipboardService.copy_to_clipboard(chat_text)
+
+            if success:
+                self.chat_log.write("[green]Chat exported to chat_export.txt and copied to clipboard![/green]")
+            else:
+                self.chat_log.write("[green]Chat exported to chat_export.txt[/green]")
+                self.chat_log.write(f"[dim yellow]Note: {message}[/dim yellow]")
+
+        except Exception as e:
+            self.chat_log.write(f"[red]Error exporting chat: {str(e)}[/red]")
 
     def action_copy_chat(self) -> None:
         """Copy chat history to clipboard."""
@@ -277,36 +303,13 @@ class ChatScreen(Screen):
                 self.chat_log.write("[yellow]No chat history to copy.[/yellow]")
                 return
 
-            # Try to use pbcopy on macOS
-            import subprocess
-            import platform
+            # Use the clipboard service
+            success, message = ClipboardService.copy_to_clipboard(chat_text)
 
-            system = platform.system()
-            if system == "Darwin":  # macOS
-                # Use pbcopy with proper pipe
-                process = subprocess.Popen("pbcopy", stdin=subprocess.PIPE, shell=False)
-                process.communicate(chat_text.encode('utf-8'))
-
-                if process.returncode == 0:
-                    self.chat_log.write(f"[green]Copied {len(chat_lines)} lines to clipboard![/green]")
-                else:
-                    self.chat_log.write("[red]Failed to copy to clipboard.[/red]")
-
-            elif system == "Linux":
-                # Try xclip first, then xsel
-                try:
-                    process = subprocess.Popen(["xclip", "-selection", "clipboard"], stdin=subprocess.PIPE)
-                    process.communicate(chat_text.encode('utf-8'))
-                    self.chat_log.write(f"[green]Copied {len(chat_lines)} lines to clipboard![/green]")
-                except:
-                    try:
-                        process = subprocess.Popen(["xsel", "--clipboard", "--input"], stdin=subprocess.PIPE)
-                        process.communicate(chat_text.encode('utf-8'))
-                        self.chat_log.write(f"[green]Copied {len(chat_lines)} lines to clipboard![/green]")
-                    except:
-                        self.chat_log.write("[yellow]Could not copy to clipboard. Install xclip or xsel.[/yellow]")
-            else:  # Windows
-                self.chat_log.write("[yellow]Clipboard copy not implemented for Windows. Use export instead.[/yellow]")
+            if success:
+                self.chat_log.write(f"[green]Copied {len(chat_lines)} lines to clipboard![/green]")
+            else:
+                self.chat_log.write(f"[red]{message}[/red]")
 
         except Exception as e:
             self.chat_log.write(f"[red]Error copying to clipboard: {str(e)}[/red]")

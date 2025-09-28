@@ -6,11 +6,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ADH CLI is a Terminal User Interface (TUI) application built with Textual and Google AI Development Kit (ADK/Gemini API). It provides an interactive chat interface with Google's Gemini models through a modern terminal interface.
 
-## Development Commands
+## Development Environment
 
-### Installation
+### Package Manager
+This project uses **uv** for Python package and virtual environment management. uv is a fast Python package installer and resolver written in Rust.
+
 ```bash
-# Install in development mode with all dependencies
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create virtual environment
+uv venv
+
+# Activate virtual environment
+source .venv/bin/activate  # On macOS/Linux
+# or
+.venv\Scripts\activate  # On Windows
+
+# Install dependencies using uv
+uv pip install -r requirements.txt
+uv pip install -r requirements-dev.txt
+
+# Install package in editable mode
+uv pip install -e .
+```
+
+### Installation (Alternative with pip)
+```bash
+# If not using uv, you can use standard pip
 pip install -e .
 
 # Install development dependencies
