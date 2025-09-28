@@ -49,4 +49,7 @@ install-dev:  ## Install development dependencies
 run:  ## Run the application
 	adh-cli
 
+sync-deps:  ## Sync requirements files with pyproject.toml
+	python scripts/sync_requirements.py
+
 .DEFAULT_GOAL := help

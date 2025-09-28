@@ -16,7 +16,10 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
+    "pytest-cov>=7.0.0",
+    "coverage>=7.10.0",
     "textual-dev>=1.3.0",
+    "taskipy>=1.14.0",
 ]
 
 [project.scripts]
@@ -66,3 +69,4 @@ build = "python -m build"
 clean = "rm -rf build dist *.egg-info .pytest_cache .coverage"
 install-dev = "uv pip install -e '.[dev]' -r requirements-dev.txt"
 run = "adh-cli"
+sync-deps = "python scripts/sync_requirements.py"
