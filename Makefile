@@ -1,55 +1,54 @@
 # Makefile for ADH CLI
+# This Makefile delegates to taskipy for consistency
 
-.PHONY: help test test-v test-cov lint format dev clean install run build
+.PHONY: help test test-v test-cov lint format dev clean install run build sync-deps
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
 test:  ## Run tests
-	pytest
+	task test
 
 test-v:  ## Run tests with verbose output
-	pytest -v
+	task test-v
 
 test-cov:  ## Run tests with coverage report
-	pytest --cov=adh_cli --cov-report=term-missing
+	task test-cov
 
 test-watch:  ## Run tests in watch mode
-	pytest-watch
+	task test-watch
 
 lint:  ## Run linter
-	ruff check adh_cli tests
+	task lint
 
 format:  ## Format code
-	ruff format adh_cli tests
+	task format
 
 typecheck:  ## Run type checking
-	mypy adh_cli
+	task typecheck
 
 dev:  ## Run app in development mode
-	textual run --dev adh_cli.app:ADHApp
+	task dev
 
 console:  ## Run Textual console for debugging
-	textual console
+	task console
 
 build:  ## Build distribution packages
-	python -m build
+	task build
 
 clean:  ## Clean build artifacts
-	rm -rf build dist *.egg-info .pytest_cache .coverage __pycache__
-	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-	find . -type f -name "*.pyc" -delete
+	task clean
 
 install:  ## Install the package
 	uv pip install -e .
 
 install-dev:  ## Install development dependencies
-	uv pip install -e '.[dev]' -r requirements-dev.txt
+	task install-dev
 
 run:  ## Run the application
-	adh-cli
+	task run
 
 sync-deps:  ## Sync requirements files with pyproject.toml
-	python scripts/sync_requirements.py
+	task sync-deps
 
 .DEFAULT_GOAL := help
