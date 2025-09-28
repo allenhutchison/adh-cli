@@ -143,9 +143,27 @@ class ChatScreen(Screen):
         status_line.add_class("thinking")
         status_line.update("⏳ AI is thinking...")
 
+        def update_status(status: str):
+            """Callback to update status bar with AI activity."""
+            # Use app.call_from_thread for thread-safe UI updates
+            def _update():
+                # Add different colors based on status type
+                if "🔧" in status:  # Tool call
+                    status_line.update(f"[bold cyan]{status}[/bold cyan]")
+                elif "💭" in status:  # Thinking/reasoning
+                    status_line.update(f"[dim yellow]{status}[/dim yellow]")
+                elif "❌" in status:  # Error
+                    status_line.update(f"[bold red]{status}[/bold red]")
+                else:
+                    status_line.update(status)
+
+            # Use app.call_from_thread for thread-safe UI updates
+            self.app.call_from_thread(_update)
+
         try:
+            # Use streaming method with status callback
             response = await self.app.run_worker(
-                lambda: self.adk_service.send_message(message),
+                lambda: self.adk_service.send_message_streaming(message, update_status),
                 thread=True
             ).wait()
 

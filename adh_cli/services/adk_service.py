@@ -126,6 +126,60 @@ class ADKService:
         except Exception as e:
             return f"Error: {str(e)}"
 
+    def send_message_streaming(self, message: str, status_callback: Optional[Callable[[str], None]] = None):
+        """Send a message with streaming response and status updates."""
+        if not self._chat_session:
+            self.start_chat()
+
+        try:
+            # Send initial status
+            if status_callback:
+                status_callback("⏳ Sending message to AI...")
+
+            # Try to use streaming if available
+            # The Google genai library uses send_message_stream for streaming
+            if hasattr(self._chat_session, 'send_message_stream'):
+                # Stream the response
+                stream = self._chat_session.send_message_stream(message)
+
+                full_text = ""
+                for chunk in stream:
+                    # Process each chunk
+                    if hasattr(chunk, 'text'):
+                        chunk_text = chunk.text
+                        if chunk_text:
+                            full_text += chunk_text
+                            # Show progress in status
+                            if status_callback and len(full_text) < 100:
+                                preview = full_text[:50].replace('\n', ' ')
+                                if len(full_text) > 50:
+                                    preview += "..."
+                                status_callback(f"💭 {preview}")
+
+                    # Check for tool calls in chunk
+                    if hasattr(chunk, 'candidates') and chunk.candidates:
+                        candidate = chunk.candidates[0]
+                        if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
+                            for part in candidate.content.parts:
+                                if hasattr(part, 'function_call'):
+                                    tool_name = part.function_call.name if hasattr(part.function_call, 'name') else 'tool'
+                                    if status_callback:
+                                        status_callback(f"🔧 Calling {tool_name}...")
+
+                return full_text
+            else:
+                # Fallback to non-streaming
+                if status_callback:
+                    status_callback("💭 AI is processing...")
+
+                response = self._chat_session.send_message(message)
+                return response.text
+
+        except Exception as e:
+            if status_callback:
+                status_callback(f"❌ Error: {str(e)}")
+            return f"Error: {str(e)}"
+
     def list_models(self) -> List[str]:
         """List available models."""
         if not self._client:
