@@ -57,6 +57,11 @@ class ChatScreen(Screen):
         background: $primary;
     }
 
+    #status-line.thinking {
+        background: $warning;
+        color: $text;
+    }
+
     """
 
     BINDINGS = [
@@ -110,38 +115,53 @@ class ChatScreen(Screen):
         self.query_one("#chat-input", Input).focus()
 
     @on(Input.Submitted, "#chat-input")
-    async def on_input_submitted(self, event: Input.Submitted) -> None:
+    def on_input_submitted(self, event: Input.Submitted) -> None:
         """Handle message submission."""
-        await self.send_message()
-
-
-    async def send_message(self) -> None:
-        """Send a message to the ADK service."""
         input_widget = self.query_one("#chat-input", Input)
         message = input_widget.value.strip()
 
         if not message:
             return
 
-        # Clear input immediately after getting the message
+        # Immediately clear input and show message - synchronously for instant feedback
         input_widget.value = ""
-        input_widget.focus()
+        self.chat_log.write(f"[blue]You:[/blue] {message}")
 
+        # Check service availability
         if not self.adk_service:
             self.chat_log.write("[red]ADK service not initialized. Please configure API key.[/red]")
             return
 
-        self.chat_log.write(f"[blue]You:[/blue] {message}")
+        # Now make the async API call using run_worker
+        self.run_worker(self.get_ai_response(message), exclusive=False)
+
+    async def get_ai_response(self, message: str) -> None:
+        """Get response from AI asynchronously."""
+        status_line = self.query_one("#status-line", Static)
+
+        # Update status bar to show waiting state with special styling
+        status_line.add_class("thinking")
+        status_line.update("⏳ AI is thinking...")
 
         try:
-            worker = self.app.run_worker(
+            response = await self.app.run_worker(
                 lambda: self.adk_service.send_message(message),
                 thread=True
-            )
-            response = await worker.wait()
+            ).wait()
+
+            # Show response
             self.chat_log.write(f"[green]AI:[/green] {response}")
         except Exception as e:
             self.chat_log.write(f"[red]Error: {str(e)}[/red]")
+        finally:
+            # Restore status bar to normal state
+            status_line.remove_class("thinking")
+            if self.command_mode:
+                status_line.add_class("command-mode")
+                status_line.update("[bold]COMMAND MODE[/bold] - (s)ettings (c)lear (e)xport (q)uit (i/ESC)nput")
+            else:
+                status_line.remove_class("command-mode")
+                status_line.update("INPUT MODE - Press ESC for commands")
 
     def action_clear_chat(self) -> None:
         """Clear the chat log."""
