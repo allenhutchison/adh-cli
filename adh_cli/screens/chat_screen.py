@@ -86,8 +86,10 @@ class ChatScreen(Screen):
 
         # Main chat container that takes up most space
         with Container(id="chat-container"):
-            log = RichLog(id="chat-log", wrap=True, highlight=True, markup=True)
+            log = RichLog(id="chat-log", wrap=True, highlight=True, markup=True, auto_scroll=True)
             log.border_title = "ADH Chat"
+            # Enable text selection if available
+            log.can_focus = True
             yield log
 
         # Input area (above the docked status line)
@@ -176,7 +178,7 @@ class ChatScreen(Screen):
             status_line.remove_class("thinking")
             if self.command_mode:
                 status_line.add_class("command-mode")
-                status_line.update("[bold]COMMAND MODE[/bold] - (s)ettings (c)lear (e)xport (q)uit (i/ESC)nput")
+                status_line.update("[bold]COMMAND MODE[/bold] - (s)ettings (c)lear (y)ank/copy (e)xport (q)uit (i/ESC)nput")
             else:
                 status_line.remove_class("command-mode")
                 status_line.update("INPUT MODE - Press ESC for commands")
@@ -204,7 +206,7 @@ class ChatScreen(Screen):
         if self.command_mode:
             # Enter command mode
             status_line.add_class("command-mode")
-            status_line.update("[bold]COMMAND MODE[/bold] - (s)ettings (c)lear (e)xport (q)uit (i/ESC)nput")
+            status_line.update("[bold]COMMAND MODE[/bold] - (s)ettings (c)lear (y)ank/copy (e)xport (q)uit (i/ESC)nput")
             input_widget.blur()
         else:
             # Exit command mode
@@ -231,6 +233,10 @@ class ChatScreen(Screen):
             # Export
             self.action_export_chat()
             event.prevent_default()
+        elif key == "y":
+            # Copy (yank) chat history to clipboard
+            self.action_copy_chat()
+            event.prevent_default()
         elif key == "q":
             # Quit
             self.app.exit()
@@ -244,6 +250,64 @@ class ChatScreen(Screen):
         """Export chat history."""
         if self.chat_log:
             with open("chat_export.txt", "w") as f:
-                for line in self.chat_log._lines:
+                for line in self.chat_log.lines:
                     f.write(str(line) + "\n")
             self.chat_log.write("[green]Chat exported to chat_export.txt[/green]")
+
+    def action_copy_chat(self) -> None:
+        """Copy chat history to clipboard."""
+        if not self.chat_log:
+            return
+
+        try:
+            # Build chat text from chat log lines
+            chat_lines = []
+
+            for line in self.chat_log.lines:
+                # The line is a Strip object from textual.strip
+                # It has a .text property that gives us the plain text
+                if hasattr(line, 'text'):
+                    clean_line = line.text.strip()
+                    if clean_line:  # Only add non-empty lines
+                        chat_lines.append(clean_line)
+
+            chat_text = "\n".join(chat_lines)
+
+            if not chat_text:
+                self.chat_log.write("[yellow]No chat history to copy.[/yellow]")
+                return
+
+            # Try to use pbcopy on macOS
+            import subprocess
+            import platform
+
+            system = platform.system()
+            if system == "Darwin":  # macOS
+                # Use pbcopy with proper pipe
+                process = subprocess.Popen("pbcopy", stdin=subprocess.PIPE, shell=False)
+                process.communicate(chat_text.encode('utf-8'))
+
+                if process.returncode == 0:
+                    self.chat_log.write(f"[green]Copied {len(chat_lines)} lines to clipboard![/green]")
+                else:
+                    self.chat_log.write("[red]Failed to copy to clipboard.[/red]")
+
+            elif system == "Linux":
+                # Try xclip first, then xsel
+                try:
+                    process = subprocess.Popen(["xclip", "-selection", "clipboard"], stdin=subprocess.PIPE)
+                    process.communicate(chat_text.encode('utf-8'))
+                    self.chat_log.write(f"[green]Copied {len(chat_lines)} lines to clipboard![/green]")
+                except:
+                    try:
+                        process = subprocess.Popen(["xsel", "--clipboard", "--input"], stdin=subprocess.PIPE)
+                        process.communicate(chat_text.encode('utf-8'))
+                        self.chat_log.write(f"[green]Copied {len(chat_lines)} lines to clipboard![/green]")
+                    except:
+                        self.chat_log.write("[yellow]Could not copy to clipboard. Install xclip or xsel.[/yellow]")
+            else:  # Windows
+                self.chat_log.write("[yellow]Clipboard copy not implemented for Windows. Use export instead.[/yellow]")
+
+        except Exception as e:
+            self.chat_log.write(f"[red]Error copying to clipboard: {str(e)}[/red]")
+
