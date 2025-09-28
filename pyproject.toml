@@ -28,3 +28,41 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["adh_cli"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["adh_cli"]
+omit = ["*/tests/*", "*/__pycache__/*", "*/venv/*", "*/.venv/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+# Custom scripts using taskipy (similar to npm scripts)
+[tool.taskipy.tasks]
+test = "pytest"
+test-v = "pytest -v"
+test-cov = "pytest --cov=adh_cli --cov-report=term-missing"
+test-watch = "pytest-watch"
+lint = "ruff check adh_cli tests"
+format = "ruff format adh_cli tests"
+typecheck = "mypy adh_cli"
+dev = "textual run --dev adh_cli.app:ADHApp"
+console = "textual console"
+build = "python -m build"
+clean = "rm -rf build dist *.egg-info .pytest_cache .coverage"
+install-dev = "uv pip install -e '.[dev]' -r requirements-dev.txt"
+run = "adh-cli"
