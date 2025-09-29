@@ -1,0 +1,433 @@
+"""Core policy engine for evaluating tool execution policies."""
+
+import yaml
+import fnmatch
+from pathlib import Path
+from typing import Dict, List, Optional, Any
+from dataclasses import dataclass
+
+from .policy_types import (
+    PolicyDecision,
+    PolicyRule,
+    PolicyViolation,
+    Restriction,
+    RestrictionType,
+    RiskLevel,
+    SafetyCheck,
+    SupervisionLevel,
+    ToolCall,
+)
+
+
+class PolicyEngine:
+    """Main policy engine for evaluating tool execution requests."""
+
+    def __init__(self, policy_dir: Optional[Path] = None):
+        """Initialize the policy engine.
+
+        Args:
+            policy_dir: Directory containing policy definition files
+        """
+        self.policy_dir = policy_dir or Path(__file__).parent / "definitions"
+        self.rules: List[PolicyRule] = []
+        self.default_supervision = SupervisionLevel.CONFIRM
+        self.violations: List[PolicyViolation] = []
+        self.user_preferences: Dict[str, Any] = {}
+
+        # Load policies
+        self._load_policies()
+        self._load_user_preferences()
+
+    def evaluate_tool_call(self, tool_call: ToolCall) -> PolicyDecision:
+        """Evaluate a tool call against all policies.
+
+        Args:
+            tool_call: The tool invocation to evaluate
+
+        Returns:
+            PolicyDecision with supervision level, restrictions, and safety checks
+        """
+        # Start with a default allowing decision
+        decision = PolicyDecision(
+            allowed=True,
+            supervision_level=self.default_supervision,
+            risk_level=RiskLevel.MEDIUM,
+        )
+
+        # Find matching rules
+        matching_rules = self._find_matching_rules(tool_call.tool_name)
+
+        if not matching_rules:
+            # No specific rules, use defaults
+            decision = self._apply_default_policy(tool_call)
+            # Apply user preferences to default policy decision
+            self._apply_user_preferences(tool_call, decision)
+            return decision
+
+        # Apply rules in priority order
+        for rule in sorted(matching_rules, key=lambda r: r.priority, reverse=True):
+            self._apply_rule(rule, tool_call, decision)
+
+            # Check if rule denies execution
+            if rule.supervision == SupervisionLevel.DENY:
+                decision.allowed = False
+                decision.reason = f"Tool execution denied by policy: {rule.name}"
+                break
+
+        # Apply user preferences
+        self._apply_user_preferences(tool_call, decision)
+
+        # Set confirmation requirements
+        decision.requires_confirmation = decision.supervision_level in [
+            SupervisionLevel.CONFIRM,
+            SupervisionLevel.MANUAL
+        ]
+
+        if decision.requires_confirmation:
+            decision.confirmation_message = self._generate_confirmation_message(
+                tool_call, decision
+            )
+
+        return decision
+
+    def _find_matching_rules(self, tool_name: str) -> List[PolicyRule]:
+        """Find all rules that match the given tool name."""
+        matching = []
+        for rule in self.rules:
+            if rule.enabled and rule.matches(tool_name):
+                matching.append(rule)
+        return matching
+
+    def _apply_rule(
+        self, rule: PolicyRule, tool_call: ToolCall, decision: PolicyDecision
+    ):
+        """Apply a policy rule to the decision."""
+        # For the first matching rule (highest priority), use its values directly
+        # For subsequent rules, use more restrictive values
+        if not hasattr(decision, '_rule_applied'):
+            # First rule - use its values
+            decision.supervision_level = rule.supervision
+            decision.risk_level = rule.risk_level
+            decision._rule_applied = True
+        else:
+            # Subsequent rules - use most restrictive
+            if self._is_more_restrictive(rule.supervision, decision.supervision_level):
+                decision.supervision_level = rule.supervision
+
+            # Update risk level (use highest)
+            if self._risk_priority(rule.risk_level) > self._risk_priority(
+                decision.risk_level
+            ):
+                decision.risk_level = rule.risk_level
+
+        # Add restrictions
+        for restriction_config in rule.restrictions:
+            restriction = self._create_restriction(restriction_config)
+            if restriction:
+                decision.add_restriction(restriction)
+
+        # Add safety checks
+        for check_name in rule.safety_checks:
+            check = self._create_safety_check(check_name)
+            if check:
+                decision.add_safety_check(check)
+
+    def _apply_default_policy(self, tool_call: ToolCall) -> PolicyDecision:
+        """Apply default policy when no specific rules match."""
+        # Categorize based on tool name patterns
+        tool_name = tool_call.tool_name.lower()
+
+        # Read operations are generally safe
+        if any(word in tool_name for word in ["read", "list", "get", "show", "view"]):
+            return PolicyDecision(
+                allowed=True,
+                supervision_level=SupervisionLevel.AUTOMATIC,
+                risk_level=RiskLevel.LOW,
+                safety_checks=[self._create_safety_check("size_limit")],
+            )
+
+        # Write operations need confirmation
+        if any(word in tool_name for word in ["write", "create", "save", "put"]):
+            return PolicyDecision(
+                allowed=True,
+                supervision_level=SupervisionLevel.CONFIRM,
+                risk_level=RiskLevel.MEDIUM,
+                safety_checks=[
+                    self._create_safety_check("backup"),
+                    self._create_safety_check("disk_space"),
+                ],
+                requires_confirmation=True,
+                confirmation_message="This operation will modify files. Continue?",
+            )
+
+        # Delete operations are high risk
+        if any(word in tool_name for word in ["delete", "remove", "rm", "destroy"]):
+            return PolicyDecision(
+                allowed=True,
+                supervision_level=SupervisionLevel.MANUAL,
+                risk_level=RiskLevel.HIGH,
+                safety_checks=[
+                    self._create_safety_check("backup"),
+                    self._create_safety_check("confirmation_double"),
+                ],
+                requires_confirmation=True,
+                confirmation_message="⚠️ This is a destructive operation. Are you sure?",
+            )
+
+        # Execute operations need careful handling
+        if any(word in tool_name for word in ["execute", "run", "exec", "command"]):
+            return PolicyDecision(
+                allowed=True,
+                supervision_level=SupervisionLevel.CONFIRM,
+                risk_level=RiskLevel.HIGH,
+                safety_checks=[
+                    self._create_safety_check("command_validator"),
+                    self._create_safety_check("sandbox_check"),
+                ],
+            )
+
+        # Default for unknown operations
+        return PolicyDecision(
+            allowed=True,
+            supervision_level=self.default_supervision,
+            risk_level=RiskLevel.MEDIUM,
+        )
+
+    def _apply_user_preferences(
+        self, tool_call: ToolCall, decision: PolicyDecision
+    ):
+        """Apply user preferences to the decision."""
+        # Check if user has specific preferences for this tool
+        tool_prefs = self.user_preferences.get("tools", {}).get(
+            tool_call.tool_name, {}
+        )
+
+        if "supervision" in tool_prefs:
+            user_supervision = SupervisionLevel(tool_prefs["supervision"])
+            # Only apply if more restrictive
+            if self._is_more_restrictive(user_supervision, decision.supervision_level):
+                decision.supervision_level = user_supervision
+
+        # Check for auto-approve patterns
+        auto_approve = self.user_preferences.get("auto_approve", [])
+        for pattern in auto_approve:
+            if fnmatch.fnmatch(tool_call.tool_name.lower(), pattern.lower()):
+                if decision.risk_level in [RiskLevel.NONE, RiskLevel.LOW]:
+                    decision.supervision_level = SupervisionLevel.AUTOMATIC
+
+        # Check for never-allow patterns
+        never_allow = self.user_preferences.get("never_allow", [])
+        for pattern in never_allow:
+            if fnmatch.fnmatch(tool_call.tool_name.lower(), pattern.lower()):
+                decision.allowed = False
+                decision.supervision_level = SupervisionLevel.DENY
+                decision.reason = "Blocked by user preferences"
+
+    def _load_policies(self):
+        """Load policy definitions from files."""
+        # Only create defaults if directory doesn't exist
+        if not self.policy_dir.exists():
+            self.policy_dir.mkdir(parents=True, exist_ok=True)
+            self._create_default_policies()
+
+        # Load all .yaml files in policy directory
+        for policy_file in self.policy_dir.glob("*.yaml"):
+            try:
+                with open(policy_file, "r") as f:
+                    data = yaml.safe_load(f)
+                    self._parse_policy_file(data)
+            except Exception as e:
+                print(f"Error loading policy file {policy_file}: {e}")
+
+    def _load_user_preferences(self):
+        """Load user-specific policy preferences."""
+        pref_file = Path.home() / ".adh-cli" / "policy_preferences.yaml"
+        if pref_file.exists():
+            try:
+                with open(pref_file, "r") as f:
+                    self.user_preferences = yaml.safe_load(f) or {}
+            except Exception as e:
+                print(f"Error loading user preferences: {e}")
+
+    def _parse_policy_file(self, data: Dict[str, Any]):
+        """Parse a policy definition file."""
+        for category, rules in data.items():
+            if isinstance(rules, dict):
+                for rule_name, rule_config in rules.items():
+                    rule = PolicyRule(
+                        name=f"{category}.{rule_name}",
+                        pattern=rule_config.get("pattern", rule_name),
+                        supervision=SupervisionLevel(
+                            rule_config.get("supervision", "confirm")
+                        ),
+                        risk_level=RiskLevel(rule_config.get("risk", "medium")),
+                        conditions=rule_config.get("conditions", []),
+                        restrictions=rule_config.get("restrictions", []),
+                        safety_checks=rule_config.get("safety_checks", []),
+                        priority=rule_config.get("priority", 0),
+                        enabled=rule_config.get("enabled", True),
+                    )
+                    self.rules.append(rule)
+
+    def _create_default_policies(self):
+        """Create default policy files if they don't exist."""
+        # Create default filesystem policy
+        filesystem_policy = {
+            "filesystem": {
+                "read_file": {
+                    "pattern": "*read*",
+                    "supervision": "automatic",
+                    "risk": "low",
+                    "restrictions": [
+                        {
+                            "type": "size_limit",
+                            "max_bytes": 10485760,
+                        }
+                    ],
+                    "safety_checks": ["sensitive_data"],
+                },
+                "write_file": {
+                    "pattern": "*write*",
+                    "supervision": "confirm",
+                    "risk": "medium",
+                    "safety_checks": ["backup", "disk_space"],
+                },
+                "delete_file": {
+                    "pattern": "*delete*",
+                    "supervision": "manual",
+                    "risk": "high",
+                    "safety_checks": ["backup", "confirmation"],
+                },
+            }
+        }
+
+        with open(self.policy_dir / "filesystem.yaml", "w") as f:
+            yaml.dump(filesystem_policy, f)
+
+        # Create default command policy
+        command_policy = {
+            "command": {
+                "safe_commands": {
+                    "pattern": "ls|pwd|cat|grep|find",
+                    "supervision": "notify",
+                    "risk": "low",
+                },
+                "dangerous_commands": {
+                    "pattern": "rm*|format|dd|mkfs",
+                    "supervision": "deny",
+                    "risk": "critical",
+                },
+            }
+        }
+
+        with open(self.policy_dir / "commands.yaml", "w") as f:
+            yaml.dump(command_policy, f)
+
+    def _create_restriction(
+        self, config: Dict[str, Any]
+    ) -> Optional[Restriction]:
+        """Create a restriction from configuration."""
+        try:
+            return Restriction(
+                type=RestrictionType(config["type"]),
+                config=config,
+                reason=config.get("reason"),
+            )
+        except (KeyError, ValueError):
+            return None
+
+    def _create_safety_check(self, name: str) -> Optional[SafetyCheck]:
+        """Create a safety check by name."""
+        # Map of check names to checker classes
+        check_map = {
+            "backup": "BackupChecker",
+            "disk_space": "DiskSpaceChecker",
+            "sensitive_data": "SensitiveDataChecker",
+            "size_limit": "SizeLimitChecker",
+            "confirmation": "ConfirmationChecker",
+            "confirmation_double": "DoubleConfirmationChecker",
+            "command_validator": "CommandValidator",
+            "sandbox_check": "SandboxChecker",
+        }
+
+        if name in check_map:
+            return SafetyCheck(
+                name=name,
+                checker_class=check_map[name],
+            )
+        return None
+
+    def _is_more_restrictive(
+        self, level1: SupervisionLevel, level2: SupervisionLevel
+    ) -> bool:
+        """Check if level1 is more restrictive than level2."""
+        priority = {
+            SupervisionLevel.AUTOMATIC: 0,
+            SupervisionLevel.NOTIFY: 1,
+            SupervisionLevel.CONFIRM: 2,
+            SupervisionLevel.MANUAL: 3,
+            SupervisionLevel.DENY: 4,
+        }
+        return priority.get(level1, 0) > priority.get(level2, 0)
+
+    def _risk_priority(self, risk: RiskLevel) -> int:
+        """Get priority value for risk level."""
+        priority = {
+            RiskLevel.NONE: 0,
+            RiskLevel.LOW: 1,
+            RiskLevel.MEDIUM: 2,
+            RiskLevel.HIGH: 3,
+            RiskLevel.CRITICAL: 4,
+        }
+        return priority.get(risk, 0)
+
+    def _generate_confirmation_message(
+        self, tool_call: ToolCall, decision: PolicyDecision
+    ) -> str:
+        """Generate a user-friendly confirmation message."""
+        risk_emoji = {
+            RiskLevel.NONE: "✅",
+            RiskLevel.LOW: "ℹ️",
+            RiskLevel.MEDIUM: "⚠️",
+            RiskLevel.HIGH: "⛔",
+            RiskLevel.CRITICAL: "🚨",
+        }
+
+        emoji = risk_emoji.get(decision.risk_level, "❓")
+
+        message = f"{emoji} Tool: {tool_call.tool_name}\n"
+        message += f"Risk Level: {decision.risk_level.value}\n"
+
+        if tool_call.agent_name:
+            message += f"Requested by: {tool_call.agent_name}\n"
+
+        message += "\nParameters:\n"
+        for key, value in tool_call.parameters.items():
+            message += f"  {key}: {value}\n"
+
+        if decision.reason:
+            message += f"\nReason: {decision.reason}\n"
+
+        message += "\nDo you want to proceed?"
+
+        return message
+
+    def record_violation(self, violation: PolicyViolation):
+        """Record a policy violation for audit purposes."""
+        self.violations.append(violation)
+
+    def get_supervision_level(self, tool_name: str) -> SupervisionLevel:
+        """Get the supervision level for a specific tool."""
+        decision = self.evaluate_tool_call(
+            ToolCall(tool_name=tool_name, parameters={})
+        )
+        return decision.supervision_level
+
+    def requires_confirmation(
+        self, tool_name: str, parameters: Dict[str, Any]
+    ) -> bool:
+        """Check if a tool call requires user confirmation."""
+        decision = self.evaluate_tool_call(
+            ToolCall(tool_name=tool_name, parameters=parameters)
+        )
+        return decision.requires_confirmation
