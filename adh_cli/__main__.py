@@ -1,14 +1,79 @@
 """Main entry point for the ADH CLI application."""
 
 import click
-from .app import ADHApp
+from pathlib import Path
 
 
 @click.command()
-def main() -> None:
-    """Launch the ADH CLI TUI application."""
-    app = ADHApp()
-    app.run()
+@click.option(
+    '--classic',
+    is_flag=True,
+    help='Use classic mode without policy enforcement'
+)
+@click.option(
+    '--debug',
+    is_flag=True,
+    help='Enable debug mode'
+)
+@click.option(
+    '--policy-dir',
+    type=click.Path(path_type=Path),
+    default=None,
+    help='Directory containing policy files'
+)
+@click.option(
+    '--no-safety',
+    is_flag=True,
+    help='Disable safety checks (use with caution)'
+)
+def main(classic: bool, debug: bool, policy_dir: Path, no_safety: bool) -> None:
+    """Launch the ADH CLI TUI application.
+
+    By default, runs with policy-aware agent for safe tool execution.
+    Use --classic for the original version without policy enforcement.
+    """
+    import os
+    import sys
+
+    # Set up debug mode
+    if debug:
+        os.environ['TEXTUAL_DEBUG'] = '1'
+
+    try:
+        if classic:
+            # Use original app without policies
+            from .app import ADHApp
+            app = ADHApp()
+        else:
+            # Use policy-aware app (default)
+            from .app_policy import PolicyAwareADHApp
+            app = PolicyAwareADHApp()
+
+            # Configure policy directory if specified
+            if policy_dir:
+                app.policy_dir = policy_dir
+
+            # Configure safety settings
+            if no_safety:
+                app.safety_enabled = False
+                click.echo(click.style(
+                    "⚠️  WARNING: Running with safety checks disabled!",
+                    fg='yellow',
+                    bold=True
+                ))
+
+        # Run the application
+        app.run()
+
+    except KeyboardInterrupt:
+        click.echo("\nExiting...")
+        sys.exit(0)
+    except Exception as e:
+        if debug:
+            raise
+        else:
+            click.echo(click.style(f"Error: {e}", fg='red'))
+            sys.exit(1)
 
 
 if __name__ == "__main__":

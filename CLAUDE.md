@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ADH CLI is a Terminal User Interface (TUI) application built with Textual and Google AI Development Kit (ADK/Gemini API). It provides an interactive chat interface with Google's Gemini models through a modern terminal interface.
+ADH CLI is a policy-aware agentic Terminal User Interface (TUI) application built with Textual and Google AI Development Kit (ADK/Gemini API). It provides a safe, policy-controlled interface for AI-assisted development with Google's Gemini models, featuring comprehensive safety checks and tool execution controls.
 
 ## Development Environment
 
@@ -42,14 +42,23 @@ pip install -r requirements-dev.txt
 
 ### Running the Application
 ```bash
-# Run via installed command
+# Run with policy-aware mode (default)
 adh-cli
 
-# Run via Python module
-python -m adh_cli
+# Run classic mode without policies
+adh-cli --classic
+
+# Run with custom policy directory
+adh-cli --policy-dir /path/to/policies
 
 # Run in debug mode
 adh-cli --debug
+
+# Disable safety checks (use with caution)
+adh-cli --no-safety
+
+# Run via Python module
+python -m adh_cli
 ```
 
 ### Testing
@@ -73,16 +82,28 @@ textual run --dev adh_cli.app:ADHApp
 ## Architecture
 
 ### Application Structure
-- **Main Entry**: `adh_cli/__main__.py` - CLI entry point using Click
-- **App Core**: `adh_cli/app.py` - Main Textual app class with screen routing and keybindings
+- **Main Entry**: `adh_cli/__main__.py` - CLI entry point with policy/classic mode selection
+- **Classic App**: `adh_cli/app.py` - Original Textual app without policy enforcement
+- **Policy-Aware App**: `adh_cli/app_policy.py` - Enhanced app with policy engine integration
 - **Screen System**: Uses Textual's screen stack for navigation between Main, Chat, and Settings screens
+  - **PolicyChatScreen**: Policy-aware chat with confirmation dialogs
+  - **ChatScreen**: Classic chat interface
 
 ### Google ADK Integration
-The `adh_cli/services/adk_service.py` handles all Google Gemini API interactions:
+
+#### Classic Service
+The `adh_cli/services/adk_service.py` handles basic Gemini API interactions:
 - Manages API authentication (supports GOOGLE_API_KEY and GEMINI_API_KEY env vars)
 - Provides both single-shot text generation and stateful chat sessions
 - Configurable model parameters (temperature, max_tokens, top_p, top_k)
 - Default model: `models/gemini-2.0-flash-exp`
+
+#### Policy-Aware Agent
+The `adh_cli/core/policy_aware_agent.py` provides enhanced safety:
+- Integrates policy engine with ADK agent
+- Evaluates all tool calls against policies before execution
+- Handles confirmation workflows for supervised operations
+- Maintains audit logs of all tool executions
 
 ### Screen Architecture
 Each screen inherits from `textual.screen.Screen`:
@@ -114,20 +135,92 @@ Global bindings defined in `ADHApp.BINDINGS`:
 - Screen-specific: ESC (Back), Ctrl+L (Clear chat in ChatScreen)
 
 ### Tool System
-The application includes a tool system that allows the AI to execute commands:
-- **execute_command**: Run shell commands with safety checks
-- **list_directory**: List directory contents with structured output
-- **read_file**: Read text files up to 10MB
 
-Implementation details:
-- Tools are defined in `adh_cli/tools/shell_tools.py`
-- ADKService uses pattern matching to detect when the AI wants to use tools
-- Tool handlers are registered in `_setup_tool_handlers()` method
-- Safety features include command blocking, file size limits, and timeout controls
-- Enable tools by passing `enable_tools=True` when initializing ADKService
+#### Available Tools
+- **read_file**: Read text files with size limits
+- **write_file**: Write content with backup creation
+- **list_directory**: List directory contents
+- **execute_command**: Run shell commands with safety validation
+- **create_directory**: Create directories with permission checks
+- **delete_file**: Delete files with confirmation requirements
+- **get_file_info**: Get file/directory metadata
+
+#### Policy-Controlled Execution
+- **Tool Executor** (`adh_cli/core/tool_executor.py`):
+  - Intercepts all tool calls for policy evaluation
+  - Runs safety checks before execution
+  - Handles user confirmation workflows
+  - Applies parameter modifications from safety checks
+  - Maintains audit logs
+
+#### Safety Features
+- **Policy Engine** (`adh_cli/policies/policy_engine.py`):
+  - Evaluates tool calls against configurable rules
+  - Supports supervision levels: automatic, notify, confirm, manual, deny
+  - Risk assessment: none, low, medium, high, critical
+  - User preference overrides
+
+- **Safety Checkers** (`adh_cli/safety/checkers/`):
+  - BackupChecker: Creates automatic backups
+  - DiskSpaceChecker: Validates available space
+  - PermissionChecker: Verifies file permissions
+  - SizeLimitChecker: Enforces file size limits
+  - SensitiveDataChecker: Detects API keys, passwords
+  - CommandValidator: Validates shell commands
+  - SandboxChecker: Enforces directory boundaries
 
 ### Error Handling
 - API key validation on service initialization
 - Graceful error display in chat UI for API failures
 - User-friendly messages for configuration issues
 - Tool execution errors are caught and displayed in chat
+- Policy violations shown with clear explanations
+- Safety check failures with override options
+- Timeout handling for long-running operations
+
+### Policy Configuration
+
+#### Default Policies
+Located in `adh_cli/policies/defaults/`:
+- **filesystem_policies.yaml**: File operation rules
+  - Read operations: automatic
+  - Write operations: require confirmation
+  - Delete operations: manual review
+  - System files: denied
+- **command_policies.yaml**: Command execution rules
+  - Safe commands: notify only
+  - Package managers: require confirmation
+  - Dangerous commands: manual review
+  - Destructive commands: blocked
+
+#### Custom Policies
+Users can create custom policies in `~/.adh-cli/policies/`:
+- YAML format with pattern matching
+- Priority-based rule ordering
+- Conditional restrictions
+- Safety check requirements
+
+### Testing
+
+#### Test Coverage
+- **247 total tests** across the project
+- Policy engine: 58 tests
+- Core integration: 33 tests
+- Shell tools: 28 tests
+- UI components: 31 tests
+- Plus 97 existing tests
+
+#### Running Tests
+```bash
+# Run all tests
+pytest
+
+# Run policy tests
+pytest tests/policies/ tests/safety/
+
+# Run integration tests
+pytest tests/core/
+
+# Run with coverage
+pytest --cov=adh_cli
+```

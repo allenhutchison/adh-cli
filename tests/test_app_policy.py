@@ -59,23 +59,24 @@ class TestPolicyAwareADHApp:
         )
         assert app.agent == mock_agent
 
-    @patch('adh_cli.tools.shell_tools')
-    def test_register_default_tools(self, mock_shell_tools, app):
+    def test_register_default_tools(self, app):
         """Test registering default tools."""
-        app.agent = Mock()
+        mock_shell_tools = Mock()
+        with patch.dict('sys.modules', {'adh_cli.tools.shell_tools': mock_shell_tools}):
+            app.agent = Mock()
 
-        app._register_default_tools()
+            app._register_default_tools()
 
-        # Check tools were registered
-        assert app.agent.register_tool.call_count >= 4  # At least 4 tools
+            # Check tools were registered
+            assert app.agent.register_tool.call_count >= 4  # At least 4 tools
 
-        # Check specific tools
-        call_args = [call.args for call in app.agent.register_tool.call_args_list]
-        tool_names = [args[0] for args in call_args if args]
-        assert 'read_file' in tool_names
-        assert 'write_file' in tool_names
-        assert 'list_directory' in tool_names
-        assert 'execute_command' in tool_names
+            # Check specific tools
+            call_args = [call.args for call in app.agent.register_tool.call_args_list]
+            tool_names = [args[0] for args in call_args if args]
+            assert 'read_file' in tool_names
+            assert 'write_file' in tool_names
+            assert 'list_directory' in tool_names
+            assert 'execute_command' in tool_names
 
     @pytest.mark.asyncio
     async def test_handle_confirmation_with_context(self, app):
