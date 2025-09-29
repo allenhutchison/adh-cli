@@ -1,0 +1,120 @@
+# Shell command execution policies
+
+commands:
+  # Safe commands - automatic execution
+  safe_read_commands:
+    pattern: "execute_command"
+    conditions:
+      - command_matches: ["ls*", "pwd", "echo*", "cat*", "head*", "tail*", "grep*", "find*", "which*", "whoami", "date", "uname*"]
+    supervision: "notify"
+    risk: "low"
+    safety_checks:
+      - "command_validator"
+    priority: 10
+
+  # Git operations - mostly safe
+  git_read_operations:
+    pattern: "execute_command"
+    conditions:
+      - command_starts_with: ["git status", "git log", "git diff", "git branch", "git remote"]
+    supervision: "automatic"
+    risk: "low"
+    priority: 10
+
+  git_write_operations:
+    pattern: "execute_command"
+    conditions:
+      - command_starts_with: ["git add", "git commit", "git push", "git pull", "git merge"]
+    supervision: "confirm"
+    risk: "medium"
+    safety_checks:
+      - "command_validator"
+    priority: 10
+
+  # Package management - requires confirmation
+  npm_commands:
+    pattern: "execute_command"
+    conditions:
+      - command_starts_with: ["npm install", "npm update", "npm uninstall"]
+    supervision: "confirm"
+    risk: "medium"
+    safety_checks:
+      - "command_validator"
+    priority: 10
+
+  pip_commands:
+    pattern: "execute_command"
+    conditions:
+      - command_starts_with: ["pip install", "pip uninstall", "pip3 install", "pip3 uninstall"]
+    supervision: "confirm"
+    risk: "medium"
+    safety_checks:
+      - "command_validator"
+    priority: 10
+
+  # File modification commands - higher risk
+  file_modification:
+    pattern: "execute_command"
+    conditions:
+      - command_matches: ["mv*", "cp*", "touch*", "mkdir*"]
+    supervision: "confirm"
+    risk: "medium"
+    safety_checks:
+      - "command_validator"
+      - "backup"
+    priority: 5
+
+  # Dangerous commands - manual review required
+  dangerous_commands:
+    pattern: "execute_command"
+    conditions:
+      - command_matches: ["rm*", "rmdir*", "dd*", "mkfs*", "format*"]
+    supervision: "manual"
+    risk: "high"
+    safety_checks:
+      - "command_validator"
+      - "backup"
+      - "confirmation_double"
+    priority: 20
+
+  # System commands - critical risk
+  system_commands:
+    pattern: "execute_command"
+    conditions:
+      - command_starts_with: ["sudo", "su ", "chmod", "chown", "systemctl", "service"]
+    supervision: "manual"
+    risk: "critical"
+    safety_checks:
+      - "command_validator"
+      - "confirmation_double"
+    priority: 30
+
+  # Network commands - require confirmation
+  network_commands:
+    pattern: "execute_command"
+    conditions:
+      - command_matches: ["curl*", "wget*", "ssh*", "scp*", "rsync*", "nc*", "netcat*"]
+    supervision: "confirm"
+    risk: "medium"
+    safety_checks:
+      - "command_validator"
+    priority: 10
+
+  # Explicitly blocked commands
+  blocked_commands:
+    pattern: "execute_command"
+    conditions:
+      - command_matches: ["rm -rf /*", ":(){ :|:& };:", "dd if=/dev/zero of=/dev/*"]
+    supervision: "deny"
+    risk: "critical"
+    priority: 100
+
+  # Default for unknown commands
+  unknown_commands:
+    pattern: "execute_command"
+    supervision: "confirm"
+    risk: "medium"
+    safety_checks:
+      - "command_validator"
+      - "sandbox"
+    priority: 0

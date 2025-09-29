@@ -55,6 +55,7 @@ class TestToolExecutor:
                 ]
             )
         )
+        pipeline.add_checker = Mock()
         return pipeline
 
     @pytest.fixture
@@ -178,7 +179,9 @@ class TestToolExecutor:
     @pytest.mark.asyncio
     async def test_execute_with_safety_failure(self, tool_executor):
         """Test executing a tool that fails safety checks."""
-        # Mock safety pipeline to return failure
+        tool_executor.policy_engine.evaluate_tool_call.return_value.safety_checks = [
+            SafetyCheck(name="test", checker_class="TestChecker")
+        ]
         tool_executor.safety_pipeline.run.return_value = Mock(
             check_results=[
                 SafetyResult(
@@ -335,7 +338,7 @@ class TestToolExecutor:
         tool_executor.audit_logger = AsyncMock()
 
         # Register a test tool
-        async def test_tool():
+        async def test_tool(**kwargs):
             return "Result"
 
         tool_executor.register_tool("audit_tool", test_tool)
@@ -363,6 +366,9 @@ class TestToolExecutor:
         )
         safety_result.parameter_modifications = {"new_param": "new_value"}
 
+        tool_executor.policy_engine.evaluate_tool_call.return_value.safety_checks = [
+            SafetyCheck(name="test", checker_class="TestChecker")
+        ]
         tool_executor.safety_pipeline.run.return_value = Mock(
             check_results=[safety_result]
         )

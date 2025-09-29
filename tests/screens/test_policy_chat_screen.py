@@ -1,0 +1,269 @@
+"""Tests for the policy-aware chat screen."""
+
+import pytest
+from unittest.mock import Mock, AsyncMock, patch, MagicMock
+from pathlib import Path
+
+from adh_cli.screens.policy_chat_screen import PolicyChatScreen
+from adh_cli.core.policy_aware_agent import PolicyAwareAgent
+from adh_cli.core.tool_executor import ExecutionContext
+
+
+class TestPolicyChatScreen:
+    """Test the PolicyChatScreen class."""
+
+    @pytest.fixture
+    def screen(self):
+        """Create a test screen instance."""
+        with patch('adh_cli.screens.policy_chat_screen.PolicyAwareAgent'):
+            screen = PolicyChatScreen()
+            # Mock Textual components
+            screen.app = Mock()
+            screen.app.api_key = 'test_key'
+            screen.query_one = Mock()
+            screen.run_worker = Mock()
+            screen.set_timer = Mock()
+            screen.notify = Mock()
+            return screen
+
+    def test_screen_initialization(self, screen):
+        """Test screen initializes with default values."""
+        assert screen.agent is None
+        assert screen.chat_log is None
+        assert screen.notifications == []
+        assert screen.safety_enabled is True
+        assert isinstance(screen.context, ExecutionContext)
+
+    @patch('adh_cli.screens.policy_chat_screen.PolicyAwareAgent')
+    @patch('adh_cli.screens.policy_chat_screen.shell_tools')
+    def test_on_mount(self, mock_shell_tools, mock_agent_class, screen):
+        """Test screen mount initializes agent."""
+        mock_log = Mock()
+        screen.query_one.return_value = mock_log
+        mock_agent = Mock()
+        mock_agent_class.return_value = mock_agent
+
+        screen.on_mount()
+
+        # Check agent was created
+        mock_agent_class.assert_called_once()
+        assert screen.agent == mock_agent
+        assert screen.chat_log == mock_log
+
+        # Check initial messages were written
+        assert mock_log.write.call_count >= 2
+
+    def test_register_tools(self, screen):
+        """Test tool registration."""
+        screen.agent = Mock()
+
+        screen._register_tools()
+
+        # Check tools were registered
+        assert screen.agent.register_tool.call_count >= 4
+
+        # Check tool names
+        call_args = [call[1] for call in screen.agent.register_tool.call_args_list]
+        tool_names = [args['name'] for args in call_args if 'name' in args]
+        assert 'read_file' in tool_names
+        assert 'write_file' in tool_names
+        assert 'list_directory' in tool_names
+        assert 'execute_command' in tool_names
+
+    def test_on_input_submitted_empty(self, screen):
+        """Test submitting empty input does nothing."""
+        mock_input = Mock()
+        mock_input.value = "  "  # Empty/whitespace
+        screen.query_one.return_value = mock_input
+
+        from textual.widgets import Input
+        event = Mock(spec=Input.Submitted)
+
+        screen.on_input_submitted(event)
+
+        # Should not process empty message
+        screen.run_worker.assert_not_called()
+
+    def test_on_input_submitted_with_message(self, screen):
+        """Test submitting a message."""
+        mock_input = Mock()
+        mock_input.value = "Test message"
+        mock_log = Mock()
+
+        def query_side_effect(selector, widget_type):
+            if widget_type.__name__ == 'Input':
+                return mock_input
+            elif widget_type.__name__ == 'RichLog':
+                return mock_log
+            return Mock()
+
+        screen.query_one.side_effect = query_side_effect
+        screen.chat_log = mock_log
+        screen.agent = Mock()
+
+        from textual.widgets import Input
+        event = Mock(spec=Input.Submitted)
+
+        screen.on_input_submitted(event)
+
+        # Check input was cleared
+        assert mock_input.value == ""
+
+        # Check message was displayed
+        screen._add_message = Mock()
+
+        # Check worker was started
+        screen.run_worker.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_ai_response(self, screen):
+        """Test getting AI response."""
+        screen.agent = Mock()
+        screen.agent.chat = AsyncMock(return_value="AI response")
+        screen.chat_log = Mock()
+        screen._add_message = Mock()
+
+        mock_status = Mock()
+        screen.query_one.return_value = mock_status
+
+        await screen.get_ai_response("User message")
+
+        # Check agent was called
+        screen.agent.chat.assert_called_once_with(
+            message="User message",
+            context=screen.context
+        )
+
+        # Check response was displayed
+        screen._add_message.assert_called_with("AI", "AI response", is_user=False)
+
+    @pytest.mark.asyncio
+    async def test_get_ai_response_error(self, screen):
+        """Test handling errors in AI response."""
+        screen.agent = Mock()
+        screen.agent.chat = AsyncMock(side_effect=Exception("Test error"))
+        screen.chat_log = Mock()
+
+        mock_status = Mock()
+        screen.query_one.return_value = mock_status
+
+        await screen.get_ai_response("User message")
+
+        # Check error was displayed
+        screen.chat_log.write.assert_called()
+        assert "Error" in str(screen.chat_log.write.call_args)
+
+    @pytest.mark.asyncio
+    async def test_handle_confirmation_approved(self, screen):
+        """Test handling confirmation approval."""
+        from adh_cli.policies.policy_types import ToolCall, PolicyDecision
+
+        screen.app.push_screen_wait = AsyncMock(return_value=True)
+
+        tool_call = ToolCall(tool_name="test", parameters={})
+        decision = PolicyDecision(
+            allowed=True,
+            supervision_level="confirm",
+            risk_level="medium"
+        )
+
+        result = await screen.handle_confirmation(
+            tool_call=tool_call,
+            decision=decision
+        )
+
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_handle_confirmation_declined(self, screen):
+        """Test handling confirmation decline."""
+        screen.app.push_screen_wait = AsyncMock(return_value=False)
+
+        result = await screen.handle_confirmation()
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_show_notification(self, screen):
+        """Test showing notifications."""
+        mock_container = Mock()
+        screen.query_one.return_value = mock_container
+
+        await screen.show_notification("Test message", level="info")
+
+        # Check notification was mounted
+        mock_container.mount.assert_called_once()
+
+        # Check timer was set for auto-remove
+        screen.set_timer.assert_called_once()
+
+    def test_add_message_user(self, screen):
+        """Test adding user message."""
+        screen.chat_log = Mock()
+
+        screen._add_message("User", "Test message", is_user=True)
+
+        # Check message was written
+        screen.chat_log.write.assert_called()
+        call_args = str(screen.chat_log.write.call_args)
+        assert "User" in call_args
+        assert "Test message" in call_args
+
+    def test_add_message_ai(self, screen):
+        """Test adding AI message with markdown."""
+        screen.chat_log = Mock()
+
+        screen._add_message("AI", "**Bold** message", is_user=False)
+
+        # Check message was written
+        screen.chat_log.write.assert_called()
+
+    def test_action_clear_chat(self, screen):
+        """Test clearing chat."""
+        screen.chat_log = Mock()
+
+        screen.action_clear_chat()
+
+        screen.chat_log.clear.assert_called_once()
+        screen.chat_log.write.assert_called_with("[dim]Chat cleared.[/dim]")
+
+    def test_action_show_policies(self, screen):
+        """Test showing policies."""
+        screen.agent = Mock()
+        screen.agent.policy_engine = Mock()
+        screen.agent.policy_engine.user_preferences = {"test": "pref"}
+        screen.agent.policy_engine.rules = [Mock(), Mock()]
+        screen.chat_log = Mock()
+
+        screen.action_show_policies()
+
+        # Check policy info was displayed
+        assert screen.chat_log.write.call_count >= 3
+
+    def test_action_toggle_safety_disable(self, screen):
+        """Test disabling safety."""
+        screen.agent = Mock()
+        screen.safety_enabled = True
+        screen.chat_log = Mock()
+        mock_status = Mock()
+        screen.query_one.return_value = mock_status
+
+        screen.action_toggle_safety()
+
+        assert screen.safety_enabled is False
+        screen.agent.policy_engine.user_preferences = {"auto_approve": ["*"]}
+        screen.chat_log.write.assert_called()
+
+    def test_action_toggle_safety_enable(self, screen):
+        """Test enabling safety."""
+        screen.agent = Mock()
+        screen.safety_enabled = False
+        screen.chat_log = Mock()
+        mock_status = Mock()
+        screen.query_one.return_value = mock_status
+
+        screen.action_toggle_safety()
+
+        assert screen.safety_enabled is True
+        screen.agent.policy_engine.user_preferences = {}
+        screen.chat_log.write.assert_called()

@@ -1,0 +1,92 @@
+# Filesystem operation policies
+
+filesystem:
+  # Read operations - generally safe
+  read_file:
+    pattern: "read_file"
+    supervision: "automatic"
+    risk: "low"
+    safety_checks:
+      - "size_limit"
+      - "sensitive_data"
+    restrictions:
+      - type: "size_limit"
+        max_bytes: 10485760  # 10MB
+
+  list_directory:
+    pattern: "list_directory"
+    supervision: "automatic"
+    risk: "low"
+    safety_checks:
+      - "permission"
+
+  # Write operations - require confirmation
+  write_file:
+    pattern: "write_file"
+    supervision: "confirm"
+    risk: "medium"
+    safety_checks:
+      - "backup"
+      - "disk_space"
+      - "permission"
+      - "sensitive_data"
+    restrictions:
+      - type: "path_pattern"
+        deny:
+          - "*.env"
+          - "*.key"
+          - "*.pem"
+          - "id_rsa*"
+          - "credentials*"
+
+  create_file:
+    pattern: "create_*"
+    supervision: "confirm"
+    risk: "medium"
+    safety_checks:
+      - "disk_space"
+      - "permission"
+
+  # Modification operations
+  edit_file:
+    pattern: "edit_*"
+    supervision: "confirm"
+    risk: "medium"
+    safety_checks:
+      - "backup"
+      - "permission"
+      - "size_limit"
+
+  modify_file:
+    pattern: "modify_*"
+    supervision: "confirm"
+    risk: "medium"
+    safety_checks:
+      - "backup"
+      - "permission"
+
+  # Delete operations - high risk
+  delete_file:
+    pattern: "delete_*"
+    supervision: "manual"
+    risk: "high"
+    safety_checks:
+      - "backup"
+      - "confirmation_double"
+
+  remove_file:
+    pattern: "remove_*"
+    supervision: "manual"
+    risk: "high"
+    safety_checks:
+      - "backup"
+      - "confirmation_double"
+
+  # System file operations - critical risk
+  system_file_write:
+    pattern: "*"
+    conditions:
+      - path_matches: ["/etc/*", "/usr/*", "/System/*"]
+    supervision: "deny"
+    risk: "critical"
+    priority: 100  # High priority to override other rules
