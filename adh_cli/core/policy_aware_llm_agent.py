@@ -115,9 +115,17 @@ class PolicyAwareLlmAgent:
 You have access to tools for file system operations and command execution.
 All tool usage is subject to policy enforcement and safety checks.
 
+IMPORTANT TOOL USAGE GUIDELINES:
+- When you execute a tool, ALWAYS include the results in your response to the user
+- Show the actual data returned by tools (file contents, directory listings, command output, etc.)
+- Format tool results in a clear, readable way for the user
+- Don't just say "I executed the tool" - show what you found
+- When listing directories, show the files and folders
+- When reading files, show the content (or a summary if it's long)
+- When executing commands, show the output
+
 When a tool requires confirmation, wait for user approval before proceeding.
-Always explain what you're about to do before using tools.
-Be concise and helpful in your responses."""
+Be proactive and helpful - use your tools to accomplish user goals without excessive back-and-forth."""
 
     async def _ensure_session_initialized(self):
         """Ensure the session is initialized."""
