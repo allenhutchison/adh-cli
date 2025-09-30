@@ -14,7 +14,7 @@ class Agent:
 
     name: str
     description: str
-    model: str = "gemini-2.0-flash-exp"
+    model: str = "gemini-flash-latest"
     temperature: float = 0.7
     max_tokens: int = 2048
     top_p: float = 0.95
@@ -156,7 +156,7 @@ class AgentLoader:
         agent = Agent(
             name=metadata.get("name", name),
             description=metadata.get("description", ""),
-            model=metadata.get("model", "gemini-2.0-flash-exp"),
+            model=metadata.get("model", "gemini-flash-latest"),
             temperature=metadata.get("temperature", 0.7),
             max_tokens=metadata.get("max_tokens", 2048),
             top_p=metadata.get("top_p", 0.95),

@@ -28,7 +28,7 @@ from ..agents.agent_loader import Agent as CustomAgent
 class ADKAgentConfig:
     """Configuration for ADK Agent service."""
     api_key: Optional[str] = None
-    model_name: str = "gemini-2.0-flash-exp"
+    model_name: str = "gemini-flash-latest"
     temperature: float = 0.7
     max_tokens: int = 2048
     top_p: float = 0.95

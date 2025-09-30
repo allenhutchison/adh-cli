@@ -39,7 +39,7 @@ class SettingsScreen(Screen):
                 yield Label("\nModel Selection:")
                 yield Select(
                     options=self.MODEL_OPTIONS,
-                    value="models/gemini-2.0-flash-exp",
+                    value="models/gemini-flash-latest",
                     id="model-select"
                 )
 
@@ -110,7 +110,7 @@ class SettingsScreen(Screen):
     def on_reset_pressed(self) -> None:
         """Reset settings to defaults."""
         self.query_one("#api-key-input", Input).value = ""
-        self.query_one("#model-select", Select).value = "models/gemini-2.0-flash-exp"
+        self.query_one("#model-select", Select).value = "models/gemini-flash-latest"
         self.query_one("#temperature-input", Input).value = "0.7"
         self.query_one("#max-tokens-input", Input).value = "2048"
         self.query_one("#top-p-input", Input).value = "0.95"

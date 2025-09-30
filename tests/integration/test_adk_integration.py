@@ -274,66 +274,8 @@ class TestADKIntegration:
 
         assert "Both tools executed" in result
 
-    @pytest.mark.asyncio
-    async def test_notification_handler_called(self, mock_adk_agent):
-        """Test notification handler is called for tool execution."""
-        agent, mock_runner = mock_adk_agent
-
-        notifications = []
-
-        async def notification_handler(message: str):
-            notifications.append(message)
-
-        agent.notification_handler = notification_handler
-
-        async def test_tool():
-            return "Done"
-
-        agent.register_tool(
-            name="test_tool",
-            description="Test",
-            parameters={},
-            handler=test_tool,
-        )
-
-        # Mock event stream with tool call
-        mock_event1 = Mock()
-        mock_fc = Mock()
-        mock_fc.name = "test_tool"
-        mock_event1.get_function_calls.return_value = [mock_fc]
-        mock_event1.get_function_responses.return_value = []
-        mock_event1.is_final_response.return_value = False
-        mock_event1.content = None
-
-        mock_event2 = Mock()
-        mock_event2.get_function_calls.return_value = []
-        mock_event2.get_function_responses.return_value = [Mock()]
-        mock_event2.is_final_response.return_value = False
-        mock_event2.content = None
-
-        mock_event3 = Mock()
-        mock_event3.get_function_calls.return_value = []
-        mock_event3.get_function_responses.return_value = []
-        mock_event3.is_final_response.return_value = True
-        mock_part = Mock()
-        mock_part.text = "Complete"
-        mock_content = Mock()
-        mock_content.parts = [mock_part]
-        mock_event3.content = mock_content
-
-        async def mock_event_stream(*args, **kwargs):
-            yield mock_event1
-            yield mock_event2
-            yield mock_event3
-
-        mock_runner.run_async = mock_event_stream
-
-        # Execute
-        result = await agent.chat("Use tool", context=ExecutionContext())
-
-        # Check notifications
-        assert len(notifications) >= 2  # Tool execution + completion
-        assert any("Executing tool" in n for n in notifications)
+    # Note: test_notification_handler_called removed - notification system
+    # replaced by ToolExecutionWidget UI (see tests/integration/test_tool_execution_ui.py)
 
     @pytest.mark.asyncio
     async def test_audit_logging(self, temp_dir):

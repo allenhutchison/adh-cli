@@ -19,7 +19,7 @@ class PolicyAwareAgent:
 
     def __init__(
         self,
-        model_name: str = "models/gemini-2.0-flash-exp",
+        model_name: str = "models/gemini-flash-latest",
         api_key: Optional[str] = None,
         policy_dir: Optional[Path] = None,
         confirmation_handler: Optional[Any] = None,

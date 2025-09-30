@@ -153,14 +153,7 @@ class TestPolicyAwareLlmAgent:
 
     @pytest.mark.asyncio
     async def test_chat_with_function_calls(self, agent_with_mock_adk):
-        """Test chat handles function calls with notifications."""
-        notification_calls = []
-
-        async def mock_notification_handler(message: str):
-            notification_calls.append(message)
-
-        agent_with_mock_adk.notification_handler = mock_notification_handler
-
+        """Test chat handles function calls in event stream."""
         # Mock event stream with function calls
         mock_fc = Mock()
         mock_fc.name = "test_tool"
@@ -197,7 +190,7 @@ class TestPolicyAwareLlmAgent:
         result = await agent_with_mock_adk.chat("Do something", context=ExecutionContext())
 
         assert "Task completed" in result
-        assert len(notification_calls) >= 2  # Tool execution + completion
+        # Note: Tool execution notifications removed - now handled by ToolExecutionWidget UI
 
     @pytest.mark.asyncio
     async def test_chat_handles_permission_error(self, agent_with_mock_adk):

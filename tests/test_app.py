@@ -53,7 +53,7 @@ class TestADHApp:
 
         # Check ADK agent was created
         mock_agent_class.assert_called_once_with(
-            model_name="gemini-2.0-flash-exp",
+            model_name="gemini-flash-latest",
             api_key='test_key',
             policy_dir=app.policy_dir,
             confirmation_handler=app.handle_confirmation,

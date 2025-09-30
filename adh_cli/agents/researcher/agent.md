@@ -1,7 +1,7 @@
 ---
 name: researcher
 description: Researches topics and gathers information from various sources
-model: gemini-2.0-flash-exp
+model: gemini-flash-latest
 temperature: 0.5
 max_tokens: 4096
 top_p: 0.95

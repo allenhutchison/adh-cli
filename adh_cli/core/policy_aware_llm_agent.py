@@ -29,7 +29,7 @@ class PolicyAwareLlmAgent:
 
     def __init__(
         self,
-        model_name: str = "gemini-2.0-flash-exp",
+        model_name: str = "gemini-flash-latest",
         api_key: Optional[str] = None,
         policy_dir: Optional[Path] = None,
         confirmation_handler: Optional[Callable] = None,
@@ -305,7 +305,6 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
         )
 
         response_text = ""
-        tool_execution_count = 0
 
         # Stream events from runner
         try:
@@ -314,23 +313,9 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
                 session_id=session_id,
                 new_message=user_content
             ):
-                # Handle function calls (for monitoring/notification)
-                function_calls = event.get_function_calls()
-                if function_calls:
-                    tool_execution_count += len(function_calls)
-
-                    if self.notification_handler:
-                        for fc in function_calls:
-                            await self.notification_handler(
-                                f"🔧 Executing tool: {fc.name}"
-                            )
-
-                # Handle function responses (for monitoring)
-                function_responses = event.get_function_responses()
-                if function_responses and self.notification_handler:
-                    await self.notification_handler(
-                        f"✓ Tool execution complete"
-                    )
+                # Note: Tool execution is now tracked via ToolExecutionManager
+                # and displayed in the UI notification area, so we don't need
+                # pop-up notifications here
 
                 # Collect final response
                 if event.is_final_response() and event.content:

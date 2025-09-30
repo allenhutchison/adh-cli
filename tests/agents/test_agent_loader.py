@@ -18,7 +18,7 @@ class TestAgent:
 
         assert agent.name == "test_agent"
         assert agent.description == "Test agent"
-        assert agent.model == "gemini-2.0-flash-exp"
+        assert agent.model == "gemini-flash-latest"
         assert agent.temperature == 0.7
         assert agent.max_tokens == 2048
         assert agent.tools == []
