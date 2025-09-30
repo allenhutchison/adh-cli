@@ -1,22 +1,22 @@
-"""Tests for the policy-aware application."""
+"""Tests for the application."""
 
 import pytest
 import tempfile
 from pathlib import Path
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
 
-from adh_cli.app_policy import PolicyAwareADHApp
+from adh_cli.app import ADHApp
 from adh_cli.core.policy_aware_agent import PolicyAwareAgent
 
 
-class TestPolicyAwareADHApp:
-    """Test the PolicyAwareADHApp class."""
+class TestADHApp:
+    """Test the ADHApp class."""
 
     @pytest.fixture
     def app(self):
         """Create a test app instance."""
-        with patch('adh_cli.app_policy.PolicyAwareAgent'):
-            app = PolicyAwareADHApp()
+        with patch('adh_cli.app.PolicyAwareAgent'):
+            app = ADHApp()
             # Mock the Textual app methods
             app.notify = Mock()
             app.push_screen = Mock()
@@ -33,14 +33,14 @@ class TestPolicyAwareADHApp:
     def test_load_api_key_from_env(self):
         """Test loading API key from environment."""
         with patch.dict('os.environ', {'GOOGLE_API_KEY': 'test_key'}):
-            app = PolicyAwareADHApp()
+            app = ADHApp()
             assert app.api_key == 'test_key'
 
         with patch.dict('os.environ', {'GEMINI_API_KEY': 'gemini_key'}):
-            app = PolicyAwareADHApp()
+            app = ADHApp()
             assert app.api_key == 'gemini_key'
 
-    @patch('adh_cli.app_policy.PolicyAwareAgent')
+    @patch('adh_cli.app.PolicyAwareAgent')
     def test_initialize_agent(self, mock_agent_class, app):
         """Test agent initialization."""
         app.api_key = 'test_key'
@@ -200,8 +200,8 @@ class TestPolicyIntegration:
     @pytest.mark.asyncio
     async def test_full_initialization(self, temp_policy_dir):
         """Test full app initialization with real components."""
-        with patch('adh_cli.app_policy.PolicyAwareAgent') as mock_agent_class:
-            app = PolicyAwareADHApp()
+        with patch('adh_cli.app.PolicyAwareAgent') as mock_agent_class:
+            app = ADHApp()
             app.policy_dir = temp_policy_dir
             app.api_key = "test_key"
             app.notify = Mock()
@@ -223,7 +223,7 @@ class TestPolicyIntegration:
 
     def test_app_screens_defined(self):
         """Test that all required screens are defined."""
-        app = PolicyAwareADHApp()
+        app = ADHApp()
 
         assert "main" in app.SCREENS
         assert "chat" in app.SCREENS
@@ -231,7 +231,7 @@ class TestPolicyIntegration:
 
     def test_app_bindings_defined(self):
         """Test that all keybindings are defined."""
-        app = PolicyAwareADHApp()
+        app = ADHApp()
 
         binding_keys = [b.key for b in app.BINDINGS]
         assert "q" in binding_keys

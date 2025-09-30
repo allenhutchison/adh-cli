@@ -1,23 +1,25 @@
-"""Chat screen for interacting with Google ADK."""
+"""Chat screen with policy-aware agent integration."""
 
+from typing import Optional
+from pathlib import Path
 from textual import on
 from textual.app import ComposeResult
-from textual.containers import Container, Horizontal, ScrollableContainer, Vertical
+from textual.containers import Container, Horizontal
 from textual.screen import Screen
-from textual.widgets import Input, Label, RichLog, Static
+from textual.widgets import Input, RichLog, Static
 from textual.binding import Binding
 from rich.markdown import Markdown
-from rich.text import Text
-from rich.table import Table
-from rich.console import Group
-from rich.padding import Padding
+from rich.panel import Panel
 
-from ..services.adk_service import ADKService, ADKConfig
+from ..core.policy_aware_agent import PolicyAwareAgent
+from ..core.tool_executor import ExecutionContext
+from ..ui.confirmation_dialog import ConfirmationDialog, SafetyWarningDialog, PolicyNotification
+from ..tools import shell_tools
 from ..services.clipboard_service import ClipboardService
 
 
 class ChatScreen(Screen):
-    """Chat screen for AI interactions."""
+    """Chat screen with policy enforcement."""
 
     CSS = """
     ChatScreen {
@@ -35,6 +37,12 @@ class ChatScreen(Screen):
         border-title-align: center;
         padding: 0 1;
         background: $surface;
+    }
+
+    #notification-area {
+        height: auto;
+        max-height: 10;
+        padding: 0 1;
     }
 
     #input-container {
@@ -59,48 +67,61 @@ class ChatScreen(Screen):
         width: 100%;
     }
 
-    #status-line.command-mode {
-        background: $primary;
-    }
-
     #status-line.thinking {
         background: $warning;
         color: $text;
     }
 
+    #status-line.policy-check {
+        background: $primary;
+        color: $text;
+    }
     """
 
     BINDINGS = [
-        Binding("escape", "toggle_command_mode", "Command Mode", show=False),
         Binding("ctrl+l", "clear_chat", "Clear Chat"),
+        Binding("ctrl+p", "show_policies", "Show Policies"),
+        Binding("ctrl+s", "toggle_safety", "Toggle Safety"),
     ]
 
     def __init__(self):
-        """Initialize the chat screen."""
+        """Initialize the policy chat screen."""
         super().__init__()
-        self.adk_service = None
-        self.chat_log = None
-        self.command_mode = False
+        self.agent: Optional[PolicyAwareAgent] = None
+        self.chat_log: Optional[RichLog] = None
+        self.notifications = []
+        self.safety_enabled = True
+        self.context = ExecutionContext()
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the chat screen."""
-        # Status line docked at the bottom
+        # Status line
         yield Static(
-            "INPUT MODE - Press ESC for commands",
+            "Policy-Aware Chat - Safety: ON",
             id="status-line"
         )
 
-        # Main chat container that takes up most space
+        # Main chat container
         with Container(id="chat-container"):
-            log = RichLog(id="chat-log", wrap=True, highlight=True, markup=True, auto_scroll=True)
-            log.border_title = "ADH Chat"
+            log = RichLog(
+                id="chat-log",
+                wrap=True,
+                highlight=True,
+                markup=True,
+                auto_scroll=True
+            )
+            log.border_title = "Policy-Aware ADH Chat"
             log.can_focus = True
             yield log
 
-        # Input area (above the docked status line)
+        # Notification area for policy notifications
+        with Container(id="notification-area"):
+            pass
+
+        # Input area
         with Horizontal(id="input-container"):
             yield Input(
-                placeholder="Type your message here... (Enter to send, ESC for command mode)",
+                placeholder="Type your message here... (Ctrl+P for policies)",
                 id="chat-input"
             )
 
@@ -109,17 +130,73 @@ class ChatScreen(Screen):
         self.chat_log = self.query_one("#chat-log", RichLog)
 
         try:
-            # Initialize ADK service with tools enabled
-            self.adk_service = ADKService(enable_tools=True)
-            self.chat_log.write("[dim]Ready. Type a message or press ESC for commands.[/dim]")
-        except ValueError as e:
-            self.chat_log.write(f"[red]Error: {str(e)}[/red]")
-            self.chat_log.write(
-                "[yellow]Please set your GOOGLE_API_KEY or press 's' for settings.[/yellow]"
+            # Initialize policy-aware agent
+            self.agent = PolicyAwareAgent(
+                api_key=self.app.api_key if hasattr(self.app, 'api_key') else None,
+                policy_dir=Path.home() / ".adh-cli" / "policies",
+                confirmation_handler=self.handle_confirmation,
+                notification_handler=self.show_notification,
+                audit_log_path=Path.home() / ".adh-cli" / "audit.log",
             )
 
-        # Focus the input field
+            # Register tools
+            self._register_tools()
+
+            self.chat_log.write(
+                "[dim]Policy-Aware Chat Ready. Tools will be executed according to configured policies.[/dim]"
+            )
+            self.chat_log.write(
+                "[dim]Press Ctrl+P to view active policies, Ctrl+S to toggle safety checks.[/dim]"
+            )
+
+        except Exception as e:
+            self.chat_log.write(f"[red]Error initializing agent: {str(e)}[/red]")
+
+        # Focus input
         self.query_one("#chat-input", Input).focus()
+
+    def _register_tools(self):
+        """Register available tools with the agent."""
+        if not self.agent:
+            return
+
+        # Register file system tools
+        self.agent.register_tool(
+            name="read_file",
+            description="Read contents of a text file",
+            parameters={
+                "path": {"type": "string", "description": "File path to read"},
+            },
+            handler=shell_tools.read_file,
+        )
+
+        self.agent.register_tool(
+            name="write_file",
+            description="Write content to a file",
+            parameters={
+                "path": {"type": "string", "description": "File path to write"},
+                "content": {"type": "string", "description": "Content to write"},
+            },
+            handler=shell_tools.write_file,
+        )
+
+        self.agent.register_tool(
+            name="list_directory",
+            description="List contents of a directory",
+            parameters={
+                "path": {"type": "string", "description": "Directory path to list"},
+            },
+            handler=shell_tools.list_directory,
+        )
+
+        self.agent.register_tool(
+            name="execute_command",
+            description="Execute a shell command",
+            parameters={
+                "command": {"type": "string", "description": "Command to execute"},
+            },
+            handler=shell_tools.execute_command,
+        )
 
     @on(Input.Submitted, "#chat-input")
     def on_input_submitted(self, event: Input.Submitted) -> None:
@@ -130,224 +207,165 @@ class ChatScreen(Screen):
         if not message:
             return
 
-        # Immediately clear input and show message - synchronously for instant feedback
+        # Clear input and show message
         input_widget.value = ""
-        # Display user message with gutter effect
         self._add_message("You", message, is_user=True)
 
-        # Check service availability
-        if not self.adk_service:
-            self.chat_log.write("[red]ADK service not initialized. Please configure API key.[/red]")
+        # Check agent availability
+        if not self.agent:
+            self.chat_log.write("[red]Agent not initialized.[/red]")
             return
 
-        # Now make the async API call using run_worker
+        # Process message asynchronously
         self.run_worker(self.get_ai_response(message), exclusive=False)
 
     async def get_ai_response(self, message: str) -> None:
-        """Get response from AI asynchronously."""
+        """Get response from AI with policy enforcement."""
         status_line = self.query_one("#status-line", Static)
 
-        # Update status bar to show waiting state with special styling
+        # Update status
         status_line.add_class("thinking")
-        status_line.update("⏳ AI is thinking...")
-
-        def update_status(status: str):
-            """Callback to update status bar with AI activity."""
-            # Use app.call_from_thread for thread-safe UI updates
-            def _update():
-                # Add different colors based on status type
-                if "🔧" in status:  # Tool call
-                    status_line.update(f"[bold cyan]{status}[/bold cyan]")
-                elif "💭" in status:  # Thinking/reasoning
-                    status_line.update(f"[dim yellow]{status}[/dim yellow]")
-                elif "❌" in status:  # Error
-                    status_line.update(f"[bold red]{status}[/bold red]")
-                else:
-                    status_line.update(status)
-
-            # Use app.call_from_thread for thread-safe UI updates
-            self.app.call_from_thread(_update)
+        status_line.update("⏳ Processing with policy checks...")
 
         try:
-            # Use streaming method with status callback
-            response = await self.app.run_worker(
-                lambda: self.adk_service.send_message_streaming(message, update_status),
-                thread=True
-            ).wait()
+            # Get response from policy-aware agent
+            response = await self.agent.chat(
+                message=message,
+                context=self.context,
+            )
 
-            # Show response with markdown rendering
+            # Show response
             self._add_message("AI", response, is_user=False)
+
         except Exception as e:
             self.chat_log.write(f"[red]Error: {str(e)}[/red]")
         finally:
-            # Restore status bar to normal state
+            # Restore status
             status_line.remove_class("thinking")
-            if self.command_mode:
-                status_line.add_class("command-mode")
-                status_line.update("[bold]COMMAND MODE[/bold] - (s)ettings (c)lear (y)ank/copy (e)xport (q)uit (i/ESC)nput")
-            else:
-                status_line.remove_class("command-mode")
-                status_line.update("INPUT MODE - Press ESC for commands")
+            status_text = f"Policy-Aware Chat - Safety: {'ON' if self.safety_enabled else 'OFF'}"
+            status_line.update(status_text)
 
-    def _add_message(self, speaker: str, message: str, is_user: bool = False) -> None:
-        """Add a message with a gutter-style speaker label.
+    async def handle_confirmation(
+        self,
+        tool_call=None,
+        decision=None,
+        message=None,
+        **kwargs
+    ) -> bool:
+        """Handle confirmation requests from policy engine.
 
         Args:
-            speaker: The speaker name (You/AI)
+            tool_call: Tool call requiring confirmation
+            decision: Policy decision
+            message: Confirmation message
+            **kwargs: Additional parameters
+
+        Returns:
+            True if confirmed, False otherwise
+        """
+        # Show confirmation dialog
+        dialog = ConfirmationDialog(
+            tool_name=tool_call.tool_name if tool_call else "Operation",
+            parameters=tool_call.parameters if tool_call else {},
+            decision=decision if decision else None,
+        )
+
+        # Push dialog and wait for result
+        result = await self.app.push_screen_wait(dialog)
+        return result if result is not None else False
+
+    async def show_notification(self, message: str, level: str = "info"):
+        """Show a policy notification.
+
+        Args:
+            message: Notification message
+            level: Notification level
+        """
+        notification_area = self.query_one("#notification-area", Container)
+
+        # Create notification widget
+        notification = PolicyNotification(message=message, level=level)
+        notification_area.mount(notification)
+
+        # Auto-remove after 5 seconds
+        self.set_timer(5.0, lambda: notification.remove())
+
+    def _add_message(self, speaker: str, message: str, is_user: bool = False) -> None:
+        """Add a message to the chat log.
+
+        Args:
+            speaker: The speaker name
             message: The message content
             is_user: Whether this is a user message
         """
-        # Create a table for the gutter effect
-        table = Table(show_header=False, show_edge=False, padding=(0, 1), box=None)
+        color = "cyan" if is_user else "green"
+        speaker_text = f"[bold {color}]{speaker}:[/bold {color}]"
 
-        # Add columns: one for speaker (fixed width), one for content (expand)
-        table.add_column(width=6, justify="right", style="bold blue" if is_user else "bold green")
-        table.add_column(ratio=1)
-
-        # Check if message has markdown
-        has_markdown = any(marker in message for marker in ['```', '**', '##', '- ', '* ', '1. '])
-
-        if has_markdown and not is_user:
-            # For AI markdown responses, render the markdown
-            content = Markdown(message)
+        # Try to render as markdown for AI responses
+        if not is_user:
+            try:
+                md = Markdown(message)
+                panel = Panel(
+                    md,
+                    title=speaker_text,
+                    title_align="left",
+                    border_style=color,
+                    padding=(0, 1),
+                )
+                self.chat_log.write(panel)
+            except Exception:
+                # Fallback to plain text
+                self.chat_log.write(f"{speaker_text}\n{message}")
         else:
-            # For user messages or simple text, just use plain text
-            content = Text(message)
+            # User messages as simple text
+            self.chat_log.write(f"{speaker_text} {message}")
 
-        # Add the row with speaker and content
-        table.add_row(speaker + ":", content)
-
-        # Write the table to the log
-        self.chat_log.write(table)
-        self.chat_log.write("")  # Add spacing between messages
+        self.chat_log.write("")  # Add spacing
 
     def action_clear_chat(self) -> None:
         """Clear the chat log."""
-        if self.chat_log:
-            self.chat_log.clear()
-            self.chat_log.write("[dim]Chat cleared.[/dim]")
-            if self.adk_service:
-                # Restart chat session
-                self.adk_service.start_chat()
+        self.chat_log.clear()
+        self.chat_log.write("[dim]Chat cleared.[/dim]")
 
-    def action_show_settings(self) -> None:
-        """Show settings modal."""
-        from .settings_modal import SettingsModal
-        self.app.push_screen(SettingsModal())
+    def action_show_policies(self) -> None:
+        """Show active policies."""
+        if not self.agent:
+            return
 
-    def action_toggle_command_mode(self) -> None:
-        """Toggle command mode on/off."""
-        self.command_mode = not self.command_mode
+        self.chat_log.write("[bold]Active Policies:[/bold]")
+
+        # Show user preferences
+        prefs = self.agent.policy_engine.user_preferences
+        if prefs:
+            self.chat_log.write("\n[cyan]User Preferences:[/cyan]")
+            for key, value in prefs.items():
+                self.chat_log.write(f"  {key}: {value}")
+
+        # Show loaded rules count
+        rule_count = len(self.agent.policy_engine.rules)
+        self.chat_log.write(f"\n[cyan]Loaded Rules:[/cyan] {rule_count}")
+
+        self.chat_log.write("")
+
+    def action_toggle_safety(self) -> None:
+        """Toggle safety checks on/off."""
+        self.safety_enabled = not self.safety_enabled
+
         status_line = self.query_one("#status-line", Static)
-        input_widget = self.query_one("#chat-input", Input)
+        status_text = f"Policy-Aware Chat - Safety: {'ON' if self.safety_enabled else 'OFF'}"
+        status_line.update(status_text)
 
-        if self.command_mode:
-            # Enter command mode
-            status_line.add_class("command-mode")
-            status_line.update("[bold]COMMAND MODE[/bold] - (s)ettings (c)lear (y)ank/copy (e)xport (q)uit (i/ESC)nput")
-            input_widget.blur()
-        else:
-            # Exit command mode
-            status_line.remove_class("command-mode")
-            status_line.update("INPUT MODE - Press ESC for commands")
-            input_widget.focus()
-
-    def on_key(self, event) -> None:
-        """Handle key presses in command mode."""
-        if not self.command_mode:
-            return
-
-        key = event.key
-
-        if key == "s":
-            # Settings
-            self.action_show_settings()
-            event.prevent_default()
-        elif key == "c":
-            # Clear chat
-            self.action_clear_chat()
-            event.prevent_default()
-        elif key == "e":
-            # Export
-            self.action_export_chat()
-            event.prevent_default()
-        elif key == "y":
-            # Copy (yank) chat history to clipboard
-            self.action_copy_chat()
-            event.prevent_default()
-        elif key == "q":
-            # Quit
-            self.app.exit()
-            event.prevent_default()
-        elif key == "i":
-            # Return to input mode
-            self.action_toggle_command_mode()
-            event.prevent_default()
-
-    def action_export_chat(self) -> None:
-        """Export chat history to file and optionally to clipboard."""
-        if not self.chat_log:
-            return
-
-        try:
-            # Build plain text from chat log lines
-            chat_lines = []
-            for line in self.chat_log.lines:
-                if hasattr(line, 'text'):
-                    text = line.text.strip()
-                    if text:  # Only add non-empty lines
-                        chat_lines.append(text)
-
-            chat_text = "\n".join(chat_lines)
-
-            if not chat_text:
-                self.chat_log.write("[yellow]No chat history to export.[/yellow]")
-                return
-
-            # Save to file
-            with open("chat_export.txt", "w") as f:
-                f.write(chat_text)
-
-            # Also copy to clipboard for convenience
-            success, message = ClipboardService.copy_to_clipboard(chat_text)
-
-            if success:
-                self.chat_log.write("[green]Chat exported to chat_export.txt and copied to clipboard![/green]")
+        # Update agent preferences
+        if self.agent:
+            if not self.safety_enabled:
+                # Disable safety by auto-approving everything
+                self.agent.policy_engine.user_preferences = {
+                    "auto_approve": ["*"],
+                }
+                self.chat_log.write("[yellow]⚠️ Safety checks disabled. All tools will execute automatically.[/yellow]")
             else:
-                self.chat_log.write("[green]Chat exported to chat_export.txt[/green]")
-                self.chat_log.write(f"[dim yellow]Note: {message}[/dim yellow]")
+                # Re-enable normal policy enforcement
+                self.agent.policy_engine.user_preferences = {}
+                self.chat_log.write("[green]✓ Safety checks enabled. Tools subject to policy enforcement.[/green]")
 
-        except Exception as e:
-            self.chat_log.write(f"[red]Error exporting chat: {str(e)}[/red]")
-
-    def action_copy_chat(self) -> None:
-        """Copy chat history to clipboard."""
-        if not self.chat_log:
-            return
-
-        try:
-            # Build chat text from chat log lines
-            chat_lines = []
-            for line in self.chat_log.lines:
-                if hasattr(line, 'text'):
-                    text = line.text.strip()
-                    if text:  # Only add non-empty lines
-                        chat_lines.append(text)
-
-            chat_text = "\n".join(chat_lines)
-
-            if not chat_text:
-                self.chat_log.write("[yellow]No chat history to copy.[/yellow]")
-                return
-
-            # Use the clipboard service
-            success, message = ClipboardService.copy_to_clipboard(chat_text)
-
-            if success:
-                self.chat_log.write(f"[green]Copied {len(chat_lines)} lines to clipboard![/green]")
-            else:
-                self.chat_log.write(f"[red]{message}[/red]")
-
-        except Exception as e:
-            self.chat_log.write(f"[red]Error copying to clipboard: {str(e)}[/red]")
-
+        self.chat_log.write("")

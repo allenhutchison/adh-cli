@@ -42,11 +42,8 @@ pip install -r requirements-dev.txt
 
 ### Running the Application
 ```bash
-# Run with policy-aware mode (default)
+# Run the application
 adh-cli
-
-# Run classic mode without policies
-adh-cli --classic
 
 # Run with custom policy directory
 adh-cli --policy-dir /path/to/policies
@@ -82,24 +79,14 @@ textual run --dev adh_cli.app:ADHApp
 ## Architecture
 
 ### Application Structure
-- **Main Entry**: `adh_cli/__main__.py` - CLI entry point with policy/classic mode selection
-- **Classic App**: `adh_cli/app.py` - Original Textual app without policy enforcement
-- **Policy-Aware App**: `adh_cli/app_policy.py` - Enhanced app with policy engine integration
+- **Main Entry**: `adh_cli/__main__.py` - CLI entry point using Click
+- **App Core**: `adh_cli/app.py` - Main Textual app class with policy-aware agent integration
 - **Screen System**: Uses Textual's screen stack for navigation between Main, Chat, and Settings screens
-  - **PolicyChatScreen**: Policy-aware chat with confirmation dialogs
-  - **ChatScreen**: Classic chat interface
 
 ### Google ADK Integration
 
-#### Classic Service
-The `adh_cli/services/adk_service.py` handles basic Gemini API interactions:
-- Manages API authentication (supports GOOGLE_API_KEY and GEMINI_API_KEY env vars)
-- Provides both single-shot text generation and stateful chat sessions
-- Configurable model parameters (temperature, max_tokens, top_p, top_k)
-- Default model: `models/gemini-2.0-flash-exp`
-
 #### Policy-Aware Agent
-The `adh_cli/core/policy_aware_agent.py` provides enhanced safety:
+The `adh_cli/core/policy_aware_agent.py` provides safe AI interactions:
 - Integrates policy engine with ADK agent
 - Evaluates all tool calls against policies before execution
 - Handles confirmation workflows for supervised operations
@@ -108,7 +95,7 @@ The `adh_cli/core/policy_aware_agent.py` provides enhanced safety:
 ### Screen Architecture
 Each screen inherits from `textual.screen.Screen`:
 - **MainScreen**: Welcome screen with navigation options
-- **ChatScreen**: Async message handling with RichLog widget for conversation display
+- **ChatScreen**: Policy-aware chat with confirmation dialogs and safety checks
 - **SettingsScreen**: Model configuration and API key management
 
 ### Async Patterns
@@ -124,9 +111,9 @@ Each screen inherits from `textual.screen.Screen`:
 - Runtime configuration updates via SettingsScreen
 
 ### Chat Session State
-- ADKService maintains `_chat_session` for conversation continuity
-- History can be provided when starting new chat sessions
-- Chat export functionality saves conversation to `chat_export.txt`
+- PolicyAwareAgent maintains conversation state through ADK's LlmAgent
+- Stateful chat sessions with tool execution history
+- All tool calls go through policy evaluation before execution
 
 ### Textual Keybindings
 Global bindings defined in `ADHApp.BINDINGS`:

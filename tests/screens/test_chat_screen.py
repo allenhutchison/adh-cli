@@ -1,320 +1,269 @@
-"""Unit tests for the chat screen."""
+"""Tests for the chat screen."""
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock, call
-from textual.app import App
-from textual.widgets import Input, RichLog, Static
-from rich.table import Table
-from rich.markdown import Markdown
-from rich.text import Text
+from unittest.mock import Mock, AsyncMock, patch, MagicMock
+from pathlib import Path
 
 from adh_cli.screens.chat_screen import ChatScreen
-from adh_cli.services.clipboard_service import ClipboardService
+from adh_cli.core.policy_aware_agent import PolicyAwareAgent
+from adh_cli.core.tool_executor import ExecutionContext
 
 
 class TestChatScreen:
-    """Test cases for the ChatScreen class."""
+    """Test the ChatScreen class."""
 
-    @pytest.mark.asyncio
-    async def test_chat_screen_initialization(self):
-        """Test that chat screen initializes correctly."""
-        screen = ChatScreen()
+    @pytest.fixture
+    def screen(self):
+        """Create a test screen instance."""
+        with patch('adh_cli.screens.chat_screen.PolicyAwareAgent'):
+            screen = ChatScreen()
+            # Mock Textual components
+            screen.app = Mock()
+            screen.app.api_key = 'test_key'
+            screen.query_one = Mock()
+            screen.run_worker = Mock()
+            screen.set_timer = Mock()
+            screen.notify = Mock()
+            return screen
 
-        assert screen.adk_service is None
+    def test_screen_initialization(self, screen):
+        """Test screen initializes with default values."""
+        assert screen.agent is None
         assert screen.chat_log is None
-        assert screen.command_mode is False
+        assert screen.notifications == []
+        assert screen.safety_enabled is True
+        assert isinstance(screen.context, ExecutionContext)
+
+    @patch('adh_cli.screens.chat_screen.PolicyAwareAgent')
+    @patch('adh_cli.screens.chat_screen.shell_tools')
+    def test_on_mount(self, mock_shell_tools, mock_agent_class, screen):
+        """Test screen mount initializes agent."""
+        mock_log = Mock()
+        screen.query_one.return_value = mock_log
+        mock_agent = Mock()
+        mock_agent_class.return_value = mock_agent
+
+        screen.on_mount()
+
+        # Check agent was created
+        mock_agent_class.assert_called_once()
+        assert screen.agent == mock_agent
+        assert screen.chat_log == mock_log
+
+        # Check initial messages were written
+        assert mock_log.write.call_count >= 2
+
+    def test_register_tools(self, screen):
+        """Test tool registration."""
+        screen.agent = Mock()
+
+        screen._register_tools()
+
+        # Check tools were registered
+        assert screen.agent.register_tool.call_count >= 4
+
+        # Check tool names
+        call_args = [call[1] for call in screen.agent.register_tool.call_args_list]
+        tool_names = [args['name'] for args in call_args if 'name' in args]
+        assert 'read_file' in tool_names
+        assert 'write_file' in tool_names
+        assert 'list_directory' in tool_names
+        assert 'execute_command' in tool_names
+
+    def test_on_input_submitted_empty(self, screen):
+        """Test submitting empty input does nothing."""
+        mock_input = Mock()
+        mock_input.value = "  "  # Empty/whitespace
+        screen.query_one.return_value = mock_input
+
+        from textual.widgets import Input
+        event = Mock(spec=Input.Submitted)
+
+        screen.on_input_submitted(event)
+
+        # Should not process empty message
+        screen.run_worker.assert_not_called()
+
+    def test_on_input_submitted_with_message(self, screen):
+        """Test submitting a message."""
+        mock_input = Mock()
+        mock_input.value = "Test message"
+        mock_log = Mock()
+
+        def query_side_effect(selector, widget_type):
+            if widget_type.__name__ == 'Input':
+                return mock_input
+            elif widget_type.__name__ == 'RichLog':
+                return mock_log
+            return Mock()
+
+        screen.query_one.side_effect = query_side_effect
+        screen.chat_log = mock_log
+        screen.agent = Mock()
+
+        from textual.widgets import Input
+        event = Mock(spec=Input.Submitted)
+
+        screen.on_input_submitted(event)
+
+        # Check input was cleared
+        assert mock_input.value == ""
+
+        # Check message was displayed
+        screen._add_message = Mock()
+
+        # Check worker was started
+        screen.run_worker.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_chat_screen_compose(self):
-        """Test that chat screen composes widgets correctly."""
-        screen = ChatScreen()
+    async def test_get_ai_response(self, screen):
+        """Test getting AI response."""
+        screen.agent = Mock()
+        screen.agent.chat = AsyncMock(return_value="AI response")
+        screen.chat_log = Mock()
+        screen._add_message = Mock()
 
-        # Get composed widgets
-        app = App()
-        async with app.run_test() as pilot:
-            await app.push_screen(screen)
-            await pilot.pause()
+        mock_status = Mock()
+        screen.query_one.return_value = mock_status
 
-            # Should have status line
-            status_line = screen.query_one("#status-line", Static)
-            assert status_line is not None
+        await screen.get_ai_response("User message")
 
-            # Should have chat log
-            chat_log = screen.query_one("#chat-log", RichLog)
-            assert chat_log is not None
+        # Check agent was called
+        screen.agent.chat.assert_called_once_with(
+            message="User message",
+            context=screen.context
+        )
 
-            # Should have input field
-            chat_input = screen.query_one("#chat-input", Input)
-            assert chat_input is not None
+        # Check response was displayed
+        screen._add_message.assert_called_with("AI", "AI response", is_user=False)
 
-    @patch('adh_cli.screens.chat_screen.ADKService')
     @pytest.mark.asyncio
-    async def test_on_mount_with_valid_api_key(self, mock_adk_service):
-        """Test on_mount with valid API key."""
-        mock_service = Mock()
-        mock_adk_service.return_value = mock_service
-
-        screen = ChatScreen()
-
-        app = App()
-        async with app.run_test() as pilot:
-            await app.push_screen(screen)
-            await pilot.pause()
-
-            # ADK service should be initialized
-            assert screen.adk_service == mock_service
-            mock_adk_service.assert_called_once_with(enable_tools=True)
-
-            # Chat log should be set
-            assert screen.chat_log is not None
-
-    @patch('adh_cli.screens.chat_screen.ADKService')
-    @pytest.mark.asyncio
-    async def test_on_mount_without_api_key(self, mock_adk_service):
-        """Test on_mount without API key."""
-        mock_adk_service.side_effect = ValueError("No API key")
-
-        screen = ChatScreen()
-
-        app = App()
-        async with app.run_test() as pilot:
-            await app.push_screen(screen)
-            await pilot.pause()
-
-            # Service should not be initialized
-            assert screen.adk_service is None
-
-            # Error should be displayed in chat log
-            chat_log = screen.query_one("#chat-log", RichLog)
-            assert chat_log is not None
-
-    def test_add_message_user(self):
-        """Test _add_message for user messages."""
-        screen = ChatScreen()
+    async def test_get_ai_response_error(self, screen):
+        """Test handling errors in AI response."""
+        screen.agent = Mock()
+        screen.agent.chat = AsyncMock(side_effect=Exception("Test error"))
         screen.chat_log = Mock()
 
-        screen._add_message("You", "Hello AI", is_user=True)
+        mock_status = Mock()
+        screen.query_one.return_value = mock_status
 
-        # Should create a table with user styling
+        await screen.get_ai_response("User message")
+
+        # Check error was displayed
         screen.chat_log.write.assert_called()
-        call_args = screen.chat_log.write.call_args_list[0][0][0]
-        assert isinstance(call_args, Table)
+        assert "Error" in str(screen.chat_log.write.call_args)
 
-    def test_add_message_ai_plain(self):
-        """Test _add_message for plain AI messages."""
-        screen = ChatScreen()
-        screen.chat_log = Mock()
-
-        screen._add_message("AI", "Hello user", is_user=False)
-
-        # Should create a table with AI styling
-        screen.chat_log.write.assert_called()
-        call_args = screen.chat_log.write.call_args_list[0][0][0]
-        assert isinstance(call_args, Table)
-
-    def test_add_message_ai_markdown(self):
-        """Test _add_message for AI messages with markdown."""
-        screen = ChatScreen()
-        screen.chat_log = Mock()
-
-        message = "Here's some **bold** text and a list:\n- Item 1\n- Item 2"
-        screen._add_message("AI", message, is_user=False)
-
-        # Should create a table with markdown content
-        screen.chat_log.write.assert_called()
-        call_args = screen.chat_log.write.call_args_list[0][0][0]
-        assert isinstance(call_args, Table)
-
-    @patch('adh_cli.screens.chat_screen.ADKService')
     @pytest.mark.asyncio
-    async def test_on_input_submitted(self, mock_adk_service):
-        """Test handling input submission."""
-        mock_service = Mock()
-        mock_service.send_message_streaming.return_value = "AI response"
-        mock_adk_service.return_value = mock_service
+    async def test_handle_confirmation_approved(self, screen):
+        """Test handling confirmation approval."""
+        from adh_cli.policies.policy_types import ToolCall, PolicyDecision
 
-        screen = ChatScreen()
+        screen.app.push_screen_wait = AsyncMock(return_value=True)
 
-        app = App()
-        async with app.run_test() as pilot:
-            await app.push_screen(screen)
-            await pilot.pause()
+        tool_call = ToolCall(tool_name="test", parameters={})
+        decision = PolicyDecision(
+            allowed=True,
+            supervision_level="confirm",
+            risk_level="medium"
+        )
 
-            # Type and submit a message
-            input_widget = screen.query_one("#chat-input", Input)
-            input_widget.value = "Test message"
+        result = await screen.handle_confirmation(
+            tool_call=tool_call,
+            decision=decision
+        )
 
-            # Trigger submission
-            await pilot.press("enter")
-            await pilot.pause()
+        assert result is True
 
-            # Input should be cleared
-            assert input_widget.value == ""
+    @pytest.mark.asyncio
+    async def test_handle_confirmation_declined(self, screen):
+        """Test handling confirmation decline."""
+        screen.app.push_screen_wait = AsyncMock(return_value=False)
 
-    def test_action_clear_chat(self):
-        """Test clearing the chat."""
-        screen = ChatScreen()
+        result = await screen.handle_confirmation()
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_show_notification(self, screen):
+        """Test showing notifications."""
+        mock_container = Mock()
+        screen.query_one.return_value = mock_container
+
+        await screen.show_notification("Test message", level="info")
+
+        # Check notification was mounted
+        mock_container.mount.assert_called_once()
+
+        # Check timer was set for auto-remove
+        screen.set_timer.assert_called_once()
+
+    def test_add_message_user(self, screen):
+        """Test adding user message."""
         screen.chat_log = Mock()
-        screen.adk_service = Mock()
+
+        screen._add_message("User", "Test message", is_user=True)
+
+        # Check message was written
+        screen.chat_log.write.assert_called()
+        call_args = str(screen.chat_log.write.call_args)
+        assert "User" in call_args
+        assert "Test message" in call_args
+
+    def test_add_message_ai(self, screen):
+        """Test adding AI message with markdown."""
+        screen.chat_log = Mock()
+
+        screen._add_message("AI", "**Bold** message", is_user=False)
+
+        # Check message was written
+        screen.chat_log.write.assert_called()
+
+    def test_action_clear_chat(self, screen):
+        """Test clearing chat."""
+        screen.chat_log = Mock()
 
         screen.action_clear_chat()
 
-        # Chat log should be cleared
         screen.chat_log.clear.assert_called_once()
+        screen.chat_log.write.assert_called_with("[dim]Chat cleared.[/dim]")
+
+    def test_action_show_policies(self, screen):
+        """Test showing policies."""
+        screen.agent = Mock()
+        screen.agent.policy_engine = Mock()
+        screen.agent.policy_engine.user_preferences = {"test": "pref"}
+        screen.agent.policy_engine.rules = [Mock(), Mock()]
+        screen.chat_log = Mock()
+
+        screen.action_show_policies()
+
+        # Check policy info was displayed
+        assert screen.chat_log.write.call_count >= 3
+
+    def test_action_toggle_safety_disable(self, screen):
+        """Test disabling safety."""
+        screen.agent = Mock()
+        screen.safety_enabled = True
+        screen.chat_log = Mock()
+        mock_status = Mock()
+        screen.query_one.return_value = mock_status
+
+        screen.action_toggle_safety()
+
+        assert screen.safety_enabled is False
+        screen.agent.policy_engine.user_preferences = {"auto_approve": ["*"]}
         screen.chat_log.write.assert_called()
 
-        # Chat session should be restarted
-        screen.adk_service.start_chat.assert_called_once()
-
-    def test_action_toggle_command_mode(self):
-        """Test toggling command mode."""
-        screen = ChatScreen()
-        screen.command_mode = False
-
-        # Create mock widgets
-        status_line = Mock()
-        input_widget = Mock()
-        screen.query_one = Mock(side_effect=lambda id, type: {
-            "#status-line": status_line,
-            "#chat-input": input_widget
-        }.get(id.split(",")[0]))
-
-        # Toggle to command mode
-        screen.action_toggle_command_mode()
-
-        assert screen.command_mode is True
-        status_line.add_class.assert_called_with("command-mode")
-        input_widget.blur.assert_called_once()
-
-        # Toggle back to input mode
-        screen.action_toggle_command_mode()
-
-        assert screen.command_mode is False
-        status_line.remove_class.assert_called_with("command-mode")
-        input_widget.focus.assert_called_once()
-
-    @patch.object(ClipboardService, 'copy_to_clipboard')
-    def test_action_copy_chat(self, mock_copy):
-        """Test copying chat to clipboard."""
-        mock_copy.return_value = (True, "Success")
-
-        screen = ChatScreen()
+    def test_action_toggle_safety_enable(self, screen):
+        """Test enabling safety."""
+        screen.agent = Mock()
+        screen.safety_enabled = False
         screen.chat_log = Mock()
+        mock_status = Mock()
+        screen.query_one.return_value = mock_status
 
-        # Mock chat log lines
-        mock_line1 = Mock()
-        mock_line1.text = "You: Hello"
-        mock_line2 = Mock()
-        mock_line2.text = "AI: Hi there"
-        screen.chat_log.lines = [mock_line1, mock_line2]
+        screen.action_toggle_safety()
 
-        screen.action_copy_chat()
-
-        # Clipboard service should be called with chat content
-        mock_copy.assert_called_once()
-        copied_text = mock_copy.call_args[0][0]
-        assert "You: Hello" in copied_text
-        assert "AI: Hi there" in copied_text
-
-    @patch('builtins.open', create=True)
-    @patch.object(ClipboardService, 'copy_to_clipboard')
-    def test_action_export_chat(self, mock_copy, mock_open):
-        """Test exporting chat to file."""
-        mock_copy.return_value = (True, "Success")
-        mock_file = MagicMock()
-        mock_open.return_value.__enter__.return_value = mock_file
-
-        screen = ChatScreen()
-        screen.chat_log = Mock()
-
-        # Mock chat log lines
-        mock_line = Mock()
-        mock_line.text = "Chat content"
-        screen.chat_log.lines = [mock_line]
-
-        screen.action_export_chat()
-
-        # File should be opened for writing
-        mock_open.assert_called_once_with("chat_export.txt", "w")
-        mock_file.write.assert_called()
-
-        # Clipboard should also be called
-        mock_copy.assert_called_once()
-
-    def test_on_key_command_mode(self):
-        """Test keyboard handling in command mode."""
-        screen = ChatScreen()
-        screen.command_mode = True
-        screen.action_clear_chat = Mock()
-        screen.action_export_chat = Mock()
-        screen.action_copy_chat = Mock()
-
-        # Test 'c' for clear
-        event = Mock()
-        event.key = "c"
-        screen.on_key(event)
-        screen.action_clear_chat.assert_called_once()
-
-        # Test 'e' for export
-        event.key = "e"
-        screen.on_key(event)
-        screen.action_export_chat.assert_called_once()
-
-        # Test 'y' for yank/copy
-        event.key = "y"
-        screen.on_key(event)
-        screen.action_copy_chat.assert_called_once()
-
-    def test_on_key_input_mode(self):
-        """Test keyboard handling in input mode."""
-        screen = ChatScreen()
-        screen.command_mode = False
-
-        # Mock methods shouldn't be called
-        screen.action_clear_chat = Mock()
-        screen.action_export_chat = Mock()
-
-        event = Mock()
-        event.key = "c"
-        screen.on_key(event)
-
-        # Should not trigger actions in input mode
-        screen.action_clear_chat.assert_not_called()
-        screen.action_export_chat.assert_not_called()
-
-
-class TestChatScreenIntegration:
-    """Integration tests for chat screen."""
-
-    @pytest.mark.asyncio
-    @patch('adh_cli.screens.chat_screen.ADKService')
-    async def test_full_chat_flow(self, mock_adk_service):
-        """Test a complete chat interaction flow."""
-        mock_service = Mock()
-        mock_service.send_message_streaming.return_value = "AI response"
-        mock_adk_service.return_value = mock_service
-
-        screen = ChatScreen()
-
-        app = App()
-        async with app.run_test() as pilot:
-            await app.push_screen(screen)
-            await pilot.pause()
-
-            # Send a message
-            input_widget = screen.query_one("#chat-input", Input)
-            input_widget.value = "Hello AI"
-            await pilot.press("enter")
-            await pilot.pause()
-
-            # Toggle command mode
-            await pilot.press("escape")
-            assert screen.command_mode is True
-
-            # Clear chat
-            await pilot.press("c")
-            await pilot.pause()
-
-            # Return to input mode
-            await pilot.press("escape")
-            assert screen.command_mode is False
+        assert screen.safety_enabled is True
+        screen.agent.policy_engine.user_preferences = {}
+        screen.chat_log.write.assert_called()

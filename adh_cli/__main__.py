@@ -6,11 +6,6 @@ from pathlib import Path
 
 @click.command()
 @click.option(
-    '--classic',
-    is_flag=True,
-    help='Use classic mode without policy enforcement'
-)
-@click.option(
     '--debug',
     is_flag=True,
     help='Enable debug mode'
@@ -26,12 +21,8 @@ from pathlib import Path
     is_flag=True,
     help='Disable safety checks (use with caution)'
 )
-def main(classic: bool, debug: bool, policy_dir: Path, no_safety: bool) -> None:
-    """Launch the ADH CLI TUI application.
-
-    By default, runs with policy-aware agent for safe tool execution.
-    Use --classic for the original version without policy enforcement.
-    """
+def main(debug: bool, policy_dir: Path, no_safety: bool) -> None:
+    """Launch the ADH CLI TUI application with policy-aware agent for safe tool execution."""
     import os
     import sys
 
@@ -40,27 +31,22 @@ def main(classic: bool, debug: bool, policy_dir: Path, no_safety: bool) -> None:
         os.environ['TEXTUAL_DEBUG'] = '1'
 
     try:
-        if classic:
-            # Use original app without policies
-            from .app import ADHApp
-            app = ADHApp()
-        else:
-            # Use policy-aware app (default)
-            from .app_policy import PolicyAwareADHApp
-            app = PolicyAwareADHApp()
+        # Create the application
+        from .app import ADHApp
+        app = ADHApp()
 
-            # Configure policy directory if specified
-            if policy_dir:
-                app.policy_dir = policy_dir
+        # Configure policy directory if specified
+        if policy_dir:
+            app.policy_dir = policy_dir
 
-            # Configure safety settings
-            if no_safety:
-                app.safety_enabled = False
-                click.echo(click.style(
-                    "⚠️  WARNING: Running with safety checks disabled!",
-                    fg='yellow',
-                    bold=True
-                ))
+        # Configure safety settings
+        if no_safety:
+            app.safety_enabled = False
+            click.echo(click.style(
+                "⚠️  WARNING: Running with safety checks disabled!",
+                fg='yellow',
+                bold=True
+            ))
 
         # Run the application
         app.run()
