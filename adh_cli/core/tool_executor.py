@@ -294,8 +294,8 @@ class ToolExecutor:
                     continue
 
         # Run pipeline with the safety checks
-        results = await self.safety_pipeline.run_checks(tool_call, decision.safety_checks)
-        return results.check_results
+        pipeline_result = await self.safety_pipeline.run_checks(tool_call, decision.safety_checks)
+        return pipeline_result.results
 
     def _apply_parameter_modifications(
         self, parameters: Dict[str, Any], safety_results: List[Any]

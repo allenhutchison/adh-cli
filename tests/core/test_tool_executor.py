@@ -46,7 +46,7 @@ class TestToolExecutor:
         pipeline.checkers = {}  # Initialize empty checkers dict
         pipeline.run = AsyncMock(  # Keep for backward compat
             return_value=Mock(
-                check_results=[
+                results=[
                     SafetyResult(
                         checker_name="TestChecker",
                         status=SafetyStatus.PASSED,
@@ -59,7 +59,7 @@ class TestToolExecutor:
         pipeline.register_checker = Mock()
         pipeline.run_checks = AsyncMock(
             return_value=Mock(
-                check_results=[
+                results=[
                     SafetyResult(
                         checker_name="TestChecker",
                         status=SafetyStatus.PASSED,
