@@ -11,10 +11,8 @@ from textual.binding import Binding
 from rich.markdown import Markdown
 from rich.panel import Panel
 
-from ..core.policy_aware_agent import PolicyAwareAgent
 from ..core.tool_executor import ExecutionContext
 from ..ui.confirmation_dialog import ConfirmationDialog, SafetyWarningDialog, PolicyNotification
-from ..tools import shell_tools
 from ..services.clipboard_service import ClipboardService
 
 
@@ -87,7 +85,7 @@ class ChatScreen(Screen):
     def __init__(self):
         """Initialize the policy chat screen."""
         super().__init__()
-        self.agent: Optional[PolicyAwareAgent] = None
+        self.agent = None  # Will be set from app
         self.chat_log: Optional[RichLog] = None
         self.notifications = []
         self.safety_enabled = True
@@ -130,73 +128,26 @@ class ChatScreen(Screen):
         self.chat_log = self.query_one("#chat-log", RichLog)
 
         try:
-            # Initialize policy-aware agent
-            self.agent = PolicyAwareAgent(
-                api_key=self.app.api_key if hasattr(self.app, 'api_key') else None,
-                policy_dir=Path.home() / ".adh-cli" / "policies",
-                confirmation_handler=self.handle_confirmation,
-                notification_handler=self.show_notification,
-                audit_log_path=Path.home() / ".adh-cli" / "audit.log",
-            )
+            # Get agent from app (already initialized with tools)
+            if hasattr(self.app, 'agent'):
+                self.agent = self.app.agent
 
-            # Register tools
-            self._register_tools()
-
-            self.chat_log.write(
-                "[dim]Policy-Aware Chat Ready. Tools will be executed according to configured policies.[/dim]"
-            )
-            self.chat_log.write(
-                "[dim]Press Ctrl+P to view active policies, Ctrl+S to toggle safety checks.[/dim]"
-            )
+                # Display agent type
+                agent_type = "ADK Agent" if hasattr(self.app, 'use_adk_agent') and self.app.use_adk_agent else "Legacy Agent"
+                self.chat_log.write(
+                    f"[dim]Policy-Aware Chat Ready ({agent_type}). Tools will be executed according to configured policies.[/dim]"
+                )
+                self.chat_log.write(
+                    "[dim]Press Ctrl+P to view active policies, Ctrl+S to toggle safety checks.[/dim]"
+                )
+            else:
+                raise Exception("App does not have an agent initialized")
 
         except Exception as e:
-            self.chat_log.write(f"[red]Error initializing agent: {str(e)}[/red]")
+            self.chat_log.write(f"[red]Error accessing agent: {str(e)}[/red]")
 
         # Focus input
         self.query_one("#chat-input", Input).focus()
-
-    def _register_tools(self):
-        """Register available tools with the agent."""
-        if not self.agent:
-            return
-
-        # Register file system tools
-        self.agent.register_tool(
-            name="read_file",
-            description="Read contents of a text file",
-            parameters={
-                "path": {"type": "string", "description": "File path to read"},
-            },
-            handler=shell_tools.read_file,
-        )
-
-        self.agent.register_tool(
-            name="write_file",
-            description="Write content to a file",
-            parameters={
-                "path": {"type": "string", "description": "File path to write"},
-                "content": {"type": "string", "description": "Content to write"},
-            },
-            handler=shell_tools.write_file,
-        )
-
-        self.agent.register_tool(
-            name="list_directory",
-            description="List contents of a directory",
-            parameters={
-                "path": {"type": "string", "description": "Directory path to list"},
-            },
-            handler=shell_tools.list_directory,
-        )
-
-        self.agent.register_tool(
-            name="execute_command",
-            description="Execute a shell command",
-            parameters={
-                "command": {"type": "string", "description": "Command to execute"},
-            },
-            handler=shell_tools.execute_command,
-        )
 
     @on(Input.Submitted, "#chat-input")
     def on_input_submitted(self, event: Input.Submitted) -> None:

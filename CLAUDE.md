@@ -85,12 +85,22 @@ textual run --dev adh_cli.app:ADHApp
 
 ### Google ADK Integration
 
-#### Policy-Aware Agent
-The `adh_cli/core/policy_aware_agent.py` provides safe AI interactions:
+#### Policy-Aware ADK Agent (Default)
+The `adh_cli/core/policy_aware_llm_agent.py` provides ADK-based AI interactions:
+- Uses Google ADK's LlmAgent for automatic tool orchestration
 - Integrates policy engine with ADK agent
 - Evaluates all tool calls against policies before execution
 - Handles confirmation workflows for supervised operations
 - Maintains audit logs of all tool executions
+- Supports event streaming for real-time monitoring
+- Session management for stateful conversations
+
+#### Legacy Policy-Aware Agent (Fallback)
+The `adh_cli/core/policy_aware_agent.py` provides manual function-calling:
+- Can be enabled with `ADH_USE_ADK_AGENT=false` environment variable
+- Manual function call handling with google.genai.Client
+- Full policy enforcement and safety checks
+- All features available, but without ADK orchestration
 
 ### Screen Architecture
 Each screen inherits from `textual.screen.Screen`:
@@ -105,15 +115,27 @@ Each screen inherits from `textual.screen.Screen`:
 
 ## Key Implementation Details
 
-### API Key Management
+### Configuration
+
+#### API Key Management
 - Checks environment variables in order: config.api_key → GOOGLE_API_KEY → GEMINI_API_KEY
 - Uses python-dotenv to load from .env file
 - Runtime configuration updates via SettingsScreen
 
+#### Agent Selection
+- **ADH_USE_ADK_AGENT**: Set to `true` (default) to use PolicyAwareLlmAgent with ADK orchestration
+- Set to `false` to use legacy PolicyAwareAgent with manual function calling
+- Example:
+```bash
+export ADH_USE_ADK_AGENT=false  # Use legacy agent
+adh-cli
+```
+
 ### Chat Session State
-- PolicyAwareAgent maintains conversation state through ADK's LlmAgent
-- Stateful chat sessions with tool execution history
-- All tool calls go through policy evaluation before execution
+- PolicyAwareLlmAgent (default) uses ADK's InMemorySessionService for state management
+- Automatic multi-turn conversation handling with tool orchestration
+- PolicyAwareAgent (legacy) uses manual conversation history tracking
+- All tool calls go through policy evaluation before execution regardless of agent type
 
 ### Textual Keybindings
 Global bindings defined in `ADHApp.BINDINGS`:
@@ -190,12 +212,14 @@ Users can create custom policies in `~/.adh-cli/policies/`:
 ### Testing
 
 #### Test Coverage
-- **247 total tests** across the project
+- **255 total tests** across the project (1 skipped)
 - Policy engine: 58 tests
-- Core integration: 33 tests
+- Core agents: 50 tests (PolicyAwareAgent + PolicyAwareLlmAgent + PolicyAwareFunctionTool)
+- ADK integration: 14 tests
 - Shell tools: 28 tests
-- UI components: 31 tests
-- Plus 97 existing tests
+- UI components: 32 tests
+- Safety checkers: 24 tests
+- Plus additional service and tool tests
 
 #### Running Tests
 ```bash
@@ -205,9 +229,15 @@ pytest
 # Run policy tests
 pytest tests/policies/ tests/safety/
 
-# Run integration tests
+# Run core agent tests
 pytest tests/core/
+
+# Run ADK integration tests
+pytest tests/integration/
 
 # Run with coverage
 pytest --cov=adh_cli
+
+# Quick test run (no traceback)
+pytest --tb=no -q
 ```

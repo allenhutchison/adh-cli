@@ -18,6 +18,8 @@ class TestChatScreen:
         # Create mock app before creating screen
         mock_app = Mock()
         mock_app.api_key = 'test_key'
+        mock_app.agent = Mock()  # App now provides the agent
+        mock_app.use_adk_agent = True
 
         # Patch the app property
         with patch.object(ChatScreen, 'app', new_callable=PropertyMock) as mock_app_prop:
@@ -40,17 +42,11 @@ class TestChatScreen:
         assert screen.safety_enabled is True
         assert isinstance(screen.context, ExecutionContext)
 
-    @patch('adh_cli.screens.chat_screen.shell_tools')
-    @patch('adh_cli.screens.chat_screen.PolicyAwareAgent')
-    def test_on_mount(self, mock_agent_class, mock_shell_tools, screen):
-        """Test screen mount initializes agent."""
+    def test_on_mount(self, screen):
+        """Test screen mount gets agent from app."""
         mock_log = Mock()
         mock_input = Mock()
         mock_input.focus = Mock()
-
-        # Create mock agent
-        mock_agent = Mock()
-        mock_agent_class.return_value = mock_agent
 
         # Make query_one return the appropriate mock based on selector
         def query_side_effect(selector, widget_type=None):
@@ -64,9 +60,8 @@ class TestChatScreen:
 
         screen.on_mount()
 
-        # Check agent was created
-        mock_agent_class.assert_called_once()
-        assert screen.agent == mock_agent
+        # Check agent was taken from app
+        assert screen.agent == screen.app.agent
         assert screen.chat_log == mock_log
 
         # Check initial messages were written
@@ -74,23 +69,6 @@ class TestChatScreen:
 
         # Check input was focused
         mock_input.focus.assert_called_once()
-
-    def test_register_tools(self, screen):
-        """Test tool registration."""
-        screen.agent = Mock()
-
-        screen._register_tools()
-
-        # Check tools were registered
-        assert screen.agent.register_tool.call_count >= 4
-
-        # Check tool names
-        call_args = [call[1] for call in screen.agent.register_tool.call_args_list]
-        tool_names = [args['name'] for args in call_args if 'name' in args]
-        assert 'read_file' in tool_names
-        assert 'write_file' in tool_names
-        assert 'list_directory' in tool_names
-        assert 'execute_command' in tool_names
 
     def test_on_input_submitted_empty(self, screen):
         """Test submitting empty input does nothing."""
