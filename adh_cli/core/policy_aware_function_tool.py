@@ -1,5 +1,6 @@
 """Policy-aware wrapper for ADK FunctionTool."""
 
+import inspect
 from typing import Any, Callable, Dict, Optional
 from google.adk.tools import FunctionTool
 from adh_cli.policies.policy_engine import PolicyEngine
@@ -173,6 +174,10 @@ class PolicyAwareFunctionTool(FunctionTool):
             policy_wrapped_func.__doc__ = func.__doc__
         else:
             policy_wrapped_func.__doc__ = f"Policy-enforced wrapper for {tool_name}"
+
+        # Copy the original function's signature so ADK can introspect parameters
+        # This is critical - ADK uses the signature to determine what parameters to pass
+        policy_wrapped_func.__signature__ = inspect.signature(func)
 
         # Initialize parent FunctionTool with our wrapped function
         super().__init__(

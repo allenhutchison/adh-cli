@@ -1,0 +1,24 @@
+filesystem:
+  delete_file:
+    pattern: '*delete*'
+    risk: high
+    safety_checks:
+    - backup
+    - confirmation
+    supervision: manual
+  read_file:
+    pattern: '*read*'
+    restrictions:
+    - max_bytes: 10485760
+      type: size_limit
+    risk: low
+    safety_checks:
+    - sensitive_data
+    supervision: automatic
+  write_file:
+    pattern: '*write*'
+    risk: medium
+    safety_checks:
+    - backup
+    - disk_space
+    supervision: confirm
