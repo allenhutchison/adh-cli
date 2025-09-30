@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -55,6 +56,9 @@ class ADHApp(App):
 
     def _load_api_key(self):
         """Load API key from environment."""
+        # Load .env file if it exists
+        load_dotenv()
+
         self.api_key = (
             os.environ.get("GOOGLE_API_KEY") or
             os.environ.get("GEMINI_API_KEY")
