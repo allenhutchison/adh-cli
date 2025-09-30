@@ -115,10 +115,6 @@ class ToolExecutionWidget(Widget):
     }
     """
 
-    # Reactive properties
-    execution_info = reactive(None)
-    expanded = reactive(False)
-
     def __init__(
         self,
         execution_info: ToolExecutionInfo,
@@ -136,11 +132,28 @@ class ToolExecutionWidget(Widget):
             on_details: Callback when user requests details (async callable)
         """
         super().__init__(**kwargs)
-        self._info = execution_info  # Store internally before widget is mounted
+        self._info = execution_info
+        self._expanded = False
         self.on_confirm = on_confirm
         self.on_cancel = on_cancel
         self.on_details = on_details
-        self.expanded = False
+
+    @property
+    def execution_info(self) -> Optional[ToolExecutionInfo]:
+        """Get current execution info."""
+        return self._info
+
+    @property
+    def expanded(self) -> bool:
+        """Get expanded state."""
+        return self._expanded
+
+    @expanded.setter
+    def expanded(self, value: bool) -> None:
+        """Set expanded state."""
+        self._expanded = value
+        if self.is_mounted:
+            self._update_display()
 
     def compose(self) -> ComposeResult:
         """Compose the widget layout."""
@@ -156,34 +169,19 @@ class ToolExecutionWidget(Widget):
 
     def on_mount(self) -> None:
         """Handle widget mount."""
-        # Set reactive property now that widget is mounted
-        self.execution_info = self._info
-        self._update_display()
+        # Force update during mount (is_mounted will be False during on_mount)
+        self._update_display(force=True)
 
-    def watch_execution_info(self, new_info: ToolExecutionInfo) -> None:
-        """React to execution info changes."""
-        # Update internal storage
-        if new_info:
-            self._info = new_info
-        self._update_display()
+    def _update_display(self, force: bool = False) -> None:
+        """Update the widget display based on current state.
 
-    def watch_expanded(self, is_expanded: bool) -> None:
-        """React to expanded state changes."""
-        self._update_display()
-
-    def get_execution_info(self) -> Optional[ToolExecutionInfo]:
-        """Get current execution info.
-
-        Returns info whether widget is mounted or not.
-
-        Returns:
-            Current execution information
+        Args:
+            force: If True, skip the is_mounted check (for use during on_mount)
         """
-        return self.execution_info if self.is_mounted else self._info
+        if not self._info:
+            return
 
-    def _update_display(self) -> None:
-        """Update the widget display based on current state."""
-        if not self._info or not self.is_mounted:
+        if not force and not self.is_mounted:
             return
 
         info = self._info
@@ -209,6 +207,9 @@ class ToolExecutionWidget(Widget):
 
         # Update button visibility
         self._update_buttons()
+
+        # Force refresh to apply changes
+        self.refresh()
 
     def _update_header(self) -> None:
         """Update the header display."""
@@ -295,15 +296,16 @@ class ToolExecutionWidget(Widget):
         """Handle button press events."""
         if event.button.id == "confirm-btn":
             if self.on_confirm:
-                await self.on_confirm(self.execution_info)
+                await self.on_confirm(self._info)
         elif event.button.id == "cancel-btn":
             if self.on_cancel:
-                await self.on_cancel(self.execution_info)
+                await self.on_cancel(self._info)
         elif event.button.id == "details-btn":
             # Toggle expanded state
-            self.expanded = not self.expanded
+            self._expanded = not self._expanded
+            self._update_display()
             if self.on_details:
-                await self.on_details(self.execution_info, self.expanded)
+                await self.on_details(self._info, self._expanded)
 
     def update_info(self, execution_info: ToolExecutionInfo) -> None:
         """Update the execution info and refresh display.
@@ -311,7 +313,9 @@ class ToolExecutionWidget(Widget):
         Args:
             execution_info: New execution information
         """
-        self.execution_info = execution_info
+        self._info = execution_info
+        if self.is_mounted:
+            self._update_display()
 
     def set_expanded(self, expanded: bool) -> None:
         """Set the expanded state.
@@ -319,4 +323,6 @@ class ToolExecutionWidget(Widget):
         Args:
             expanded: Whether to show expanded details
         """
-        self.expanded = expanded
+        self._expanded = expanded
+        if self.is_mounted:
+            self._update_display()
