@@ -116,6 +116,7 @@ You have access to tools for file system operations and command execution.
 All tool usage is subject to policy enforcement and safety checks.
 
 IMPORTANT TOOL USAGE GUIDELINES:
+- IMMEDIATELY use tools to accomplish user requests - don't ask for permission unless required by policy
 - When you execute a tool, ALWAYS include the results in your response to the user
 - Show the actual data returned by tools (file contents, directory listings, command output, etc.)
 - Format tool results in a clear, readable way for the user
@@ -124,23 +125,46 @@ IMPORTANT TOOL USAGE GUIDELINES:
 - When reading files, show the content (or a summary if it's long)
 - When executing commands, show the output
 
-When a tool requires confirmation, wait for user approval before proceeding.
-Be proactive and helpful - use your tools to accomplish user goals without excessive back-and-forth."""
+TOOL EXECUTION BEHAVIOR:
+- If the user asks about "this directory" or "current directory", use "." as the path parameter
+- Execute tools RIGHT AWAY - don't ask clarifying questions unless absolutely necessary
+- Only wait for user confirmation when the policy system requires it (you'll be prompted)
+- Don't ask "do you want me to..." - just do it and show results
+- Be direct and action-oriented, not cautious or hesitant
+
+Your goal is to be helpful and efficient - use your tools to get answers immediately."""
 
     async def _ensure_session_initialized(self):
         """Ensure the session is initialized."""
         if not self.session_service:
             return
 
+        # Check if session already exists to avoid recreating it
         try:
-            await self.session_service.create_session(
+            existing_session = await self.session_service.get_session(
                 app_name="adh_cli",
                 user_id=self.user_id,
                 session_id=self.session_id
             )
-        except Exception:
-            # Session may already exist, that's okay
-            pass
+
+            # Only create session if it doesn't exist
+            if not existing_session:
+                await self.session_service.create_session(
+                    app_name="adh_cli",
+                    user_id=self.user_id,
+                    session_id=self.session_id
+                )
+        except Exception as e:
+            # If get_session fails, try to create
+            try:
+                await self.session_service.create_session(
+                    app_name="adh_cli",
+                    user_id=self.user_id,
+                    session_id=self.session_id
+                )
+            except Exception:
+                # Session may already exist or other error
+                pass
 
     def _create_audit_logger(self, audit_log_path: Optional[Path]) -> Optional[Callable]:
         """Create audit logger if path provided."""
