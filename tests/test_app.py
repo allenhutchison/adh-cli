@@ -70,9 +70,9 @@ class TestADHApp:
             # Check tools were registered
             assert app.agent.register_tool.call_count >= 4  # At least 4 tools
 
-            # Check specific tools
-            call_args = [call.args for call in app.agent.register_tool.call_args_list]
-            tool_names = [args[0] for args in call_args if args]
+            # Check specific tools - they use keyword arguments
+            call_kwargs = [call.kwargs for call in app.agent.register_tool.call_args_list]
+            tool_names = [kwargs['name'] for kwargs in call_kwargs if 'name' in kwargs]
             assert 'read_file' in tool_names
             assert 'write_file' in tool_names
             assert 'list_directory' in tool_names
