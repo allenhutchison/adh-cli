@@ -65,10 +65,7 @@ class PolicyAwareAgent:
 
     def _init_client(self):
         """Initialize the Gemini client."""
-        if self.api_key:
-            genai.configure(api_key=self.api_key)
-
-        self.client = genai.Client()
+        self.client = genai.Client(api_key=self.api_key)
 
     def register_tool(
         self,

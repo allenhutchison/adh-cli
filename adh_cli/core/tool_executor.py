@@ -281,16 +281,20 @@ class ToolExecutor:
         if not decision.safety_checks:
             return []
 
-        # Configure pipeline with checks from decision
+        # Register checkers if not already registered
         for check in decision.safety_checks:
-            self.safety_pipeline.add_checker(
-                check.checker_class,
-                check.config,
-                required=check.required,
-            )
+            if check.checker_class not in self.safety_pipeline.checkers:
+                # Import and register the checker class dynamically
+                try:
+                    from adh_cli.safety import checkers
+                    checker_class = getattr(checkers, check.checker_class)
+                    self.safety_pipeline.register_checker(check.checker_class, checker_class)
+                except (ImportError, AttributeError):
+                    # Skip if checker not found
+                    continue
 
-        # Run pipeline
-        results = await self.safety_pipeline.run(tool_call)
+        # Run pipeline with the safety checks
+        results = await self.safety_pipeline.run_checks(tool_call, decision.safety_checks)
         return results.check_results
 
     def _apply_parameter_modifications(

@@ -43,7 +43,8 @@ class TestToolExecutor:
     def mock_safety_pipeline(self):
         """Create a mock safety pipeline."""
         pipeline = Mock(spec=SafetyPipeline)
-        pipeline.run = AsyncMock(
+        pipeline.checkers = {}  # Initialize empty checkers dict
+        pipeline.run = AsyncMock(  # Keep for backward compat
             return_value=Mock(
                 check_results=[
                     SafetyResult(
@@ -55,7 +56,19 @@ class TestToolExecutor:
                 ]
             )
         )
-        pipeline.add_checker = Mock()
+        pipeline.register_checker = Mock()
+        pipeline.run_checks = AsyncMock(
+            return_value=Mock(
+                check_results=[
+                    SafetyResult(
+                        checker_name="TestChecker",
+                        status=SafetyStatus.PASSED,
+                        message="Check passed",
+                        risk_level=RiskLevel.LOW,
+                    )
+                ]
+            )
+        )
         return pipeline
 
     @pytest.fixture
@@ -182,7 +195,7 @@ class TestToolExecutor:
         tool_executor.policy_engine.evaluate_tool_call.return_value.safety_checks = [
             SafetyCheck(name="test", checker_class="TestChecker")
         ]
-        tool_executor.safety_pipeline.run.return_value = Mock(
+        tool_executor.safety_pipeline.run_checks.return_value = Mock(
             check_results=[
                 SafetyResult(
                     checker_name="TestChecker",
@@ -213,7 +226,7 @@ class TestToolExecutor:
     async def test_execute_with_safety_warning_override(self, tool_executor):
         """Test executing a tool with safety warnings that are overridden."""
         # Mock safety pipeline to return warning
-        tool_executor.safety_pipeline.run.return_value = Mock(
+        tool_executor.safety_pipeline.run_checks.return_value = Mock(
             check_results=[
                 SafetyResult(
                     checker_name="TestChecker",
@@ -369,7 +382,7 @@ class TestToolExecutor:
         tool_executor.policy_engine.evaluate_tool_call.return_value.safety_checks = [
             SafetyCheck(name="test", checker_class="TestChecker")
         ]
-        tool_executor.safety_pipeline.run.return_value = Mock(
+        tool_executor.safety_pipeline.run_checks.return_value = Mock(
             check_results=[safety_result]
         )
 
@@ -414,24 +427,25 @@ class TestToolExecutor:
 
         tool_executor.register_tool("checked_tool", test_tool)
 
-        # Mock add_checker method
-        tool_executor.safety_pipeline.add_checker = Mock()
+        # Mock register_checker method and mock the checker module
+        tool_executor.safety_pipeline.register_checker = Mock()
+        tool_executor.safety_pipeline.checkers = {}  # Start with empty checkers
 
-        # Execute the tool
-        result = await tool_executor.execute(
-            tool_name="checked_tool",
-            parameters={},
-        )
+        # Patch the getattr to return a mock TestChecker class
+        mock_checker_class = Mock()
 
-        assert result.success is True
+        with patch('adh_cli.core.tool_executor.getattr', return_value=mock_checker_class) as mock_getattr:
+            # Execute the tool
+            result = await tool_executor.execute(
+                tool_name="checked_tool",
+                parameters={},
+            )
 
-        # Verify safety pipeline was configured and run
-        tool_executor.safety_pipeline.add_checker.assert_called_with(
-            "TestChecker",
-            {"key": "value"},
-            required=True,
-        )
-        tool_executor.safety_pipeline.run.assert_called_once()
+            assert result.success is True
+
+            # Verify safety pipeline was configured and run
+            tool_executor.safety_pipeline.register_checker.assert_called_with("TestChecker", mock_checker_class)
+            tool_executor.safety_pipeline.run_checks.assert_called_once()
 
 
 class TestExecutionContext:
