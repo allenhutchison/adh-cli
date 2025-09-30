@@ -166,6 +166,14 @@ class PolicyAwareFunctionTool(FunctionTool):
             decision = self.policy_engine.evaluate_tool_call(tool_call)
             return decision.requires_confirmation
 
+        # Set proper function name and docstring for ADK introspection
+        policy_wrapped_func.__name__ = tool_name
+        # Get description from original function if available
+        if hasattr(func, '__doc__') and func.__doc__:
+            policy_wrapped_func.__doc__ = func.__doc__
+        else:
+            policy_wrapped_func.__doc__ = f"Policy-enforced wrapper for {tool_name}"
+
         # Initialize parent FunctionTool with our wrapped function
         super().__init__(
             func=policy_wrapped_func,

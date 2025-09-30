@@ -92,8 +92,8 @@ class TestADHApp:
 
             app._register_default_tools()
 
-            # Check tools were registered
-            assert app.agent.register_tool.call_count >= 4  # At least 4 tools
+            # Check all 7 tools were registered
+            assert app.agent.register_tool.call_count == 7
 
             # Check specific tools - they use keyword arguments
             call_kwargs = [call.kwargs for call in app.agent.register_tool.call_args_list]
@@ -102,6 +102,9 @@ class TestADHApp:
             assert 'write_file' in tool_names
             assert 'list_directory' in tool_names
             assert 'execute_command' in tool_names
+            assert 'create_directory' in tool_names
+            assert 'delete_file' in tool_names
+            assert 'get_file_info' in tool_names
 
     @pytest.mark.asyncio
     async def test_handle_confirmation_with_context(self, app):

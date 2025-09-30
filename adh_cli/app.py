@@ -175,6 +175,50 @@ class ADHApp(App):
             handler=shell_tools.execute_command,
         )
 
+        self.agent.register_tool(
+            name="create_directory",
+            description="Create a new directory",
+            parameters={
+                "directory": {
+                    "type": "string",
+                    "description": "Directory path to create"
+                },
+                "parents": {
+                    "type": "boolean",
+                    "description": "Create parent directories if they don't exist (default: true)"
+                }
+            },
+            handler=shell_tools.create_directory,
+        )
+
+        self.agent.register_tool(
+            name="delete_file",
+            description="Delete a file (requires confirmation)",
+            parameters={
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to the file to delete"
+                },
+                "confirm": {
+                    "type": "boolean",
+                    "description": "Confirmation flag - must be true to delete"
+                }
+            },
+            handler=shell_tools.delete_file,
+        )
+
+        self.agent.register_tool(
+            name="get_file_info",
+            description="Get information about a file or directory",
+            parameters={
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to the file or directory"
+                }
+            },
+            handler=shell_tools.get_file_info,
+        )
+
     async def handle_confirmation(self, tool_call=None, decision=None, message=None, **kwargs):
         """Handle confirmation requests from the policy engine.
 
