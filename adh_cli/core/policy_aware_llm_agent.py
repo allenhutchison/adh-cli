@@ -88,7 +88,7 @@ class PolicyAwareLlmAgent:
             name="policy_aware_assistant",
             description="AI assistant with policy enforcement",
             instruction=self._get_system_instruction(),
-            tools=None,  # Will be set when tools are registered
+            # tools will be set when tools are registered via _update_agent_tools
             temperature=self.temperature,
             max_output_tokens=self.max_tokens,
         )
@@ -192,15 +192,20 @@ Be concise and helpful in your responses."""
             return
 
         # Recreate LlmAgent with updated tools
-        self.llm_agent = LlmAgent(
-            model=self.model_name,
-            name="policy_aware_assistant",
-            description="AI assistant with policy enforcement",
-            instruction=self._get_system_instruction(),
-            tools=self.tools if self.tools else None,
-            temperature=self.temperature,
-            max_output_tokens=self.max_tokens,
-        )
+        # Only pass tools if we have some (don't pass empty list or None)
+        llm_agent_kwargs = {
+            "model": self.model_name,
+            "name": "policy_aware_assistant",
+            "description": "AI assistant with policy enforcement",
+            "instruction": self._get_system_instruction(),
+            "temperature": self.temperature,
+            "max_output_tokens": self.max_tokens,
+        }
+
+        if self.tools:
+            llm_agent_kwargs["tools"] = self.tools
+
+        self.llm_agent = LlmAgent(**llm_agent_kwargs)
 
         # Recreate runner with updated agent
         self.runner = Runner(
