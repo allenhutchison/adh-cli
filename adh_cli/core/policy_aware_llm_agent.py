@@ -89,8 +89,10 @@ class PolicyAwareLlmAgent:
             description="AI assistant with policy enforcement",
             instruction=self._get_system_instruction(),
             # tools will be set when tools are registered via _update_agent_tools
-            temperature=self.temperature,
-            max_output_tokens=self.max_tokens,
+            generate_content_config=types.GenerateContentConfig(
+                temperature=self.temperature,
+                max_output_tokens=self.max_tokens,
+            ),
         )
 
         # Initialize session management
@@ -198,8 +200,10 @@ Be concise and helpful in your responses."""
             "name": "policy_aware_assistant",
             "description": "AI assistant with policy enforcement",
             "instruction": self._get_system_instruction(),
-            "temperature": self.temperature,
-            "max_output_tokens": self.max_tokens,
+            "generate_content_config": types.GenerateContentConfig(
+                temperature=self.temperature,
+                max_output_tokens=self.max_tokens,
+            ),
         }
 
         if self.tools:
