@@ -196,7 +196,7 @@ class TestToolExecutor:
             SafetyCheck(name="test", checker_class="TestChecker")
         ]
         tool_executor.safety_pipeline.run_checks.return_value = Mock(
-            check_results=[
+            results=[
                 SafetyResult(
                     checker_name="TestChecker",
                     status=SafetyStatus.FAILED,
@@ -227,7 +227,7 @@ class TestToolExecutor:
         """Test executing a tool with safety warnings that are overridden."""
         # Mock safety pipeline to return warning
         tool_executor.safety_pipeline.run_checks.return_value = Mock(
-            check_results=[
+            results=[
                 SafetyResult(
                     checker_name="TestChecker",
                     status=SafetyStatus.WARNING,
@@ -383,7 +383,7 @@ class TestToolExecutor:
             SafetyCheck(name="test", checker_class="TestChecker")
         ]
         tool_executor.safety_pipeline.run_checks.return_value = Mock(
-            check_results=[safety_result]
+            results=[safety_result]
         )
 
         # Register a tool that checks parameters
