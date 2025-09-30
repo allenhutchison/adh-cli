@@ -123,6 +123,16 @@ class TestChatScreen:
         screen.chat_log = mock_log
         screen.agent = Mock()
 
+        # Mock run_worker to capture the coroutine without running it
+        async_task = None
+        def capture_worker(coro, **kwargs):
+            nonlocal async_task
+            async_task = coro
+            # Return a mock to avoid the coroutine warning
+            return Mock()
+
+        screen.run_worker = Mock(side_effect=capture_worker)
+
         from textual.widgets import Input
         event = Mock(spec=Input.Submitted)
 
@@ -131,11 +141,12 @@ class TestChatScreen:
         # Check input was cleared
         assert mock_input.value == ""
 
-        # Check message was displayed
-        screen._add_message = Mock()
-
         # Check worker was started
         screen.run_worker.assert_called_once()
+
+        # Close the coroutine to avoid warning
+        if async_task:
+            async_task.close()
 
     @pytest.mark.asyncio
     async def test_get_ai_response(self, screen):
