@@ -1,12 +1,15 @@
 """Policy-aware wrapper for ADK FunctionTool."""
 
 import inspect
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, TYPE_CHECKING
 from google.adk.tools import FunctionTool
 from adh_cli.policies.policy_engine import PolicyEngine
 from adh_cli.policies.policy_types import ToolCall, PolicyDecision
 from adh_cli.safety.pipeline import SafetyPipeline, SafetyStatus
 from adh_cli.core.tool_executor import ExecutionContext
+
+if TYPE_CHECKING:
+    from adh_cli.ui.tool_execution_manager import ToolExecutionManager
 
 
 class SafetyError(Exception):
@@ -32,6 +35,7 @@ class PolicyAwareFunctionTool(FunctionTool):
         safety_pipeline: SafetyPipeline,
         confirmation_handler: Optional[Callable] = None,
         audit_logger: Optional[Callable] = None,
+        execution_manager: Optional["ToolExecutionManager"] = None,
     ):
         """Initialize policy-aware function tool.
 
@@ -42,17 +46,20 @@ class PolicyAwareFunctionTool(FunctionTool):
             safety_pipeline: Safety pipeline for checks
             confirmation_handler: Handler for user confirmations (not used directly)
             audit_logger: Logger for audit trail
+            execution_manager: Optional execution manager for UI tracking
         """
         self.tool_name = tool_name
         self.policy_engine = policy_engine
         self.safety_pipeline = safety_pipeline
         self.confirmation_handler = confirmation_handler
         self.audit_logger = audit_logger
+        self.execution_manager = execution_manager
         self.original_func = func
 
         # Create policy-wrapped function
         async def policy_wrapped_func(**kwargs):
             """Wrapper that enforces policy before execution."""
+            execution_id = None
 
             # 1. Create tool call for policy evaluation
             tool_call = ToolCall(
@@ -64,11 +71,25 @@ class PolicyAwareFunctionTool(FunctionTool):
             # 2. Evaluate against policy
             decision = self.policy_engine.evaluate_tool_call(tool_call)
 
-            # 3. Check if tool is blocked
+            # 3. Track execution start (if manager available)
+            if self.execution_manager:
+                execution_info = self.execution_manager.create_execution(
+                    tool_name=tool_name,
+                    parameters=kwargs,
+                    policy_decision=decision,
+                )
+                execution_id = execution_info.id
+
+            # 4. Check if tool is blocked
             if not decision.allowed:
                 error_msg = f"Tool '{tool_name}' blocked by policy"
                 if decision.reason:
                     error_msg += f": {decision.reason}"
+
+                # Track blocked execution
+                if self.execution_manager and execution_id:
+                    self.execution_manager.block_execution(execution_id, reason=error_msg)
+
                 raise PermissionError(error_msg)
 
             # 4. Run safety checks
@@ -118,9 +139,21 @@ class PolicyAwareFunctionTool(FunctionTool):
                     phase="pre_execution"
                 )
 
-            # 6. Execute original function
+            # 6. Mark execution as started
+            if self.execution_manager and execution_id:
+                self.execution_manager.start_execution(execution_id)
+
+            # 7. Execute original function
             try:
                 result = await func(**kwargs)
+
+                # Track successful completion
+                if self.execution_manager and execution_id:
+                    self.execution_manager.complete_execution(
+                        execution_id,
+                        success=True,
+                        result=result
+                    )
 
                 # Log success
                 if self.audit_logger:
@@ -135,6 +168,15 @@ class PolicyAwareFunctionTool(FunctionTool):
                 return result
 
             except Exception as e:
+                # Track failed execution
+                if self.execution_manager and execution_id:
+                    self.execution_manager.complete_execution(
+                        execution_id,
+                        success=False,
+                        error=str(e),
+                        error_type=type(e).__name__
+                    )
+
                 # Log failure
                 if self.audit_logger:
                     await self.audit_logger(
