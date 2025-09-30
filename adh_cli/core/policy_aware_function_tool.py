@@ -144,7 +144,18 @@ class PolicyAwareFunctionTool(FunctionTool):
                         success=False,
                         phase="execution_error"
                     )
-                raise
+
+                # Re-raise with enhanced error message including calling signature
+                error_type = type(e).__name__
+                param_str = ", ".join(f"{k}={repr(v)}" for k, v in kwargs.items())
+                enhanced_msg = f"{error_type} in {tool_name}({param_str}): {str(e)}"
+
+                # Create new exception with enhanced message but preserve original type
+                if isinstance(e, (FileNotFoundError, PermissionError, ValueError, TypeError)):
+                    raise type(e)(enhanced_msg) from e
+                else:
+                    # For unknown exception types, wrap in RuntimeError
+                    raise RuntimeError(enhanced_msg) from e
 
         # Create confirmation checker function
         def needs_confirmation(**kwargs) -> bool:

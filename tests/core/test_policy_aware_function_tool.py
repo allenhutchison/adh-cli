@@ -347,3 +347,40 @@ class TestPolicyAwareFunctionTool:
         result = await tool.func()
 
         assert result == "Result"  # Should still work
+
+    @pytest.mark.asyncio
+    async def test_enhanced_error_messages_with_calling_signature(
+        self, mock_policy_engine, mock_safety_pipeline
+    ):
+        """Test that error messages include the tool name and calling signature."""
+
+        async def test_func(file_path: str, max_lines: int = None):
+            # Simulate file not found error
+            raise FileNotFoundError(f"File not found: {file_path}")
+
+        tool = PolicyAwareFunctionTool(
+            func=test_func,
+            tool_name="read_file",
+            policy_engine=mock_policy_engine,
+            safety_pipeline=mock_safety_pipeline,
+        )
+
+        # Execute with specific parameters
+        with pytest.raises(FileNotFoundError) as exc_info:
+            await tool.func(file_path="adh_cli/services/adk_service.py", max_lines=100)
+
+        error_msg = str(exc_info.value)
+
+        # Verify enhanced error message contains:
+        # 1. Error type name
+        assert "FileNotFoundError" in error_msg
+
+        # 2. Tool name
+        assert "read_file" in error_msg
+
+        # 3. Parameter values in calling signature
+        assert "file_path='adh_cli/services/adk_service.py'" in error_msg
+        assert "max_lines=100" in error_msg
+
+        # 4. Original error message
+        assert "File not found" in error_msg
