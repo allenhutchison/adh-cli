@@ -16,6 +16,7 @@ from adh_cli.core.tool_executor import ExecutionContext, ExecutionResult
 from adh_cli.policies.policy_engine import PolicyEngine
 from adh_cli.policies.policy_types import SupervisionLevel
 from adh_cli.safety.pipeline import SafetyPipeline
+from adh_cli.ui.tool_execution_manager import ToolExecutionManager
 
 
 class PolicyAwareLlmAgent:
@@ -36,6 +37,11 @@ class PolicyAwareLlmAgent:
         audit_log_path: Optional[Path] = None,
         temperature: float = 0.7,
         max_tokens: int = 2048,
+        # Tool execution manager callbacks
+        on_execution_start: Optional[Callable] = None,
+        on_execution_update: Optional[Callable] = None,
+        on_execution_complete: Optional[Callable] = None,
+        on_confirmation_required: Optional[Callable] = None,
     ):
         """Initialize policy-aware LlmAgent.
 
@@ -48,6 +54,10 @@ class PolicyAwareLlmAgent:
             audit_log_path: Path for audit log
             temperature: Model temperature
             max_tokens: Max output tokens
+            on_execution_start: Callback when execution starts
+            on_execution_update: Callback when execution state updates
+            on_execution_complete: Callback when execution completes
+            on_confirmation_required: Callback when confirmation needed
         """
         self.model_name = model_name
         self.api_key = api_key
@@ -68,6 +78,14 @@ class PolicyAwareLlmAgent:
 
         # Create audit logger
         self.audit_logger = self._create_audit_logger(audit_log_path)
+
+        # Create tool execution manager
+        self.execution_manager = ToolExecutionManager(
+            on_execution_start=on_execution_start,
+            on_execution_update=on_execution_update,
+            on_execution_complete=on_execution_complete,
+            on_confirmation_required=on_confirmation_required,
+        )
 
         # Initialize LlmAgent and Runner (will be None if no API key)
         self.llm_agent = None
@@ -210,6 +228,7 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
             safety_pipeline=self.safety_pipeline,
             confirmation_handler=self.confirmation_handler,
             audit_logger=self.audit_logger,
+            execution_manager=self.execution_manager,
         )
 
         # Add to our tracking

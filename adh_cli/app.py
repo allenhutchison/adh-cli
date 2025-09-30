@@ -86,6 +86,7 @@ class ADHApp(App):
         try:
             if self.use_adk_agent:
                 # Use new ADK-based agent with automatic tool orchestration
+                # Note: Execution manager callbacks will be registered by ChatScreen on mount
                 self.agent = PolicyAwareLlmAgent(
                     model_name="gemini-2.0-flash-exp",
                     api_key=self.api_key,

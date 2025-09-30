@@ -1,10 +1,10 @@
 """Chat screen with policy-aware agent integration."""
 
-from typing import Optional
+from typing import Optional, Dict
 from pathlib import Path
 from textual import on
 from textual.app import ComposeResult
-from textual.containers import Container, Horizontal
+from textual.containers import Container, Horizontal, VerticalScroll
 from textual.screen import Screen
 from textual.widgets import Input, RichLog, Static
 from textual.binding import Binding
@@ -13,6 +13,9 @@ from rich.panel import Panel
 
 from ..core.tool_executor import ExecutionContext
 from ..ui.confirmation_dialog import ConfirmationDialog, SafetyWarningDialog, PolicyNotification
+from ..ui.tool_execution_widget import ToolExecutionWidget
+from ..ui.tool_execution import ToolExecutionInfo
+from ..policies.policy_types import PolicyDecision
 from ..services.clipboard_service import ClipboardService
 
 
@@ -91,6 +94,9 @@ class ChatScreen(Screen):
         self.safety_enabled = True
         self.context = ExecutionContext()
 
+        # Track tool execution widgets by execution ID
+        self.execution_widgets: Dict[str, ToolExecutionWidget] = {}
+
     def compose(self) -> ComposeResult:
         """Create child widgets for the chat screen."""
         # Status line
@@ -112,8 +118,8 @@ class ChatScreen(Screen):
             log.can_focus = True
             yield log
 
-        # Notification area for policy notifications
-        with Container(id="notification-area"):
+        # Notification area for tool execution widgets
+        with VerticalScroll(id="notification-area"):
             pass
 
         # Input area
@@ -131,6 +137,13 @@ class ChatScreen(Screen):
             # Get agent from app (already initialized with tools)
             if hasattr(self.app, 'agent'):
                 self.agent = self.app.agent
+
+                # Register execution manager callbacks if agent has manager
+                if hasattr(self.agent, 'execution_manager') and self.agent.execution_manager:
+                    self.agent.execution_manager.on_execution_start = self.on_execution_start
+                    self.agent.execution_manager.on_execution_update = self.on_execution_update
+                    self.agent.execution_manager.on_execution_complete = self.on_execution_complete
+                    self.agent.execution_manager.on_confirmation_required = self.on_confirmation_required
 
                 # Display agent type
                 agent_type = "ADK Agent" if hasattr(self.app, 'use_adk_agent') and self.app.use_adk_agent else "Legacy Agent"
@@ -320,3 +333,94 @@ class ChatScreen(Screen):
                 self.chat_log.write("[green]✓ Safety checks enabled. Tools subject to policy enforcement.[/green]")
 
         self.chat_log.write("")
+
+    # Tool Execution Manager Callbacks
+
+    def on_execution_start(self, info: ToolExecutionInfo) -> None:
+        """Handle execution start event from manager.
+
+        Args:
+            info: Execution information
+        """
+        notification_area = self.query_one("#notification-area", VerticalScroll)
+
+        # Create widget for this execution
+        widget = ToolExecutionWidget(
+            execution_info=info,
+            on_confirm=self._handle_widget_confirm,
+            on_cancel=self._handle_widget_cancel,
+        )
+
+        # Track widget
+        self.execution_widgets[info.id] = widget
+
+        # Mount widget
+        notification_area.mount(widget)
+
+    def on_execution_update(self, info: ToolExecutionInfo) -> None:
+        """Handle execution update event from manager.
+
+        Args:
+            info: Updated execution information
+        """
+        # Update widget if it exists
+        widget = self.execution_widgets.get(info.id)
+        if widget:
+            widget.update_info(info)
+
+    def on_execution_complete(self, info: ToolExecutionInfo) -> None:
+        """Handle execution complete event from manager.
+
+        Args:
+            info: Completed execution information
+        """
+        # Update widget to show completion
+        widget = self.execution_widgets.get(info.id)
+        if widget:
+            widget.update_info(info)
+
+            # Auto-remove after 3 seconds for successful executions
+            if info.state.value == "success":
+                self.set_timer(3.0, lambda: self._remove_execution_widget(info.id))
+
+    def on_confirmation_required(self, info: ToolExecutionInfo, decision: PolicyDecision) -> None:
+        """Handle confirmation required event from manager.
+
+        Args:
+            info: Execution information requiring confirmation
+            decision: Policy decision
+        """
+        # Update widget to show confirmation state
+        widget = self.execution_widgets.get(info.id)
+        if widget:
+            widget.update_info(info)
+
+    def _remove_execution_widget(self, execution_id: str) -> None:
+        """Remove an execution widget.
+
+        Args:
+            execution_id: ID of execution to remove
+        """
+        widget = self.execution_widgets.pop(execution_id, None)
+        if widget and widget.is_mounted:
+            widget.remove()
+
+    async def _handle_widget_confirm(self, info: ToolExecutionInfo) -> None:
+        """Handle confirm button click from widget.
+
+        Args:
+            info: Execution information
+        """
+        # Notify agent's execution manager that user confirmed
+        if self.agent and hasattr(self.agent, 'execution_manager'):
+            self.agent.execution_manager.confirm_execution(info.id)
+
+    async def _handle_widget_cancel(self, info: ToolExecutionInfo) -> None:
+        """Handle cancel button click from widget.
+
+        Args:
+            info: Execution information
+        """
+        # Notify agent's execution manager that user cancelled
+        if self.agent and hasattr(self.agent, 'execution_manager'):
+            self.agent.execution_manager.cancel_execution(info.id)
