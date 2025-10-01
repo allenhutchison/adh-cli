@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
 
 from adh_cli.app import ADHApp
-from adh_cli.core.policy_aware_agent import PolicyAwareAgent
 
 
 class TestADHApp:
@@ -15,8 +14,7 @@ class TestADHApp:
     @pytest.fixture
     def app(self):
         """Create a test app instance."""
-        with patch('adh_cli.app.PolicyAwareAgent'), \
-             patch('adh_cli.app.PolicyAwareLlmAgent'):
+        with patch('adh_cli.app.PolicyAwareLlmAgent'):
             app = ADHApp()
             # Mock the Textual app methods
             app.notify = Mock()
@@ -42,10 +40,9 @@ class TestADHApp:
             assert app.api_key == 'gemini_key'
 
     @patch('adh_cli.app.PolicyAwareLlmAgent')
-    def test_initialize_agent_with_adk(self, mock_agent_class, app):
-        """Test agent initialization with ADK agent (default)."""
+    def test_initialize_agent(self, mock_agent_class, app):
+        """Test agent initialization with ADK agent."""
         app.api_key = 'test_key'
-        app.use_adk_agent = True
         mock_agent = Mock()
         mock_agent_class.return_value = mock_agent
 
@@ -61,26 +58,6 @@ class TestADHApp:
             audit_log_path=app.policy_dir / "audit.log",
             temperature=0.7,
             max_tokens=2048,
-        )
-        assert app.agent == mock_agent
-
-    @patch('adh_cli.app.PolicyAwareAgent')
-    def test_initialize_agent_legacy(self, mock_agent_class, app):
-        """Test agent initialization with legacy agent."""
-        app.api_key = 'test_key'
-        app.use_adk_agent = False
-        mock_agent = Mock()
-        mock_agent_class.return_value = mock_agent
-
-        app._initialize_agent()
-
-        # Check legacy agent was created
-        mock_agent_class.assert_called_once_with(
-            api_key='test_key',
-            policy_dir=app.policy_dir,
-            confirmation_handler=app.handle_confirmation,
-            notification_handler=app.show_notification,
-            audit_log_path=app.policy_dir / "audit.log",
         )
         assert app.agent == mock_agent
 
@@ -226,38 +203,12 @@ class TestPolicyIntegration:
             yield Path(tmpdir)
 
     @pytest.mark.asyncio
-    async def test_full_initialization_adk(self, temp_policy_dir):
+    async def test_full_initialization(self, temp_policy_dir):
         """Test full app initialization with ADK agent."""
         with patch('adh_cli.app.PolicyAwareLlmAgent') as mock_agent_class:
             app = ADHApp()
             app.policy_dir = temp_policy_dir
             app.api_key = "test_key"
-            app.use_adk_agent = True
-            app.notify = Mock()
-
-            mock_agent = Mock()
-            mock_agent_class.return_value = mock_agent
-
-            # Initialize
-            app._initialize_agent()
-
-            # Verify agent was created correctly
-            assert app.agent is not None
-            mock_agent_class.assert_called_once()
-
-            # Check policy directory in call
-            call_kwargs = mock_agent_class.call_args[1]
-            assert call_kwargs['policy_dir'] == temp_policy_dir
-            assert call_kwargs['api_key'] == "test_key"
-
-    @pytest.mark.asyncio
-    async def test_full_initialization_legacy(self, temp_policy_dir):
-        """Test full app initialization with legacy agent."""
-        with patch('adh_cli.app.PolicyAwareAgent') as mock_agent_class:
-            app = ADHApp()
-            app.policy_dir = temp_policy_dir
-            app.api_key = "test_key"
-            app.use_adk_agent = False
             app.notify = Mock()
 
             mock_agent = Mock()

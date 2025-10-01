@@ -10,7 +10,6 @@ from textual.widgets import Header, Footer
 
 from .screens.main_screen import MainScreen
 from .screens.chat_screen import ChatScreen
-from .core.policy_aware_agent import PolicyAwareAgent
 from .core.policy_aware_llm_agent import PolicyAwareLlmAgent
 
 
@@ -50,9 +49,6 @@ class ADHApp(App):
         self.policy_dir = Path.home() / ".adh-cli" / "policies"
         self.safety_enabled = True
 
-        # Feature flag for ADK agent (can be disabled via environment variable)
-        self.use_adk_agent = os.environ.get("ADH_USE_ADK_AGENT", "true").lower() == "true"
-
         # Check for API key in environment
         self._load_api_key()
 
@@ -80,32 +76,20 @@ class ADHApp(App):
         self.push_screen("chat")
 
     def _initialize_agent(self):
-        """Initialize the policy-aware agent."""
+        """Initialize the policy-aware ADK agent."""
         try:
-            if self.use_adk_agent:
-                # Use new ADK-based agent with automatic tool orchestration
-                # Note: Execution manager callbacks will be registered by ChatScreen on mount
-                self.agent = PolicyAwareLlmAgent(
-                    model_name="gemini-flash-latest",
-                    api_key=self.api_key,
-                    policy_dir=self.policy_dir,
-                    confirmation_handler=self.handle_confirmation,
-                    notification_handler=self.show_notification,
-                    audit_log_path=self.policy_dir / "audit.log",
-                    temperature=0.7,
-                    max_tokens=2048,
-                )
-                self.notify("✓ Using ADK Agent", severity="information")
-            else:
-                # Use legacy PolicyAwareAgent with manual function calling
-                self.agent = PolicyAwareAgent(
-                    api_key=self.api_key,
-                    policy_dir=self.policy_dir,
-                    confirmation_handler=self.handle_confirmation,
-                    notification_handler=self.show_notification,
-                    audit_log_path=self.policy_dir / "audit.log",
-                )
-                self.notify("Using Legacy Agent", severity="information")
+            # Use ADK-based agent with automatic tool orchestration
+            # Note: Execution manager callbacks will be registered by ChatScreen on mount
+            self.agent = PolicyAwareLlmAgent(
+                model_name="gemini-flash-latest",
+                api_key=self.api_key,
+                policy_dir=self.policy_dir,
+                confirmation_handler=self.handle_confirmation,
+                notification_handler=self.show_notification,
+                audit_log_path=self.policy_dir / "audit.log",
+                temperature=0.7,
+                max_tokens=2048,
+            )
 
             # Register default tools
             self._register_default_tools()

@@ -85,7 +85,6 @@ textual run --dev adh_cli.app:ADHApp
 
 ### Google ADK Integration
 
-#### Policy-Aware ADK Agent (Default)
 The `adh_cli/core/policy_aware_llm_agent.py` provides ADK-based AI interactions:
 - Uses Google ADK's LlmAgent for automatic tool orchestration
 - Integrates policy engine with ADK agent
@@ -94,13 +93,6 @@ The `adh_cli/core/policy_aware_llm_agent.py` provides ADK-based AI interactions:
 - Maintains audit logs of all tool executions
 - Supports event streaming for real-time monitoring
 - Session management for stateful conversations
-
-#### Legacy Policy-Aware Agent (Fallback)
-The `adh_cli/core/policy_aware_agent.py` provides manual function-calling:
-- Can be enabled with `ADH_USE_ADK_AGENT=false` environment variable
-- Manual function call handling with google.genai.Client
-- Full policy enforcement and safety checks
-- All features available, but without ADK orchestration
 
 ### Screen Architecture
 Each screen inherits from `textual.screen.Screen`:
@@ -122,20 +114,10 @@ Each screen inherits from `textual.screen.Screen`:
 - Uses python-dotenv to load from .env file
 - Runtime configuration updates via SettingsScreen
 
-#### Agent Selection
-- **ADH_USE_ADK_AGENT**: Set to `true` (default) to use PolicyAwareLlmAgent with ADK orchestration
-- Set to `false` to use legacy PolicyAwareAgent with manual function calling
-- Example:
-```bash
-export ADH_USE_ADK_AGENT=false  # Use legacy agent
-adh-cli
-```
-
 ### Chat Session State
-- PolicyAwareLlmAgent (default) uses ADK's InMemorySessionService for state management
+- Uses ADK's InMemorySessionService for state management
 - Automatic multi-turn conversation handling with tool orchestration
-- PolicyAwareAgent (legacy) uses manual conversation history tracking
-- All tool calls go through policy evaluation before execution regardless of agent type
+- All tool calls go through policy evaluation before execution
 
 ### Textual Keybindings
 Global bindings defined in `ADHApp.BINDINGS`:
@@ -212,9 +194,9 @@ Users can create custom policies in `~/.adh-cli/policies/`:
 ### Testing
 
 #### Test Coverage
-- **255 total tests** across the project (1 skipped)
+- **205+ total tests** across the project
 - Policy engine: 58 tests
-- Core agents: 50 tests (PolicyAwareAgent + PolicyAwareLlmAgent + PolicyAwareFunctionTool)
+- Core agents: 25 tests (PolicyAwareLlmAgent + PolicyAwareFunctionTool)
 - ADK integration: 14 tests
 - Shell tools: 28 tests
 - UI components: 32 tests

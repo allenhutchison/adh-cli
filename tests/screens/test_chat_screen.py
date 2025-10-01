@@ -5,7 +5,6 @@ from unittest.mock import Mock, AsyncMock, patch, MagicMock, PropertyMock
 from pathlib import Path
 
 from adh_cli.screens.chat_screen import ChatScreen
-from adh_cli.core.policy_aware_agent import PolicyAwareAgent
 from adh_cli.core.tool_executor import ExecutionContext
 
 
@@ -19,7 +18,6 @@ class TestChatScreen:
         mock_app = Mock()
         mock_app.api_key = 'test_key'
         mock_app.agent = Mock()  # App now provides the agent
-        mock_app.use_adk_agent = True
 
         # Patch the app property
         with patch.object(ChatScreen, 'app', new_callable=PropertyMock) as mock_app_prop:

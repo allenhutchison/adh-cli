@@ -1,9 +1,13 @@
 # ADR 003: Google ADK Integration for Tool Orchestration
 
-**Status:** Accepted
+**Status:** Superseded by consolidation (2025-10-01)
 **Date:** 2025-09-30 (Retroactive documentation)
 **Deciders:** Project Team
 **Tags:** architecture, integration, ai, performance
+
+> **Update (2025-10-01):** The dual implementation approach described in this ADR has been consolidated.
+> The application now uses only the ADK-based implementation (`PolicyAwareLlmAgent`).
+> The legacy manual function-calling mode (`PolicyAwareAgent`) has been removed.
 
 ---
 
