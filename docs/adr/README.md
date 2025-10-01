@@ -36,6 +36,7 @@ Each ADR follows a consistent template (see `000-template.md`):
 | [005](005-unified-error-handling.md) | Unified Error Handling and Response Processing | Proposed | 2025-09-30 |
 | [006](006-policy-configuration-ui.md) | Policy Configuration UI | Proposed | 2025-09-30 |
 | [007](007-comprehensive-integration-tests.md) | Comprehensive Integration Testing | Proposed | 2025-09-30 |
+| [008](008-centralized-model-configuration.md) | Centralized Model Configuration | Proposed | 2025-09-30 |
 
 ## When to Create an ADR
 
