@@ -281,7 +281,6 @@ class TestPolicyIntegration:
 
         assert "main" in app.SCREENS
         assert "chat" in app.SCREENS
-        assert "settings" in app.SCREENS
 
     def test_app_bindings_defined(self):
         """Test that all keybindings are defined."""

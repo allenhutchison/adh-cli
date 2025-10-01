@@ -12,11 +12,10 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 
 from ..core.tool_executor import ExecutionContext
-from ..ui.confirmation_dialog import ConfirmationDialog, SafetyWarningDialog, PolicyNotification
+from ..ui.confirmation_dialog import ConfirmationDialog, PolicyNotification
 from ..ui.tool_execution_widget import ToolExecutionWidget
 from ..ui.tool_execution import ToolExecutionInfo
 from ..policies.policy_types import PolicyDecision
-from ..services.clipboard_service import ClipboardService
 
 
 class ChatScreen(Screen):

@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional, Set
 from dataclasses import dataclass, field
 from ..services.prompt_service import PromptTemplate
-from ..tools.tool_registry import ToolRegistry
 
 
 @dataclass

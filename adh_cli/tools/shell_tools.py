@@ -360,15 +360,3 @@ def _is_binary(file_path: Path) -> bool:
             return b'\x00' in chunk
     except Exception:
         return False
-
-
-# Tool registry for easy import
-TOOLS = {
-    "read_file": read_file,
-    "write_file": write_file,
-    "list_directory": list_directory,
-    "execute_command": execute_command,
-    "create_directory": create_directory,
-    "delete_file": delete_file,
-    "get_file_info": get_file_info,
-}

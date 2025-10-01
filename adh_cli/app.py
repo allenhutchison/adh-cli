@@ -10,7 +10,6 @@ from textual.widgets import Header, Footer
 
 from .screens.main_screen import MainScreen
 from .screens.chat_screen import ChatScreen
-from .screens.settings_screen import SettingsScreen
 from .core.policy_aware_agent import PolicyAwareAgent
 from .core.policy_aware_llm_agent import PolicyAwareLlmAgent
 
@@ -38,7 +37,6 @@ class ADHApp(App):
     SCREENS = {
         "main": MainScreen,
         "chat": ChatScreen,
-        "settings": SettingsScreen,
     }
 
     TITLE = "ADH CLI - Policy-Aware Agent"
@@ -314,13 +312,3 @@ class ADHApp(App):
                 # Re-enable normal policy enforcement
                 self.agent.set_user_preferences({})
                 self.notify("✓ Safety checks enabled", severity="success")
-
-
-def run():
-    """Run the policy-aware application."""
-    app = PolicyAwareADHApp()
-    app.run()
-
-
-if __name__ == "__main__":
-    run()
