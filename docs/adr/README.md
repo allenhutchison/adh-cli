@@ -41,6 +41,7 @@ Each ADR follows a consistent template (see `000-template.md`):
 | [010](010-markdown-driven-agent-definition.md) | Markdown-Driven Agent Definition | Accepted | 2025-10-02 |
 | [011](011-command-palette-integration.md) | Command Palette Integration | Accepted | 2025-10-02 |
 | [012](012-ui-based-tool-confirmation.md) | UI-Based Tool Confirmation | Accepted | 2025-10-02 |
+| [013](013-ui-design-system.md) | UI Design System | Accepted | 2025-10-02 |
 
 ## When to Create an ADR
 

@@ -10,25 +10,73 @@ from textual.widgets import Button, Static, Label, Welcome
 class MainScreen(Screen):
     """Main screen of the application."""
 
+    CSS = """
+    MainScreen {
+        align: center middle;
+    }
+
+    MainScreen .container {
+        width: auto;
+        min-width: 60;
+        max-width: 100;
+        height: auto;
+        background: $surface;
+        border: solid $primary;
+        padding: 2 4;
+        align: center middle;
+    }
+
+    #welcome-text {
+        text-align: center;
+        color: $text-primary;
+        margin-bottom: 2;
+    }
+
+    #welcome-subtitle {
+        text-align: center;
+        color: $text-secondary;
+        margin-bottom: 4;
+    }
+
+    #help-text {
+        text-align: center;
+        color: $text-muted;
+        margin-top: 2;
+    }
+
+    MainScreen Horizontal {
+        align: center middle;
+        height: auto;
+        margin: 2 0;
+    }
+
+    MainScreen Button {
+        margin: 0 1;
+        min-width: 16;
+    }
+    """
+
     def compose(self) -> ComposeResult:
         """Create child widgets for the main screen."""
         with Container(classes="container"):
             yield Static(
-                "[bold]Welcome to ADH CLI[/bold]\n\n"
-                "A Terminal User Interface for Google ADK\n",
+                "[bold]Welcome to ADH CLI[/bold]",
                 id="welcome-text"
             )
 
-            with Vertical():
-                yield Label("Choose an option to get started:")
+            yield Static(
+                "A Policy-Aware Terminal Interface for AI-Assisted Development",
+                id="welcome-subtitle"
+            )
 
+            with Vertical():
                 with Horizontal():
                     yield Button("Start Chat", id="btn-chat", variant="primary")
                     yield Button("Settings", id="btn-settings", variant="default")
                     yield Button("View Models", id="btn-models", variant="default")
 
                 yield Static(
-                    "\n[dim]Press 'c' for Chat, 's' for Settings, or 'q' to quit[/dim]",
+                    "Press 'c' for Chat, 's' for Settings, or 'q' to quit",
                     id="help-text"
                 )
 

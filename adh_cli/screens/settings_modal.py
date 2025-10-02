@@ -44,27 +44,49 @@ class SettingsModal(ModalScreen):
     }
 
     SettingsModal > Container {
-        background: $panel;
+        background: $surface;
         border: thick $primary;
-        padding: 1 2;
-        width: 60;
+        padding: 2;
+        width: 70;
+        max-width: $form-max-width;
         max-height: 80%;
         overflow-y: auto;
     }
 
     #settings-title {
         text-align: center;
-        margin-bottom: 1;
+        margin-bottom: 2;
         text-style: bold;
+        color: $text-primary;
+    }
+
+    SettingsModal Label {
+        color: $text-primary;
+        margin-top: 1;
+    }
+
+    SettingsModal Input {
+        border: solid $border;
+        margin-bottom: 1;
+    }
+
+    SettingsModal Input:focus {
+        border: solid $border-focus;
+    }
+
+    SettingsModal Select {
+        margin-bottom: 1;
     }
 
     #button-container {
-        margin-top: 1;
+        margin-top: 2;
         align: center middle;
+        height: 3;
     }
 
     #button-container Button {
         margin: 0 1;
+        min-width: 12;
     }
     """
 
@@ -189,7 +211,7 @@ class SettingsModal(ModalScreen):
     @on(Switch.Changed, "#dark-mode-switch")
     def on_dark_mode_changed(self, event: Switch.Changed) -> None:
         """Toggle dark mode."""
-        self.app.theme = "textual-dark" if event.value else "textual-light"
+        self.app.theme = "adh-dark" if event.value else "adh-light"
 
     def on_mount(self) -> None:
         """Load existing settings when modal is mounted."""

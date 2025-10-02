@@ -32,13 +32,13 @@ class ToolExecutionWidget(Widget):
         height: auto;
         margin: 0 0 1 0;
         padding: 1 2;
-        border: solid $primary;
+        border: solid $border;
         background: $surface;
     }
 
     ToolExecutionWidget.executing {
-        border: solid $accent;
-        background: $accent-lighten-3;
+        border: solid $execution-running;
+        background: $panel;
     }
 
     ToolExecutionWidget.confirming {
@@ -47,23 +47,24 @@ class ToolExecutionWidget(Widget):
     }
 
     ToolExecutionWidget.success {
-        border: solid $success;
+        border: solid $execution-success;
         background: $success-lighten-3;
     }
 
     ToolExecutionWidget.failed {
-        border: solid $error;
+        border: solid $execution-failed;
         background: $error-lighten-3;
     }
 
     ToolExecutionWidget.blocked {
-        border: solid $error;
+        border: solid $execution-blocked;
         background: $error-lighten-2;
     }
 
     ToolExecutionWidget .header {
         width: 100%;
-        height: 1;
+        height: auto;
+        color: $text-primary;
     }
 
     ToolExecutionWidget .params-compact {
@@ -78,6 +79,7 @@ class ToolExecutionWidget(Widget):
         height: auto;
         margin-top: 1;
         padding: 0 2;
+        color: $text-secondary;
     }
 
     ToolExecutionWidget .button-container {
@@ -93,24 +95,23 @@ class ToolExecutionWidget(Widget):
     }
 
     ToolExecutionWidget .risk-badge {
-        color: $text;
         text-style: bold;
     }
 
     ToolExecutionWidget .risk-badge-low {
-        color: $success;
+        color: $risk-low;
     }
 
     ToolExecutionWidget .risk-badge-medium {
-        color: $warning;
+        color: $risk-medium;
     }
 
     ToolExecutionWidget .risk-badge-high {
-        color: $error;
+        color: $risk-high;
     }
 
     ToolExecutionWidget .risk-badge-critical {
-        color: $error;
+        color: $risk-critical;
         text-style: bold;
     }
     """

@@ -28,53 +28,48 @@ class ChatScreen(Screen):
 
     #chat-container {
         height: 1fr;
-        padding: 1 1 0 1;
+        width: 100%;
+        padding: 1 2 0 2;
     }
 
     #chat-log {
         height: 100%;
+        width: 100%;
         border: solid $primary;
         border-title-align: center;
-        padding: 0 1;
+        padding: 2;
         background: $surface;
     }
 
     #notification-area {
         height: auto;
         max-height: 10;
-        padding: 0 1;
-    }
-
-    #input-container {
-        height: auto;
-        padding: 0 1 1 1;
+        width: 100%;
+        padding: 0 2;
     }
 
     #chat-input {
         width: 100%;
-    }
-
-    #chat-input:focus {
-        border: solid $secondary;
+        margin: 0 2 2 2;
     }
 
     #status-line {
         dock: bottom;
         height: 1;
         background: $panel;
-        color: $text;
+        color: $text-primary;
         padding: 0 1;
         width: 100%;
     }
 
     #status-line.thinking {
         background: $warning;
-        color: $text;
+        color: $text-on-warning;
     }
 
     #status-line.policy-check {
         background: $primary;
-        color: $text;
+        color: $text-on-primary;
     }
     """
 
@@ -123,11 +118,10 @@ class ChatScreen(Screen):
             pass
 
         # Input area
-        with Horizontal(id="input-container"):
-            yield Input(
-                placeholder="Type your message here... (Ctrl+P for policies)",
-                id="chat-input"
-            )
+        yield Input(
+            placeholder="Type your message here... (Ctrl+P for policies)",
+            id="chat-input"
+        )
 
     def on_mount(self) -> None:
         """Initialize services when screen is mounted."""
@@ -146,13 +140,32 @@ class ChatScreen(Screen):
                     self.agent.execution_manager.on_confirmation_required = self.on_confirmation_required
 
                 # Display agent info
+                from rich.text import Text
                 agent_name = getattr(self.agent, 'agent_name', 'orchestrator')
+
+                welcome = Text()
+                welcome.append("Policy-Aware Chat Ready ", style="dim")
+                welcome.append(f"(Agent: {agent_name})", style="dim cyan")
+                self.chat_log.write(welcome)
+
                 self.chat_log.write(
-                    f"[dim]Policy-Aware Chat Ready (Agent: {agent_name}). Tools will be executed according to configured policies.[/dim]"
+                    "[dim]Tools will be executed according to configured policies.[/dim]"
                 )
-                self.chat_log.write(
-                    "[dim]Ctrl+/: policies | Ctrl+S: safety | Ctrl+,: settings | Ctrl+L: clear[/dim]"
-                )
+                self.chat_log.write("")  # Spacing
+
+                # Keyboard shortcuts
+                shortcuts = Text()
+                shortcuts.append("Keyboard shortcuts: ", style="dim")
+                shortcuts.append("Ctrl+/", style="bold")
+                shortcuts.append(" policies | ", style="dim")
+                shortcuts.append("Ctrl+S", style="bold")
+                shortcuts.append(" safety | ", style="dim")
+                shortcuts.append("Ctrl+,", style="bold")
+                shortcuts.append(" settings | ", style="dim")
+                shortcuts.append("Ctrl+L", style="bold")
+                shortcuts.append(" clear", style="dim")
+                self.chat_log.write(shortcuts)
+                self.chat_log.write("")  # Spacing
             else:
                 raise Exception("App does not have an agent initialized")
 
@@ -262,27 +275,30 @@ class ChatScreen(Screen):
             message: The message content
             is_user: Whether this is a user message
         """
-        color = "cyan" if is_user else "green"
-        speaker_text = f"[bold {color}]{speaker}:[/bold {color}]"
-
-        # Try to render as markdown for AI responses
-        if not is_user:
+        # Use theme colors instead of hardcoded colors
+        # Colors are defined in adh_cli/ui/theme.py
+        if is_user:
+            # User messages - bright blue, more prominent
+            from rich.text import Text
+            user_message = Text()
+            user_message.append("You: ", style="bold blue")
+            user_message.append(message, style="white")
+            self.chat_log.write(user_message)
+        else:
+            # AI messages - render as markdown in a panel
             try:
                 md = Markdown(message)
                 panel = Panel(
                     md,
-                    title=speaker_text,
+                    title="[bold cyan]AI:[/bold cyan]",
                     title_align="left",
-                    border_style=color,
+                    border_style="cyan",
                     padding=(0, 1),
                 )
                 self.chat_log.write(panel)
             except Exception:
                 # Fallback to plain text
-                self.chat_log.write(f"{speaker_text}\n{message}")
-        else:
-            # User messages as simple text
-            self.chat_log.write(f"{speaker_text} {message}")
+                self.chat_log.write(f"[bold cyan]AI:[/bold cyan]\n{message}")
 
         self.chat_log.write("")  # Add spacing
 

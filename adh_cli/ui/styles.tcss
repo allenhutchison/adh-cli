@@ -1,0 +1,436 @@
+/*
+ * ADH CLI Global Stylesheet
+ *
+ * This stylesheet defines global styles, semantic classes, and component
+ * base styles that follow Textual's design system principles.
+ *
+ * All colors use theme variables to support light/dark modes and theming.
+ */
+
+/* ============================================================
+ * BASE STYLES
+ * ============================================================ */
+
+Screen {
+    background: $background;
+}
+
+/* ============================================================
+ * TYPOGRAPHY
+ * ============================================================ */
+
+.heading-1 {
+    text-style: bold;
+    color: $text-primary;
+}
+
+.heading-2 {
+    text-style: bold;
+    color: $text-primary;
+}
+
+.heading-3 {
+    text-style: bold;
+    color: $text-secondary;
+}
+
+.text-primary {
+    color: $text-primary;
+}
+
+.text-secondary {
+    color: $text-secondary;
+}
+
+.text-muted {
+    color: $text-muted;
+}
+
+.text-disabled {
+    color: $text-disabled;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.text-bold {
+    text-style: bold;
+}
+
+/* ============================================================
+ * LAYOUT UTILITIES
+ * ============================================================ */
+
+.container {
+    padding: 1 2;
+}
+
+.container-sm {
+    padding: 1;
+}
+
+.container-lg {
+    padding: 2 4;
+}
+
+.section {
+    margin: 2 0;
+}
+
+.section-sm {
+    margin: 1 0;
+}
+
+/* Content width constraints for readability */
+.content-constrained {
+    max-width: $content-max-width;
+}
+
+.chat-constrained {
+    max-width: $chat-max-width;
+}
+
+.form-constrained {
+    max-width: $form-max-width;
+}
+
+/* ============================================================
+ * CARD/PANEL COMPONENTS
+ * ============================================================ */
+
+.card {
+    background: $panel;
+    border: solid $border;
+    padding: 1 2;
+    margin: 1 0;
+}
+
+.card-elevated {
+    background: $surface;
+    border: solid $primary;
+    padding: 2;
+    margin: 1 0;
+}
+
+.card-flat {
+    background: $surface;
+    padding: 1 2;
+    margin: 1 0;
+}
+
+/* ============================================================
+ * STATUS AND STATE CLASSES
+ * ============================================================ */
+
+.status-success {
+    background: $success;
+    color: $text-on-success;
+}
+
+.status-warning {
+    background: $warning;
+    color: $text-on-warning;
+}
+
+.status-error {
+    background: $error;
+    color: $text-on-error;
+}
+
+.status-info {
+    background: $primary;
+    color: $text-on-primary;
+}
+
+/* Risk level indicators */
+.risk-none {
+    color: $risk-none;
+}
+
+.risk-low {
+    color: $risk-low;
+}
+
+.risk-medium {
+    color: $risk-medium;
+}
+
+.risk-high {
+    color: $risk-high;
+}
+
+.risk-critical {
+    color: $risk-critical;
+    text-style: bold;
+}
+
+/* Execution states */
+.state-pending {
+    color: $execution-pending;
+}
+
+.state-running {
+    color: $execution-running;
+}
+
+.state-success {
+    color: $execution-success;
+}
+
+.state-failed {
+    color: $execution-failed;
+}
+
+.state-blocked {
+    color: $execution-blocked;
+}
+
+/* ============================================================
+ * BUTTON STYLES
+ * ============================================================ */
+
+Button {
+    min-width: 12;
+    margin: 0 1;
+}
+
+Button:focus {
+    border: solid $border-focus;
+}
+
+/* Button variants are handled by Textual, but we can add spacing */
+.button-group {
+    align: center middle;
+    height: 3;
+    margin-top: 1;
+}
+
+.button-group-tight {
+    align: center middle;
+    height: 3;
+    margin-top: 0;
+}
+
+/* ============================================================
+ * INPUT AND FORM STYLES
+ * ============================================================ */
+
+Input {
+    border: solid $border;
+}
+
+Input:focus {
+    border: solid $border-focus;
+}
+
+Input.error {
+    border: solid $border-error;
+}
+
+.form-field {
+    margin: 1 0;
+}
+
+.form-label {
+    color: $text-primary;
+    margin-bottom: 0;
+}
+
+.form-help {
+    color: $text-muted;
+    margin-top: 0;
+}
+
+/* ============================================================
+ * CHAT-SPECIFIC STYLES
+ * ============================================================ */
+
+.chat-message {
+    margin: 1 0;
+    padding: 1 2;
+}
+
+.chat-user {
+    color: $chat-user;
+}
+
+.chat-ai {
+    color: $chat-ai;
+}
+
+.chat-system {
+    color: $chat-system;
+}
+
+/* ============================================================
+ * MODAL AND DIALOG STYLES
+ * ============================================================ */
+
+ModalScreen > Container {
+    background: $surface;
+    border: thick $primary;
+    padding: 2;
+}
+
+.modal-title {
+    text-align: center;
+    text-style: bold;
+    color: $text-primary;
+    margin-bottom: 1;
+}
+
+.modal-content {
+    margin: 1 0;
+}
+
+.modal-actions {
+    dock: bottom;
+    height: 3;
+    margin-top: 2;
+    align: center middle;
+}
+
+/* ============================================================
+ * BADGE COMPONENTS
+ * ============================================================ */
+
+.badge {
+    text-align: center;
+    padding: 0 1;
+    margin: 0 1;
+    width: auto;
+}
+
+.badge-success {
+    background: $success;
+    color: $text-on-success;
+}
+
+.badge-warning {
+    background: $warning;
+    color: $text-on-warning;
+}
+
+.badge-error {
+    background: $error;
+    color: $text-on-error;
+}
+
+.badge-info {
+    background: $primary;
+    color: $text-on-primary;
+}
+
+/* Risk badges with semantic meaning */
+.risk-badge {
+    text-align: center;
+    padding: 0 2;
+    text-style: bold;
+}
+
+.risk-badge-low {
+    background: $risk-low;
+    color: $text-on-success;
+}
+
+.risk-badge-medium {
+    background: $risk-medium;
+    color: $text-on-warning;
+}
+
+.risk-badge-high {
+    background: $risk-high;
+    color: $text-on-error;
+}
+
+.risk-badge-critical {
+    background: $risk-critical;
+    color: $text-on-error;
+}
+
+/* ============================================================
+ * NOTIFICATION STYLES
+ * ============================================================ */
+
+.notification {
+    height: auto;
+    margin: 1 0;
+    padding: 1 2;
+    border: tall $border;
+}
+
+.notification-info {
+    background: $primary-lighten-2;
+    border: tall $primary;
+}
+
+.notification-success {
+    background: $success-lighten-2;
+    border: tall $success;
+}
+
+.notification-warning {
+    background: $warning-lighten-2;
+    border: tall $warning;
+}
+
+.notification-error {
+    background: $error-lighten-2;
+    border: tall $error;
+}
+
+/* ============================================================
+ * ACCESSIBILITY
+ * ============================================================ */
+
+/* Enhanced focus indicators */
+*:focus {
+    border: solid $border-focus;
+}
+
+/* Ensure focus is always visible */
+*:focus-within {
+    outline: solid $border-focus;
+}
+
+/* ============================================================
+ * UTILITY CLASSES
+ * ============================================================ */
+
+.hidden {
+    display: none;
+}
+
+.visible {
+    display: block;
+}
+
+/* Spacing utilities */
+.m-0 { margin: 0; }
+.m-1 { margin: 1; }
+.m-2 { margin: 2; }
+.m-4 { margin: 4; }
+
+.mt-0 { margin-top: 0; }
+.mt-1 { margin-top: 1; }
+.mt-2 { margin-top: 2; }
+.mt-4 { margin-top: 4; }
+
+.mb-0 { margin-bottom: 0; }
+.mb-1 { margin-bottom: 1; }
+.mb-2 { margin-bottom: 2; }
+.mb-4 { margin-bottom: 4; }
+
+.p-0 { padding: 0; }
+.p-1 { padding: 1; }
+.p-2 { padding: 2; }
+.p-4 { padding: 4; }
+
+/* Width utilities */
+.w-full { width: 100%; }
+.w-auto { width: auto; }
+
+/* Height utilities */
+.h-full { height: 100%; }
+.h-auto { height: auto; }

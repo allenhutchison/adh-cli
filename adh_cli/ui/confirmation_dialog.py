@@ -28,41 +28,42 @@ class ConfirmationDialog(ModalScreen):
         max-height: 80%;
         background: $surface;
         border: thick $primary;
-        padding: 1 2;
+        padding: 2;
     }
 
     ConfirmationDialog .title {
         text-align: center;
         text-style: bold;
-        color: $text;
+        color: $text-primary;
         margin-bottom: 1;
     }
 
     ConfirmationDialog .risk-badge {
         text-align: center;
         width: auto;
-        padding: 0 1;
+        padding: 0 2;
         margin-bottom: 1;
+        text-style: bold;
     }
 
     ConfirmationDialog .risk-low {
-        background: $success;
-        color: $text;
+        background: $risk-low;
+        color: $text-on-success;
     }
 
     ConfirmationDialog .risk-medium {
-        background: $warning;
-        color: $text;
+        background: $risk-medium;
+        color: $text-on-warning;
     }
 
     ConfirmationDialog .risk-high {
-        background: $error;
-        color: $text;
+        background: $risk-high;
+        color: $text-on-error;
     }
 
     ConfirmationDialog .risk-critical {
-        background: $error;
-        color: $text;
+        background: $risk-critical;
+        color: $text-on-error;
         text-style: bold;
     }
 
@@ -71,12 +72,13 @@ class ConfirmationDialog(ModalScreen):
         height: auto;
         max-height: 20;
         overflow-y: auto;
+        color: $text-secondary;
     }
 
     ConfirmationDialog .button-container {
         dock: bottom;
         height: 3;
-        margin-top: 1;
+        margin-top: 2;
         align: center middle;
     }
 
@@ -187,31 +189,35 @@ class PolicyNotification(Widget):
 
     DEFAULT_CSS = """
     PolicyNotification {
-        height: 3;
+        height: auto;
         margin: 1 0;
-        padding: 0 1;
-        background: $primary-lighten-2;
-        border: tall $primary;
+        padding: 1 2;
+        border: tall $border;
+        background: $panel;
     }
 
     PolicyNotification.info {
         background: $primary-lighten-2;
         border: tall $primary;
+        color: $text-on-primary;
     }
 
     PolicyNotification.warning {
         background: $warning-lighten-2;
         border: tall $warning;
+        color: $text-on-warning;
     }
 
     PolicyNotification.error {
         background: $error-lighten-2;
         border: tall $error;
+        color: $text-on-error;
     }
 
     PolicyNotification.success {
         background: $success-lighten-2;
         border: tall $success;
+        color: $text-on-success;
     }
     """
 

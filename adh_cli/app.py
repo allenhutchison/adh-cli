@@ -13,6 +13,7 @@ from .screens.main_screen import MainScreen
 from .screens.chat_screen import ChatScreen
 from .core.policy_aware_llm_agent import PolicyAwareLlmAgent
 from .core.config_paths import ConfigPaths
+from .ui.theme import get_themes
 
 
 def get_adh_commands_provider():
@@ -38,15 +39,8 @@ def get_settings_commands_provider():
 class ADHApp(App):
     """Main ADH CLI TUI Application with Policy-Aware Agent."""
 
-    CSS = """
-    Screen {
-        background: $surface;
-    }
-
-    .container {
-        padding: 1 2;
-    }
-    """
+    # Load global stylesheet
+    CSS_PATH = Path(__file__).parent / "ui" / "styles.tcss"
 
     BINDINGS = [
         Binding("q", "quit", "Quit", priority=True),
@@ -71,6 +65,14 @@ class ADHApp(App):
     def __init__(self):
         """Initialize the application."""
         super().__init__()
+
+        # Register custom themes
+        for theme_name, theme in get_themes().items():
+            self.register_theme(theme)
+
+        # Set default theme to adh-dark
+        self.theme = "adh-dark"
+
         self.agent = None
         self.api_key = None
         self.safety_enabled = True
@@ -317,7 +319,7 @@ class ADHApp(App):
 
     def action_toggle_dark(self) -> None:
         """Toggle dark mode."""
-        self.theme = "textual-dark" if self.theme == "textual-light" else "textual-light"
+        self.theme = "adh-dark" if self.theme == "adh-light" else "adh-light"
 
     def update_api_key(self, api_key: str):
         """Update the API key and reinitialize the agent.

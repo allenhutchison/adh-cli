@@ -9,6 +9,22 @@ from textual.widgets import Static
 from adh_cli.ui.tool_execution_widget import ToolExecutionWidget
 from adh_cli.ui.tool_execution import ToolExecutionInfo, ToolExecutionState
 from adh_cli.policies.policy_types import PolicyDecision, SupervisionLevel, RiskLevel, SafetyCheck
+from adh_cli.ui.theme import get_themes
+
+
+class TestApp(App):
+    """Test app with ADH themes registered."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Register ADH themes for testing
+        for theme_name, theme in get_themes().items():
+            self.register_theme(theme)
+        self.theme = "adh-dark"
+
+    def compose(self):
+        # Will be overridden by test
+        pass
 
 
 class TestToolExecutionWidget:
@@ -42,11 +58,11 @@ class TestToolExecutionWidget:
         widget = ToolExecutionWidget(execution_info=info)
 
         # Mount widget in test app
-        class TestApp(App):
+        class _TestApp(TestApp):
             def compose(self):
                 yield widget
 
-        async with TestApp().run_test() as pilot:
+        async with _TestApp().run_test() as pilot:
             # Wait for widget to mount and update
             await pilot.pause()
             # Check CSS class applied
@@ -65,11 +81,11 @@ class TestToolExecutionWidget:
 
         widget = ToolExecutionWidget(execution_info=info)
 
-        class TestApp(App):
+        class _TestApp(TestApp):
             def compose(self):
                 yield widget
 
-        async with TestApp().run_test() as pilot:
+        async with _TestApp().run_test() as pilot:
             await pilot.pause()
             assert "success" in widget.classes
 
@@ -85,11 +101,11 @@ class TestToolExecutionWidget:
 
         widget = ToolExecutionWidget(execution_info=info)
 
-        class TestApp(App):
+        class _TestApp(TestApp):
             def compose(self):
                 yield widget
 
-        async with TestApp().run_test() as pilot:
+        async with _TestApp().run_test() as pilot:
             await pilot.pause()
             assert "failed" in widget.classes
 
@@ -105,11 +121,11 @@ class TestToolExecutionWidget:
 
         widget = ToolExecutionWidget(execution_info=info)
 
-        class TestApp(App):
+        class _TestApp(TestApp):
             def compose(self):
                 yield widget
 
-        async with TestApp().run_test() as pilot:
+        async with _TestApp().run_test() as pilot:
             await pilot.pause()
             button_container = widget.query_one("#button-container")
             assert button_container.display is False
@@ -132,11 +148,11 @@ class TestToolExecutionWidget:
 
         widget = ToolExecutionWidget(execution_info=info)
 
-        class TestApp(App):
+        class _TestApp(TestApp):
             def compose(self):
                 yield widget
 
-        async with TestApp().run_test() as pilot:
+        async with _TestApp().run_test() as pilot:
             await pilot.pause()
             button_container = widget.query_one("#button-container")
             assert button_container.display is True
@@ -159,11 +175,11 @@ class TestToolExecutionWidget:
         on_confirm = AsyncMock()
         widget = ToolExecutionWidget(execution_info=info, on_confirm=on_confirm)
 
-        class TestApp(App):
+        class _TestApp(TestApp):
             def compose(self):
                 yield widget
 
-        async with TestApp().run_test() as pilot:
+        async with _TestApp().run_test() as pilot:
             await pilot.pause()
             # Click confirm button
             await pilot.click("#confirm-btn")
@@ -191,11 +207,11 @@ class TestToolExecutionWidget:
         on_cancel = AsyncMock()
         widget = ToolExecutionWidget(execution_info=info, on_cancel=on_cancel)
 
-        class TestApp(App):
+        class _TestApp(TestApp):
             def compose(self):
                 yield widget
 
-        async with TestApp().run_test() as pilot:
+        async with _TestApp().run_test() as pilot:
             await pilot.pause()
             # Click cancel button
             await pilot.click("#cancel-btn")
@@ -222,11 +238,11 @@ class TestToolExecutionWidget:
         on_details = AsyncMock()
         widget = ToolExecutionWidget(execution_info=info, on_details=on_details)
 
-        class TestApp(App):
+        class _TestApp(TestApp):
             def compose(self):
                 yield widget
 
-        async with TestApp().run_test() as pilot:
+        async with _TestApp().run_test() as pilot:
             await pilot.pause()
             # Initially not expanded
             assert widget.expanded is False
@@ -255,11 +271,11 @@ class TestToolExecutionWidget:
 
         widget = ToolExecutionWidget(execution_info=info)
 
-        class TestApp(App):
+        class _TestApp(TestApp):
             def compose(self):
                 yield widget
 
-        async with TestApp().run_test() as pilot:
+        async with _TestApp().run_test() as pilot:
             await pilot.pause()
             params_widget = widget.query_one("#params", Static)
 
@@ -294,11 +310,11 @@ class TestToolExecutionWidget:
         widget = ToolExecutionWidget(execution_info=info)
         widget.expanded = True
 
-        class TestApp(App):
+        class _TestApp(TestApp):
             def compose(self):
                 yield widget
 
-        async with TestApp().run_test() as pilot:
+        async with _TestApp().run_test() as pilot:
             await pilot.pause()
             params_widget = widget.query_one("#params", Static)
 
@@ -320,11 +336,11 @@ class TestToolExecutionWidget:
 
         widget = ToolExecutionWidget(execution_info=initial_info)
 
-        class TestApp(App):
+        class _TestApp(TestApp):
             def compose(self):
                 yield widget
 
-        async with TestApp().run_test() as pilot:
+        async with _TestApp().run_test() as pilot:
             await pilot.pause()
             assert "executing" in widget.classes
 
@@ -353,11 +369,11 @@ class TestToolExecutionWidget:
 
         widget = ToolExecutionWidget(execution_info=info)
 
-        class TestApp(App):
+        class _TestApp(TestApp):
             def compose(self):
                 yield widget
 
-        async with TestApp().run_test() as pilot:
+        async with _TestApp().run_test() as pilot:
             await pilot.pause()
             assert widget.expanded is False
 
