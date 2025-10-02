@@ -80,8 +80,9 @@ class ChatScreen(Screen):
 
     BINDINGS = [
         Binding("ctrl+l", "clear_chat", "Clear Chat"),
-        Binding("ctrl+p", "show_policies", "Show Policies"),
+        Binding("ctrl+slash", "show_policies", "Show Policies"),
         Binding("ctrl+s", "toggle_safety", "Toggle Safety"),
+        Binding("ctrl+comma", "app.show_settings", "Settings"),
     ]
 
     def __init__(self):
@@ -150,7 +151,7 @@ class ChatScreen(Screen):
                     f"[dim]Policy-Aware Chat Ready (Agent: {agent_name}). Tools will be executed according to configured policies.[/dim]"
                 )
                 self.chat_log.write(
-                    "[dim]Press Ctrl+P to view active policies, Ctrl+S to toggle safety checks.[/dim]"
+                    "[dim]Ctrl+/: policies | Ctrl+S: safety | Ctrl+,: settings | Ctrl+L: clear[/dim]"
                 )
             else:
                 raise Exception("App does not have an agent initialized")
