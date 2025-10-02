@@ -213,6 +213,18 @@ def action_toggle_dark(self) -> None:
     self.theme = "adh-dark" if self.theme == "adh-light" else "adh-light"
 ```
 
+### Update: Focus and Layout Adjustments (2025-10-02)
+
+During integration, global focus rules produced persistent “rails” (blue outlines) on the Chat screen and created spacing inconsistencies near the input/status bar. We refined the design system accordingly:
+
+- Scope focus indicators to interactive widgets only (`Input`, `Button`, etc.); remove `*:focus-within` to avoid screen‑wide outlines.
+- Restore readability and intentional affordance on the input: neutral border by default, `$border-focus` on focus.
+- Chat transcript uses a neutral `$border` frame (not `$primary`) to prevent bright rails while keeping structure.
+- Eliminate extra bottom gap by removing the input’s bottom margin.
+- Align the status bar with chat/input gutters using horizontal margins for visual cohesion.
+
+This preserves accessibility (visible focus) without visual artifacts, and standardizes gutters across the chat area.
+
 ## Architecture
 
 ### Theme System Flow
