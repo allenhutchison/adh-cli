@@ -152,109 +152,22 @@ class ADHApp(App):
             self.notify(f"Failed to initialize agent: {str(e)}", severity="error")
 
     def _register_default_tools(self):
-        """Register the default set of tools."""
+        """Register the default set of tools from specs registry."""
         if not self.agent:
             return
 
-        # Import and register shell tools
-        from .tools import shell_tools
+        # Load tool specs and register them with the agent
+        from .tools.specs import register_default_specs
+        from .tools.base import registry
 
-        # File operations
-        self.agent.register_tool(
-            name="read_file",
-            description="Read contents of a text file",
-            parameters={
-                "file_path": {
-                    "type": "string",
-                    "description": "Path to the file to read"
-                }
-            },
-            handler=shell_tools.read_file,
-        )
-
-        self.agent.register_tool(
-            name="write_file",
-            description="Write content to a file",
-            parameters={
-                "file_path": {
-                    "type": "string",
-                    "description": "Path to the file to write"
-                },
-                "content": {
-                    "type": "string",
-                    "description": "Content to write to the file"
-                }
-            },
-            handler=shell_tools.write_file,
-        )
-
-        self.agent.register_tool(
-            name="list_directory",
-            description="List contents of a directory",
-            parameters={
-                "directory": {
-                    "type": "string",
-                    "description": "Directory path to list"
-                }
-            },
-            handler=shell_tools.list_directory,
-        )
-
-        self.agent.register_tool(
-            name="execute_command",
-            description="Execute a shell command",
-            parameters={
-                "command": {
-                    "type": "string",
-                    "description": "Command to execute"
-                }
-            },
-            handler=shell_tools.execute_command,
-        )
-
-        self.agent.register_tool(
-            name="create_directory",
-            description="Create a new directory",
-            parameters={
-                "directory": {
-                    "type": "string",
-                    "description": "Directory path to create"
-                },
-                "parents": {
-                    "type": "boolean",
-                    "description": "Create parent directories if they don't exist (default: true)"
-                }
-            },
-            handler=shell_tools.create_directory,
-        )
-
-        self.agent.register_tool(
-            name="delete_file",
-            description="Delete a file (requires confirmation)",
-            parameters={
-                "file_path": {
-                    "type": "string",
-                    "description": "Path to the file to delete"
-                },
-                "confirm": {
-                    "type": "boolean",
-                    "description": "Confirmation flag - must be true to delete"
-                }
-            },
-            handler=shell_tools.delete_file,
-        )
-
-        self.agent.register_tool(
-            name="get_file_info",
-            description="Get information about a file or directory",
-            parameters={
-                "file_path": {
-                    "type": "string",
-                    "description": "Path to the file or directory"
-                }
-            },
-            handler=shell_tools.get_file_info,
-        )
+        register_default_specs()
+        for spec in registry.all():
+            self.agent.register_tool(
+                name=spec.name,
+                description=spec.description,
+                parameters=spec.parameters,
+                handler=spec.handler,
+            )
 
     async def handle_confirmation(self, tool_call=None, decision=None, message=None, **kwargs):
         """Handle confirmation requests from the policy engine.
