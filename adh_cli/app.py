@@ -1,6 +1,7 @@
 """Main application module with policy-aware agent for ADH CLI."""
 
 import os
+import json
 from pathlib import Path
 from dotenv import load_dotenv
 from textual import on
@@ -74,6 +75,21 @@ class ADHApp(App):
             os.environ.get("GEMINI_API_KEY")
         )
 
+    def _load_config(self):
+        """Load configuration from config.json.
+
+        Returns:
+            Dict with configuration values
+        """
+        config_file = ConfigPaths.get_config_file()
+        if config_file.exists():
+            try:
+                with open(config_file, 'r') as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, IOError):
+                pass
+        return {}
+
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
         yield Header()
@@ -104,17 +120,25 @@ class ADHApp(App):
     def _initialize_agent(self):
         """Initialize the policy-aware ADK agent."""
         try:
+            # Load configuration
+            config = self._load_config()
+
+            # Get orchestrator agent name from config (default to "orchestrator")
+            agent_name = config.get("orchestrator_agent", "orchestrator")
+
             # Use ADK-based agent with automatic tool orchestration
             # Note: Execution manager callbacks will be registered by ChatScreen on mount
+            # Note: Model settings from config are overridden by agent definition
             self.agent = PolicyAwareLlmAgent(
-                model_name="gemini-flash-latest",
+                model_name=config.get("model", "gemini-flash-latest"),
                 api_key=self.api_key,
                 policy_dir=self.policy_dir,
                 confirmation_handler=self.handle_confirmation,
                 notification_handler=self.show_notification,
                 audit_log_path=ConfigPaths.get_audit_log(),
-                temperature=0.7,
-                max_tokens=2048,
+                temperature=config.get("temperature", 0.7),
+                max_tokens=config.get("max_tokens", 2048),
+                agent_name=agent_name,
             )
 
             # Register default tools

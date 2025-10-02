@@ -1,7 +1,8 @@
 # ADR 010: Markdown-Driven Agent Definition
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2025-10-02
+**Implemented:** 2025-10-02
 **Deciders:** Project Team
 **Tags:** architecture, agents, configuration, extensibility, medium-priority
 
@@ -504,8 +505,92 @@ Precedence for model parameters:
 
 ---
 
+## Implementation Notes
+
+### Completed (2025-10-02)
+
+All planned features have been successfully implemented:
+
+#### 1. PolicyAwareLlmAgent Enhancement
+- Added `agent_name` parameter to `__init__` (default: "orchestrator")
+- Integrated `AgentLoader` to load agent definitions from markdown
+- Agent configuration (model, temperature, max_tokens) loaded from agent.md
+- Fallback to passed parameters if agent loading fails
+- File: `adh_cli/core/policy_aware_llm_agent.py`
+
+#### 2. Tool Description Generation
+- New `_generate_tool_descriptions()` method creates formatted tool documentation
+- Extracts descriptions from tool function docstrings
+- Returns "No tools currently available" when no tools registered
+- File: `adh_cli/core/policy_aware_llm_agent.py:184-206`
+
+#### 3. System Prompt Rendering
+- Updated `_get_system_instruction()` to use agent definition
+- Calls `agent.render_system_prompt()` with generated tool descriptions
+- Variable substitution for `{{tool_descriptions}}` and custom variables
+- Maintains fallback to hardcoded prompt if agent loading fails
+- File: `adh_cli/core/policy_aware_llm_agent.py:146-182`
+
+#### 4. Application Configuration
+- Added `_load_config()` method to read config.json
+- `_initialize_agent()` reads `orchestrator_agent` from config
+- Defaults to "orchestrator" if not specified
+- All model settings from config passed to agent (overridden by agent.md)
+- File: `adh_cli/app.py:78-141`
+
+#### 5. Settings UI Enhancement
+- Added `_discover_agents()` method to find available agents
+- New "Orchestrator Agent" selector in settings modal
+- Dropdown populated with agents from `agents/` directory
+- `orchestrator_agent` saved to config.json
+- Notification warns "Restart required for agent change"
+- File: `adh_cli/screens/settings_modal.py:18-39, 96-102, 149, 177, 218-223`
+
+#### 6. Test Coverage
+Added 8 new tests (303 total, up from 295):
+- `test_agent_loading_default_orchestrator`: Verify orchestrator loads successfully
+- `test_agent_loading_nonexistent_agent`: Test fallback behavior
+- `test_generate_tool_descriptions_empty`: Test with no tools
+- `test_generate_tool_descriptions_with_tools`: Test with registered tools
+- `test_system_prompt_with_agent_definition`: Verify prompt uses agent.md
+- `test_system_prompt_fallback_without_agent_definition`: Test fallback prompt
+- `test_load_config_with_orchestrator_agent`: Verify config reading
+- `test_load_config_defaults`: Test default behavior
+
+All 303 tests passing.
+
+### Architecture Summary
+
+```
+User → Settings UI → config.json (orchestrator_agent: "orchestrator")
+                          ↓
+                     ADHApp._initialize_agent()
+                          ↓
+                  PolicyAwareLlmAgent(agent_name="orchestrator")
+                          ↓
+                   AgentLoader.load("orchestrator")
+                          ↓
+              agents/orchestrator/agent.md (YAML + Markdown)
+                          ↓
+            Agent Definition (model, temp, tools, prompt)
+                          ↓
+            agent.render_system_prompt(tool_descriptions)
+                          ↓
+                 LlmAgent (ADK) with rendered prompt
+```
+
+### Backward Compatibility
+
+- Existing configs without `orchestrator_agent` default to "orchestrator"
+- If agent loading fails, falls back to hardcoded defaults
+- All existing functionality preserved
+- No breaking changes to API or behavior
+
+---
+
 ## Revision History
 
 | Date | Change | Author |
 |------|--------|--------|
 | 2025-10-02 | Initial decision | Allen Hutchison |
+| 2025-10-02 | Implementation completed | Allen Hutchison |

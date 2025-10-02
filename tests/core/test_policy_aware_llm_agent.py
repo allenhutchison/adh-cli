@@ -328,3 +328,115 @@ class TestPolicyAwareLlmAgent:
 
         assert result.success is False
         assert "not found" in result.error.lower()
+
+    def test_agent_loading_default_orchestrator(self):
+        """Test loading default orchestrator agent."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            agent = PolicyAwareLlmAgent(
+                api_key=None,
+                policy_dir=Path(tmpdir),
+                agent_name="orchestrator"
+            )
+
+            # Should load orchestrator agent definition
+            assert agent.agent_definition is not None
+            assert agent.agent_definition.name == "orchestrator"
+            assert agent.agent_definition.model == "gemini-flash-latest"
+            assert agent.model_name == "gemini-flash-latest"
+
+    def test_agent_loading_nonexistent_agent(self):
+        """Test loading non-existent agent falls back to defaults."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            agent = PolicyAwareLlmAgent(
+                api_key=None,
+                policy_dir=Path(tmpdir),
+                agent_name="nonexistent_agent",
+                model_name="gemini-pro",
+                temperature=0.5,
+                max_tokens=1024
+            )
+
+            # Should fallback to passed parameters
+            assert agent.agent_definition is None
+            assert agent.model_name == "gemini-pro"
+            assert agent.temperature == 0.5
+            assert agent.max_tokens == 1024
+
+    def test_generate_tool_descriptions_empty(self):
+        """Test generating tool descriptions with no tools."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            agent = PolicyAwareLlmAgent(
+                api_key=None,
+                policy_dir=Path(tmpdir)
+            )
+
+            descriptions = agent._generate_tool_descriptions()
+            assert "No tools currently available" in descriptions
+
+    def test_generate_tool_descriptions_with_tools(self):
+        """Test generating tool descriptions with registered tools."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            agent = PolicyAwareLlmAgent(
+                api_key=None,
+                policy_dir=Path(tmpdir)
+            )
+
+            # Register a test tool
+            async def test_tool(param: str):
+                """Test tool description."""
+                return f"Result: {param}"
+
+            agent.register_tool(
+                name="test_tool",
+                description="A test tool",
+                parameters={"param": {"type": "string"}},
+                handler=test_tool
+            )
+
+            descriptions = agent._generate_tool_descriptions()
+            assert "test_tool" in descriptions
+            assert "Test tool description" in descriptions
+
+    def test_system_prompt_with_agent_definition(self):
+        """Test system prompt uses agent definition."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            agent = PolicyAwareLlmAgent(
+                api_key=None,
+                policy_dir=Path(tmpdir),
+                agent_name="orchestrator"
+            )
+
+            # Register a tool so we have tool descriptions
+            async def test_tool(param: str):
+                """Test tool."""
+                return param
+
+            agent.register_tool(
+                name="test_tool",
+                description="Test",
+                parameters={},
+                handler=test_tool
+            )
+
+            prompt = agent._get_system_instruction()
+
+            # Should contain parts of the orchestrator prompt
+            assert "helpful AI assistant" in prompt
+            assert "development tasks" in prompt
+            # Should have tool descriptions injected
+            assert "test_tool" in prompt
+
+    def test_system_prompt_fallback_without_agent_definition(self):
+        """Test system prompt falls back when agent definition not loaded."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            agent = PolicyAwareLlmAgent(
+                api_key=None,
+                policy_dir=Path(tmpdir),
+                agent_name="nonexistent"
+            )
+
+            prompt = agent._get_system_instruction()
+
+            # Should contain fallback prompt
+            assert "helpful AI assistant" in prompt
+            assert "IMMEDIATELY use tools" in prompt

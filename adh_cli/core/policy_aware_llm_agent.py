@@ -17,6 +17,7 @@ from adh_cli.policies.policy_engine import PolicyEngine
 from adh_cli.policies.policy_types import SupervisionLevel
 from adh_cli.safety.pipeline import SafetyPipeline
 from adh_cli.ui.tool_execution_manager import ToolExecutionManager
+from adh_cli.agents.agent_loader import AgentLoader
 
 
 class PolicyAwareLlmAgent:
@@ -37,6 +38,7 @@ class PolicyAwareLlmAgent:
         audit_log_path: Optional[Path] = None,
         temperature: float = 0.7,
         max_tokens: int = 2048,
+        agent_name: str = "orchestrator",
         # Tool execution manager callbacks
         on_execution_start: Optional[Callable] = None,
         on_execution_update: Optional[Callable] = None,
@@ -46,25 +48,40 @@ class PolicyAwareLlmAgent:
         """Initialize policy-aware LlmAgent.
 
         Args:
-            model_name: Gemini model to use
+            model_name: Gemini model to use (overridden by agent definition)
             api_key: API key for Gemini
             policy_dir: Directory containing policy files
             confirmation_handler: Handler for user confirmations
             notification_handler: Handler for notifications
             audit_log_path: Path for audit log
-            temperature: Model temperature
-            max_tokens: Max output tokens
+            temperature: Model temperature (overridden by agent definition)
+            max_tokens: Max output tokens (overridden by agent definition)
+            agent_name: Name of the agent to load from agents/ directory
             on_execution_start: Callback when execution starts
             on_execution_update: Callback when execution state updates
             on_execution_complete: Callback when execution completes
             on_confirmation_required: Callback when confirmation needed
         """
-        self.model_name = model_name
+        self.agent_name = agent_name
         self.api_key = api_key
         self.confirmation_handler = confirmation_handler
         self.notification_handler = notification_handler
-        self.temperature = temperature
-        self.max_tokens = max_tokens
+
+        # Load agent definition
+        try:
+            loader = AgentLoader()
+            self.agent_definition = loader.load(agent_name)
+
+            # Use agent configuration (overriding defaults)
+            self.model_name = self.agent_definition.model
+            self.temperature = self.agent_definition.temperature
+            self.max_tokens = self.agent_definition.max_tokens
+        except (FileNotFoundError, ValueError) as e:
+            # Fallback to defaults if agent loading fails
+            self.agent_definition = None
+            self.model_name = model_name
+            self.temperature = temperature
+            self.max_tokens = max_tokens
 
         # Initialize policy engine
         self.policy_engine = PolicyEngine(policy_dir=policy_dir)
@@ -128,6 +145,18 @@ class PolicyAwareLlmAgent:
 
     def _get_system_instruction(self) -> str:
         """Get system instruction for the agent."""
+        # If we have a loaded agent definition, use it
+        if self.agent_definition:
+            # Generate tool descriptions
+            tool_descriptions = self._generate_tool_descriptions()
+
+            # Render the system prompt with variables
+            return self.agent_definition.render_system_prompt(
+                variables={},
+                tool_descriptions=tool_descriptions
+            )
+
+        # Fallback to default prompt if no agent definition
         return """You are a helpful AI assistant for development tasks.
 
 You have access to tools for file system operations and command execution.
@@ -151,6 +180,30 @@ TOOL EXECUTION BEHAVIOR:
 - Be direct and action-oriented, not cautious or hesitant
 
 Your goal is to be helpful and efficient - use your tools to get answers immediately."""
+
+    def _generate_tool_descriptions(self) -> str:
+        """Generate formatted descriptions of available tools.
+
+        Returns:
+            Formatted string with tool descriptions
+        """
+        if not self.tools:
+            return "No tools currently available."
+
+        descriptions = []
+        for tool in self.tools:
+            # Get the tool's name and description
+            tool_name = tool.tool_name if hasattr(tool, 'tool_name') else "unknown"
+
+            # Try to get description from the function's docstring
+            description = ""
+            if hasattr(tool, 'func') and tool.func.__doc__:
+                # Get first line of docstring
+                description = tool.func.__doc__.strip().split('\n')[0]
+
+            descriptions.append(f"- **{tool_name}**: {description}")
+
+        return "\n".join(descriptions)
 
     async def _ensure_session_initialized(self):
         """Ensure the session is initialized."""

@@ -1,6 +1,7 @@
 """Settings modal for configuring the ADH CLI application."""
 
 import json
+from pathlib import Path
 from textual import on
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, Vertical
@@ -13,6 +14,29 @@ from ..core.config_paths import ConfigPaths
 
 class SettingsModal(ModalScreen):
     """Settings configuration modal."""
+
+    def _discover_agents(self):
+        """Discover available agents from the agents directory.
+
+        Returns:
+            List of agent names
+        """
+        agents_dir = Path(__file__).parent.parent / "agents"
+        agents = []
+
+        if agents_dir.exists():
+            for agent_path in agents_dir.iterdir():
+                # Check if it's a directory and has an agent.md file
+                if agent_path.is_dir() and (agent_path / "agent.md").exists():
+                    agents.append(agent_path.name)
+
+        # Sort alphabetically and ensure orchestrator is first if it exists
+        agents.sort()
+        if "orchestrator" in agents:
+            agents.remove("orchestrator")
+            agents.insert(0, "orchestrator")
+
+        return agents if agents else ["orchestrator"]
 
     DEFAULT_CSS = """
     SettingsModal {
@@ -69,6 +93,14 @@ class SettingsModal(ModalScreen):
                     id="model-select"
                 )
 
+                yield Label("\nOrchestrator Agent:")
+                # Discover and populate agent list
+                available_agents = self._discover_agents()
+                yield Select.from_values(
+                    available_agents,
+                    id="orchestrator-select"
+                )
+
                 yield Label("\nGeneration Parameters")
 
                 with Horizontal():
@@ -114,6 +146,7 @@ class SettingsModal(ModalScreen):
             "Gemini 2.5 Pro": "gemini-2.5-pro"
         }
         model = model_map.get(selected_option, "gemini-flash-latest")
+        orchestrator_agent = self.query_one("#orchestrator-select", Select).value
         temperature = self.query_one("#temperature-input", Input).value
         max_tokens = self.query_one("#max-tokens-input", Input).value
         top_p = self.query_one("#top-p-input", Input).value
@@ -122,6 +155,7 @@ class SettingsModal(ModalScreen):
         settings = {
             "api_key": api_key,
             "model": model,
+            "orchestrator_agent": orchestrator_agent,
             "temperature": float(temperature) if temperature else 0.7,
             "max_tokens": int(max_tokens) if max_tokens else 2048,
             "top_p": float(top_p) if top_p else 0.95,
@@ -132,7 +166,7 @@ class SettingsModal(ModalScreen):
         with open(config_file, "w") as f:
             json.dump(settings, f, indent=2)
 
-        self.notify("Settings saved successfully!", severity="information")
+        self.notify("Settings saved successfully! Restart required for agent change.", severity="information")
         self.dismiss()
 
     @on(Button.Pressed, "#btn-reset")
@@ -140,6 +174,7 @@ class SettingsModal(ModalScreen):
         """Reset settings to defaults."""
         self.query_one("#api-key-input", Input).value = ""
         self.query_one("#model-select", Select).value = "Gemini Flash Latest"
+        self.query_one("#orchestrator-select", Select).value = "orchestrator"
         self.query_one("#temperature-input", Input).value = "0.7"
         self.query_one("#max-tokens-input", Input).value = "2048"
         self.query_one("#top-p-input", Input).value = "0.95"
@@ -180,6 +215,12 @@ class SettingsModal(ModalScreen):
                         except Exception:
                             # If setting the value fails, just skip it
                             pass
+                if "orchestrator_agent" in settings:
+                    try:
+                        self.query_one("#orchestrator-select", Select).value = settings["orchestrator_agent"]
+                    except Exception:
+                        # If setting the value fails (agent not found), use default
+                        pass
                 if "temperature" in settings:
                     self.query_one("#temperature-input", Input).value = str(settings["temperature"])
                 if "max_tokens" in settings:
