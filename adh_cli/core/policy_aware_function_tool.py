@@ -92,7 +92,20 @@ class PolicyAwareFunctionTool(FunctionTool):
 
                 raise PermissionError(error_msg)
 
-            # 4. Run safety checks
+            # 5. Handle confirmation requirement (HUMAN-IN-THE-LOOP)
+            if decision.requires_confirmation and self.execution_manager and execution_id:
+                # Show UI confirmation widget and wait for user response
+                self.execution_manager.require_confirmation(execution_id, decision)
+
+                # BLOCK here until user confirms or cancels
+                user_confirmed = await self.execution_manager.wait_for_confirmation(execution_id)
+
+                if not user_confirmed:
+                    # User cancelled - abort execution
+                    error_msg = f"Tool '{tool_name}' execution cancelled by user"
+                    raise PermissionError(error_msg)
+
+            # 6. Run safety checks
             if decision.safety_checks:
                 try:
                     pipeline_result = await self.safety_pipeline.run_checks(
@@ -130,7 +143,7 @@ class PolicyAwareFunctionTool(FunctionTool):
                     if isinstance(e, SafetyError):
                         raise
 
-            # 5. Log audit trail before execution
+            # 7. Log audit trail before execution
             if self.audit_logger:
                 await self.audit_logger(
                     tool_name=tool_name,
@@ -139,11 +152,11 @@ class PolicyAwareFunctionTool(FunctionTool):
                     phase="pre_execution"
                 )
 
-            # 6. Mark execution as started
+            # 8. Mark execution as started
             if self.execution_manager and execution_id:
                 self.execution_manager.start_execution(execution_id)
 
-            # 7. Execute original function
+            # 9. Execute original function
             try:
                 result = await func(**kwargs)
 
@@ -199,27 +212,6 @@ class PolicyAwareFunctionTool(FunctionTool):
                     # For unknown exception types, wrap in RuntimeError
                     raise RuntimeError(enhanced_msg) from e
 
-        # Create confirmation checker function
-        def needs_confirmation(**kwargs) -> bool:
-            """Determine if confirmation is needed based on policy.
-
-            This is called by ADK's FunctionTool to determine if the user
-            should confirm before executing the tool.
-
-            Args:
-                **kwargs: Tool parameters
-
-            Returns:
-                True if confirmation is required, False otherwise
-            """
-            tool_call = ToolCall(
-                tool_name=tool_name,
-                parameters=kwargs,
-                context={}
-            )
-            decision = self.policy_engine.evaluate_tool_call(tool_call)
-            return decision.requires_confirmation
-
         # Set proper function name and docstring for ADK introspection
         policy_wrapped_func.__name__ = tool_name
         # Get description from original function if available
@@ -233,7 +225,12 @@ class PolicyAwareFunctionTool(FunctionTool):
         policy_wrapped_func.__signature__ = inspect.signature(func)
 
         # Initialize parent FunctionTool with our wrapped function
+        # Note: We don't use ADK's require_confirmation parameter because we handle
+        # confirmation ourselves via the UI (ToolExecutionManager + ToolExecutionWidget).
+        # This prevents brittle prompt-based confirmation that can be defeated by
+        # prompt injection. Our approach blocks execution until the user clicks
+        # Confirm/Cancel in the UI.
         super().__init__(
             func=policy_wrapped_func,
-            require_confirmation=needs_confirmation
+            require_confirmation=None  # We handle confirmation via UI, not ADK
         )

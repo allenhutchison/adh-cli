@@ -13,6 +13,7 @@ Separation of concerns:
 from typing import Dict, Optional, Callable, Any
 from datetime import datetime
 import uuid
+import asyncio
 
 from adh_cli.ui.tool_execution import (
     ToolExecutionInfo,
@@ -59,6 +60,9 @@ class ToolExecutionManager:
         # Track active and completed executions
         self._active_executions: Dict[str, ToolExecutionInfo] = {}
         self._execution_history: list[ToolExecutionInfo] = []
+
+        # Track pending confirmations (execution_id -> Future[bool])
+        self._pending_confirmations: Dict[str, asyncio.Future] = {}
 
     def create_execution(
         self,
@@ -182,16 +186,25 @@ class ToolExecutionManager:
     def cancel_execution(self, execution_id: str) -> Optional[ToolExecutionInfo]:
         """Mark execution as cancelled.
 
+        This resolves the pending confirmation Future with False,
+        causing the awaiting execution to abort.
+
         Args:
             execution_id: ID of execution
 
         Returns:
             Updated ToolExecutionInfo, or None if not found
         """
+        # Resolve the confirmation future if it exists
+        confirmation_future = self._pending_confirmations.get(execution_id)
+        if confirmation_future and not confirmation_future.done():
+            confirmation_future.set_result(False)
+
         return self.update_execution(
             execution_id,
             state=ToolExecutionState.CANCELLED,
-            completed_at=datetime.now()
+            completed_at=datetime.now(),
+            confirmed=False,
         )
 
     def block_execution(
@@ -236,14 +249,66 @@ class ToolExecutionManager:
             policy_decision=policy_decision,
         )
 
+        # Create a Future for this confirmation that execution will await
+        self._pending_confirmations[execution_id] = asyncio.Future()
+
         # Emit confirmation required event
         if info and self.on_confirmation_required:
             self.on_confirmation_required(info, policy_decision)
 
         return info
 
+    async def wait_for_confirmation(
+        self,
+        execution_id: str,
+        timeout: Optional[float] = 300.0  # 5 minute default timeout
+    ) -> bool:
+        """Wait for user to confirm or cancel execution.
+
+        This method blocks until the user clicks Confirm or Cancel in the UI,
+        or until the timeout is reached.
+
+        Args:
+            execution_id: ID of execution awaiting confirmation
+            timeout: Maximum time to wait in seconds (None for no timeout)
+
+        Returns:
+            True if user confirmed, False if cancelled or timed out
+
+        Raises:
+            ValueError: If no pending confirmation exists for this execution_id
+        """
+        confirmation_future = self._pending_confirmations.get(execution_id)
+
+        if confirmation_future is None:
+            raise ValueError(
+                f"No pending confirmation for execution {execution_id}. "
+                "Call require_confirmation() first."
+            )
+
+        try:
+            # Wait for the future to be resolved (by confirm_execution or cancel_execution)
+            if timeout:
+                result = await asyncio.wait_for(confirmation_future, timeout=timeout)
+            else:
+                result = await confirmation_future
+
+            return result
+
+        except asyncio.TimeoutError:
+            # Timeout reached - treat as cancellation
+            self.cancel_execution(execution_id)
+            return False
+
+        finally:
+            # Clean up the pending confirmation
+            self._pending_confirmations.pop(execution_id, None)
+
     def confirm_execution(self, execution_id: str) -> Optional[ToolExecutionInfo]:
         """Mark execution as confirmed by user.
+
+        This resolves the pending confirmation Future with True,
+        allowing the awaiting execution to proceed.
 
         Args:
             execution_id: ID of execution
@@ -251,6 +316,11 @@ class ToolExecutionManager:
         Returns:
             Updated ToolExecutionInfo, or None if not found
         """
+        # Resolve the confirmation future if it exists
+        confirmation_future = self._pending_confirmations.get(execution_id)
+        if confirmation_future and not confirmation_future.done():
+            confirmation_future.set_result(True)
+
         return self.update_execution(
             execution_id,
             confirmed=True,

@@ -121,18 +121,36 @@ class TestPolicyAwareFunctionTool:
         async def test_func():
             return "Result"
 
+        # Create manager to track confirmations
+        from adh_cli.ui.tool_execution_manager import ToolExecutionManager
+        execution_manager = ToolExecutionManager()
+
         tool = PolicyAwareFunctionTool(
             func=test_func,
             tool_name="confirm_tool",
             policy_engine=mock_policy_engine,
             safety_pipeline=mock_safety_pipeline,
+            execution_manager=execution_manager,
         )
 
-        # Check if confirmation is required (this is called by ADK with tool params)
-        # Access the internal confirmation checker with sample parameters
-        requires_confirmation = tool._require_confirmation(param1="test")
+        # Execute tool - it should wait for confirmation
+        # Simulate user confirming in background
+        async def simulate_user_confirm():
+            import asyncio
+            await asyncio.sleep(0.1)
+            active_executions = execution_manager.get_active_executions()
+            if active_executions:
+                execution_manager.confirm_execution(active_executions[0].id)
 
-        assert requires_confirmation is True
+        import asyncio
+        confirm_task = asyncio.create_task(simulate_user_confirm())
+
+        # Execute the tool - it should wait for confirmation
+        result = await tool.func()
+
+        assert result == "Result"
+
+        await confirm_task
 
     @pytest.mark.asyncio
     async def test_no_confirmation_for_automatic(
@@ -149,17 +167,23 @@ class TestPolicyAwareFunctionTool:
         async def test_func():
             return "Result"
 
+        from adh_cli.ui.tool_execution_manager import ToolExecutionManager
+        execution_manager = ToolExecutionManager()
+
         tool = PolicyAwareFunctionTool(
             func=test_func,
             tool_name="auto_tool",
             policy_engine=mock_policy_engine,
             safety_pipeline=mock_safety_pipeline,
+            execution_manager=execution_manager,
         )
 
-        # Check if confirmation is required (with params)
-        requires_confirmation = tool._require_confirmation(param1="test")
+        # Execute tool - automatic operations should execute immediately without confirmation
+        result = await tool.func()
 
-        assert requires_confirmation is False
+        assert result == "Result"
+        # Verify no confirmation was required
+        assert len(execution_manager._pending_confirmations) == 0
 
     @pytest.mark.asyncio
     async def test_safety_check_failure(

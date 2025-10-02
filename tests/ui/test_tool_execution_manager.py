@@ -1,6 +1,7 @@
 """Tests for ToolExecutionManager."""
 
 import pytest
+import asyncio
 from unittest.mock import Mock
 from datetime import datetime
 
@@ -374,3 +375,210 @@ class TestToolExecutionManager:
 
         # Should work fine
         assert manager.history_count == 1
+
+
+class TestConfirmationWaiting:
+    """Test confirmation waiting functionality (human-in-the-loop)."""
+
+    @pytest.fixture
+    def manager(self):
+        """Create manager for confirmation tests."""
+        return ToolExecutionManager(
+            on_execution_start=Mock(),
+            on_execution_update=Mock(),
+            on_execution_complete=Mock(),
+            on_confirmation_required=Mock(),
+        )
+
+    @pytest.fixture
+    def policy_decision(self):
+        """Create a policy decision requiring confirmation."""
+        return PolicyDecision(
+            allowed=True,
+            supervision_level=SupervisionLevel.CONFIRM,
+            risk_level=RiskLevel.MEDIUM,
+            requires_confirmation=True,
+            confirmation_message="Confirm this operation?"
+        )
+
+    @pytest.mark.asyncio
+    async def test_wait_for_confirmation_user_confirms(self, manager, policy_decision):
+        """Test waiting for confirmation when user confirms."""
+        # Create execution and require confirmation
+        info = manager.create_execution("write_file", {"file": "test.txt"})
+        manager.require_confirmation(info.id, policy_decision)
+
+        # Simulate user confirming in background
+        async def simulate_user_confirm():
+            await asyncio.sleep(0.1)  # Small delay to simulate user thinking
+            manager.confirm_execution(info.id)
+
+        # Start background task to confirm
+        confirm_task = asyncio.create_task(simulate_user_confirm())
+
+        # Wait for confirmation (should return True)
+        result = await manager.wait_for_confirmation(info.id)
+
+        assert result is True
+        assert manager.get_execution(info.id).confirmed is True
+
+        await confirm_task  # Clean up
+
+    @pytest.mark.asyncio
+    async def test_wait_for_confirmation_user_cancels(self, manager, policy_decision):
+        """Test waiting for confirmation when user cancels."""
+        # Create execution and require confirmation
+        info = manager.create_execution("delete_file", {"file": "important.txt"})
+        manager.require_confirmation(info.id, policy_decision)
+
+        # Simulate user cancelling in background
+        async def simulate_user_cancel():
+            await asyncio.sleep(0.1)
+            manager.cancel_execution(info.id)
+
+        # Start background task to cancel
+        cancel_task = asyncio.create_task(simulate_user_cancel())
+
+        # Wait for confirmation (should return False)
+        result = await manager.wait_for_confirmation(info.id)
+
+        assert result is False
+        assert manager.get_execution(info.id).state == ToolExecutionState.CANCELLED
+        assert manager.get_execution(info.id).confirmed is False
+
+        await cancel_task  # Clean up
+
+    @pytest.mark.asyncio
+    async def test_wait_for_confirmation_timeout(self, manager, policy_decision):
+        """Test confirmation times out if user doesn't respond."""
+        # Create execution and require confirmation
+        info = manager.create_execution("execute_command", {"command": "rm -rf /"})
+        manager.require_confirmation(info.id, policy_decision)
+
+        # Wait with very short timeout (no user response)
+        result = await manager.wait_for_confirmation(info.id, timeout=0.1)
+
+        # Should return False (treated as cancellation)
+        assert result is False
+        assert manager.get_execution(info.id).state == ToolExecutionState.CANCELLED
+
+    @pytest.mark.asyncio
+    async def test_wait_for_confirmation_no_timeout(self, manager, policy_decision):
+        """Test confirmation with no timeout (infinite wait)."""
+        # Create execution and require confirmation
+        info = manager.create_execution("test_tool", {})
+        manager.require_confirmation(info.id, policy_decision)
+
+        # Simulate quick user confirmation
+        async def simulate_quick_confirm():
+            await asyncio.sleep(0.05)
+            manager.confirm_execution(info.id)
+
+        confirm_task = asyncio.create_task(simulate_quick_confirm())
+
+        # Wait with no timeout
+        result = await manager.wait_for_confirmation(info.id, timeout=None)
+
+        assert result is True
+
+        await confirm_task
+
+    @pytest.mark.asyncio
+    async def test_wait_for_confirmation_raises_if_not_required(self, manager):
+        """Test that waiting fails if confirmation wasn't required."""
+        # Create execution WITHOUT requiring confirmation
+        info = manager.create_execution("read_file", {})
+
+        # Trying to wait should raise ValueError
+        with pytest.raises(ValueError, match="No pending confirmation"):
+            await manager.wait_for_confirmation(info.id)
+
+    @pytest.mark.asyncio
+    async def test_multiple_confirmations_different_executions(self, manager, policy_decision):
+        """Test multiple pending confirmations for different executions."""
+        # Create two executions both requiring confirmation
+        info1 = manager.create_execution("tool1", {})
+        info2 = manager.create_execution("tool2", {})
+
+        manager.require_confirmation(info1.id, policy_decision)
+        manager.require_confirmation(info2.id, policy_decision)
+
+        # Simulate user confirming first, cancelling second
+        async def simulate_user_actions():
+            await asyncio.sleep(0.05)
+            manager.confirm_execution(info1.id)
+            await asyncio.sleep(0.05)
+            manager.cancel_execution(info2.id)
+
+        actions_task = asyncio.create_task(simulate_user_actions())
+
+        # Wait for both confirmations
+        result1 = await manager.wait_for_confirmation(info1.id)
+        result2 = await manager.wait_for_confirmation(info2.id)
+
+        assert result1 is True
+        assert result2 is False
+
+        await actions_task
+
+    @pytest.mark.asyncio
+    async def test_confirmation_cleanup_after_wait(self, manager, policy_decision):
+        """Test that pending confirmations are cleaned up after waiting."""
+        info = manager.create_execution("test_tool", {})
+        manager.require_confirmation(info.id, policy_decision)
+
+        # Confirm quickly
+        async def quick_confirm():
+            await asyncio.sleep(0.05)
+            manager.confirm_execution(info.id)
+
+        confirm_task = asyncio.create_task(quick_confirm())
+
+        # Wait for confirmation
+        await manager.wait_for_confirmation(info.id)
+
+        # Trying to wait again should fail (already cleaned up)
+        with pytest.raises(ValueError, match="No pending confirmation"):
+            await manager.wait_for_confirmation(info.id)
+
+        await confirm_task
+
+    @pytest.mark.asyncio
+    async def test_confirm_execution_idempotent(self, manager, policy_decision):
+        """Test that confirming multiple times doesn't cause issues."""
+        info = manager.create_execution("test_tool", {})
+        manager.require_confirmation(info.id, policy_decision)
+
+        # Confirm in background
+        async def confirm_twice():
+            await asyncio.sleep(0.05)
+            manager.confirm_execution(info.id)
+            manager.confirm_execution(info.id)  # Second call should be safe
+
+        confirm_task = asyncio.create_task(confirm_twice())
+
+        result = await manager.wait_for_confirmation(info.id)
+
+        assert result is True
+
+        await confirm_task
+
+    @pytest.mark.asyncio
+    async def test_cancel_execution_idempotent(self, manager, policy_decision):
+        """Test that cancelling multiple times doesn't cause issues."""
+        info = manager.create_execution("test_tool", {})
+        manager.require_confirmation(info.id, policy_decision)
+
+        # Cancel in background
+        async def cancel_twice():
+            await asyncio.sleep(0.05)
+            manager.cancel_execution(info.id)
+            manager.cancel_execution(info.id)  # Second call should be safe
+
+        cancel_task = asyncio.create_task(cancel_twice())
+
+        result = await manager.wait_for_confirmation(info.id)
+
+        assert result is False
+
+        await cancel_task
