@@ -269,7 +269,8 @@ Input.error {
 
 ModalScreen > Container {
     background: $surface;
-    border: thick $primary;
+    /* Neutral modal frame to avoid bright rails */
+    border: solid $border;
     padding: 2;
 }
 

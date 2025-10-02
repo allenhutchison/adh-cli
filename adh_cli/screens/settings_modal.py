@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from textual import on
 from textual.app import ComposeResult
-from textual.containers import Container, Horizontal, Vertical
+from textual.containers import Container, Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Select, Static, Switch
 from textual.binding import Binding
@@ -45,12 +45,13 @@ class SettingsModal(ModalScreen):
 
     SettingsModal > Container {
         background: $surface;
-        border: thick $primary;
+        /* Neutral frame for consistency with chat transcript */
+        border: solid $border;
         padding: 2;
         width: 70;
         max-width: $form-max-width;
         max-height: 80%;
-        overflow-y: auto;
+        overflow: hidden;
     }
 
     #settings-title {
@@ -68,6 +69,9 @@ class SettingsModal(ModalScreen):
     SettingsModal Input {
         border: solid $border;
         margin-bottom: 1;
+        width: 100%;
+        background: $panel;
+        color: $text-primary;
     }
 
     SettingsModal Input:focus {
@@ -76,12 +80,40 @@ class SettingsModal(ModalScreen):
 
     SettingsModal Select {
         margin-bottom: 1;
+        width: 100%;
+    }
+
+    /* In horizontal rows, make the field fill remaining space */
+    SettingsModal Horizontal > Input,
+    SettingsModal Horizontal > Select,
+    SettingsModal Horizontal > Switch {
+        width: 1fr;
+        margin-left: 1;
+    }
+
+    /* Ensure labels in horizontal rows are visible and readable */
+    SettingsModal Horizontal {
+        height: auto;
+    }
+
+    SettingsModal Horizontal > Label {
+        width: 24;
+        min-width: 16;
+        color: $text-primary;
+    }
+
+    /* Scroll area for main form content */
+    #settings-scroll {
+        height: 1fr;
+        width: 100%;
+        padding-right: 1;
     }
 
     #button-container {
-        margin-top: 2;
+        dock: bottom;
         align: center middle;
         height: 3;
+        padding-top: 1;
     }
 
     #button-container Button {
@@ -99,7 +131,8 @@ class SettingsModal(ModalScreen):
         with Container():
             yield Static("Settings", id="settings-title")
 
-            with Vertical():
+            # Scrollable content area
+            with VerticalScroll(id="settings-scroll"):
                 yield Label("API Configuration")
 
                 yield Label("Google API Key:")
@@ -151,10 +184,11 @@ class SettingsModal(ModalScreen):
                     yield Label("Auto-scroll:")
                     yield Switch(value=True, id="auto-scroll-switch")
 
-                with Horizontal(id="button-container"):
-                    yield Button("Save", id="btn-save", variant="primary")
-                    yield Button("Reset", id="btn-reset", variant="warning")
-                    yield Button("Close", id="btn-close", variant="default")
+            # Fixed-action buttons docked to modal bottom
+            with Horizontal(id="button-container"):
+                yield Button("Save", id="btn-save", variant="primary")
+                yield Button("Reset", id="btn-reset", variant="warning")
+                yield Button("Close", id="btn-close", variant="default")
 
     @on(Button.Pressed, "#btn-save")
     def on_save_pressed(self) -> None:

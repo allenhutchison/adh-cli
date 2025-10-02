@@ -37,28 +37,33 @@ class ToolExecutionWidget(Widget):
     }
 
     ToolExecutionWidget.executing {
-        border: solid $execution-running;
+        border: solid $border;
+        border-left: tall $execution-running;
         background: $panel;
     }
 
     ToolExecutionWidget.confirming {
-        border: solid $warning;
-        background: $warning-lighten-3;
+        border: solid $border;
+        border-left: tall $warning;
+        background: $panel;
     }
 
     ToolExecutionWidget.success {
-        border: solid $execution-success;
-        background: $success-lighten-3;
+        border: solid $border;
+        border-left: tall $execution-success;
+        background: $surface;
     }
 
     ToolExecutionWidget.failed {
-        border: solid $execution-failed;
-        background: $error-lighten-3;
+        border: solid $border;
+        border-left: tall $execution-failed;
+        background: $surface;
     }
 
     ToolExecutionWidget.blocked {
-        border: solid $execution-blocked;
-        background: $error-lighten-2;
+        border: solid $border;
+        border-left: tall $execution-blocked;
+        background: $surface;
     }
 
     ToolExecutionWidget .header {
@@ -249,7 +254,8 @@ class ToolExecutionWidget(Widget):
 
         params_widget.display = True
 
-        if self.expanded:
+        # Show parameters: expanded view or compact summary
+        if self.expanded or info.state == ToolExecutionState.CONFIRMING:
             # Expanded view
             params_widget.remove_class("params-compact")
             params_widget.add_class("params-expanded")
@@ -271,9 +277,10 @@ class ToolExecutionWidget(Widget):
             # Compact view
             params_widget.remove_class("params-expanded")
             params_widget.add_class("params-compact")
-
-            inline = format_parameters_inline(info.parameters, max_params=3, max_value_length=50)
+            # Always show a concise inline summary for non-expanded states
+            inline = format_parameters_inline(info.parameters, max_params=3, max_value_length=60)
             params_widget.update(inline)
+            params_widget.display = True
 
     def _update_buttons(self) -> None:
         """Update button visibility and state."""

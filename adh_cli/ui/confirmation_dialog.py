@@ -27,7 +27,8 @@ class ConfirmationDialog(ModalScreen):
         height: auto;
         max-height: 80%;
         background: $surface;
-        border: thick $primary;
+        /* Neutral frame; rely on badges and buttons for emphasis */
+        border: solid $border;
         padding: 2;
     }
 
@@ -192,31 +193,31 @@ class PolicyNotification(Widget):
         height: auto;
         margin: 1 0;
         padding: 1 2;
-        border: tall $border;
+        border: solid $border;
         background: $panel;
     }
 
     PolicyNotification.info {
         background: $primary-lighten-2;
-        border: tall $primary;
+        border: solid $primary;
         color: $text-on-primary;
     }
 
     PolicyNotification.warning {
         background: $warning-lighten-2;
-        border: tall $warning;
+        border: solid $warning;
         color: $text-on-warning;
     }
 
     PolicyNotification.error {
         background: $error-lighten-2;
-        border: tall $error;
+        border: solid $error;
         color: $text-on-error;
     }
 
     PolicyNotification.success {
         background: $success-lighten-2;
-        border: tall $success;
+        border: solid $success;
         color: $text-on-success;
     }
     """
