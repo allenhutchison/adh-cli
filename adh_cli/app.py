@@ -15,6 +15,26 @@ from .core.policy_aware_llm_agent import PolicyAwareLlmAgent
 from .core.config_paths import ConfigPaths
 
 
+def get_adh_commands_provider():
+    """Lazy load ADH command provider.
+
+    Returns:
+        ADHCommandProvider class
+    """
+    from .commands import ADHCommandProvider
+    return ADHCommandProvider
+
+
+def get_settings_commands_provider():
+    """Lazy load settings command provider.
+
+    Returns:
+        SettingsCommandProvider class
+    """
+    from .commands import SettingsCommandProvider
+    return SettingsCommandProvider
+
+
 class ADHApp(App):
     """Main ADH CLI TUI Application with Policy-Aware Agent."""
 
@@ -39,6 +59,11 @@ class ADHApp(App):
         "main": MainScreen,
         "chat": ChatScreen,
     }
+
+    # Extend Textual's default commands with ADH CLI-specific providers
+    # This preserves defaults (quit, toggle dark, show/hide keys, etc.)
+    # while adding our custom commands (settings, policies, safety, clear)
+    COMMANDS = App.COMMANDS | {get_adh_commands_provider, get_settings_commands_provider}
 
     TITLE = "ADH CLI - Policy-Aware Agent"
     SUB_TITLE = "Safe AI-assisted development"
