@@ -50,15 +50,6 @@ class ADHApp(App):
         self.api_key = None
         self.safety_enabled = True
 
-        # Migrate configuration from legacy location if needed
-        migrated, error = ConfigPaths.migrate_if_needed()
-        if migrated:
-            self._migration_performed = True
-        elif error:
-            self._migration_error = error
-        else:
-            self._migration_performed = False
-
         # Set policy directory using ConfigPaths
         self.policy_dir = ConfigPaths.get_policies_dir()
 
@@ -97,20 +88,6 @@ class ADHApp(App):
 
     def on_mount(self) -> None:
         """Initialize the app after mounting."""
-        # Show migration notification if migration was performed
-        if hasattr(self, '_migration_performed') and self._migration_performed:
-            self.notify(
-                "✓ Configuration migrated to ~/.config/adh-cli/\n"
-                "Old location: ~/.adh-cli/ (safe to delete)",
-                severity="information",
-                timeout=10
-            )
-        elif hasattr(self, '_migration_error') and self._migration_error:
-            self.notify(
-                f"⚠️ Configuration migration failed: {self._migration_error}",
-                severity="warning"
-            )
-
         # Initialize the policy-aware agent
         self._initialize_agent()
 
