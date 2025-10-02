@@ -72,3 +72,6 @@ config.json
 
 # Textual
 .textual/
+
+# Screenshots
+screenshots/
