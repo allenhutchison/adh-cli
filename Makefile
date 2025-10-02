@@ -1,7 +1,7 @@
 # Makefile for ADH CLI
 # This Makefile delegates to taskipy for consistency
 
-.PHONY: help test test-v test-cov lint format dev clean install run build sync-deps
+.PHONY: help test test-v test-cov lint format dev clean install run build sync-deps docs-tools
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -50,5 +50,8 @@ run:  ## Run the application
 
 sync-deps:  ## Sync requirements files with pyproject.toml
 	task sync-deps
+
+docs-tools: ## Generate Tools Reference docs from specs
+	task docs-tools
 
 .DEFAULT_GOAL := help
