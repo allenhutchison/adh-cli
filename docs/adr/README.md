@@ -37,6 +37,7 @@ Each ADR follows a consistent template (see `000-template.md`):
 | [006](006-policy-configuration-ui.md) | Policy Configuration UI | Proposed | 2025-09-30 |
 | [007](007-comprehensive-integration-tests.md) | Comprehensive Integration Testing | Proposed | 2025-09-30 |
 | [008](008-centralized-model-configuration.md) | Centralized Model Configuration | Proposed | 2025-09-30 |
+| [009](009-xdg-compliant-configuration.md) | XDG-Compliant Configuration Directory | Proposed | 2025-10-02 |
 
 ## When to Create an ADR
 

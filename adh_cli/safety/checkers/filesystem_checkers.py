@@ -8,6 +8,7 @@ import asyncio
 
 from ..base_checker import SafetyChecker, SafetyResult, SafetyStatus
 from ...policies.policy_types import ToolCall, RiskLevel
+from ...core.config_paths import ConfigPaths
 
 
 class BackupChecker(SafetyChecker):
@@ -45,8 +46,7 @@ class BackupChecker(SafetyChecker):
             )
 
         # Create backup
-        backup_dir = Path.home() / ".adh-cli" / "backups"
-        backup_dir.mkdir(parents=True, exist_ok=True)
+        backup_dir = ConfigPaths.get_backups_dir()
 
         backup_path = backup_dir / f"{path.name}.backup"
         try:

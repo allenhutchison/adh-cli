@@ -1,11 +1,14 @@
 """Settings modal for configuring the ADH CLI application."""
 
+import json
 from textual import on
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Select, Static, Switch
 from textual.binding import Binding
+
+from ..core.config_paths import ConfigPaths
 
 
 class SettingsModal(ModalScreen):
@@ -116,9 +119,6 @@ class SettingsModal(ModalScreen):
         top_p = self.query_one("#top-p-input", Input).value
         top_k = self.query_one("#top-k-input", Input).value
 
-        import json
-        import os
-
         settings = {
             "api_key": api_key,
             "model": model,
@@ -128,10 +128,8 @@ class SettingsModal(ModalScreen):
             "top_k": int(top_k) if top_k else 40,
         }
 
-        config_dir = os.path.expanduser("~/.config/adh-cli")
-        os.makedirs(config_dir, exist_ok=True)
-
-        with open(os.path.join(config_dir, "config.json"), "w") as f:
+        config_file = ConfigPaths.get_config_file()
+        with open(config_file, "w") as f:
             json.dump(settings, f, indent=2)
 
         self.notify("Settings saved successfully!", severity="information")
@@ -160,11 +158,8 @@ class SettingsModal(ModalScreen):
 
     def on_mount(self) -> None:
         """Load existing settings when modal is mounted."""
-        import json
-        import os
-
-        config_path = os.path.expanduser("~/.config/adh-cli/config.json")
-        if os.path.exists(config_path):
+        config_path = ConfigPaths.get_config_file()
+        if config_path.exists():
             try:
                 with open(config_path, "r") as f:
                     settings = json.load(f)

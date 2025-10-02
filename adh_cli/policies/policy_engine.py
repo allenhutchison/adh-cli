@@ -17,6 +17,7 @@ from .policy_types import (
     SupervisionLevel,
     ToolCall,
 )
+from ..core.config_paths import ConfigPaths
 
 
 class PolicyEngine:
@@ -241,7 +242,7 @@ class PolicyEngine:
 
     def _load_user_preferences(self):
         """Load user-specific policy preferences."""
-        pref_file = Path.home() / ".adh-cli" / "policy_preferences.yaml"
+        pref_file = ConfigPaths.get_policy_preferences()
         if pref_file.exists():
             try:
                 with open(pref_file, "r") as f:

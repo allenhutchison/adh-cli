@@ -11,6 +11,7 @@ from textual.widgets import Header, Footer
 from .screens.main_screen import MainScreen
 from .screens.chat_screen import ChatScreen
 from .core.policy_aware_llm_agent import PolicyAwareLlmAgent
+from .core.config_paths import ConfigPaths
 
 
 class ADHApp(App):
@@ -46,8 +47,19 @@ class ADHApp(App):
         super().__init__()
         self.agent = None
         self.api_key = None
-        self.policy_dir = Path.home() / ".adh-cli" / "policies"
         self.safety_enabled = True
+
+        # Migrate configuration from legacy location if needed
+        migrated, error = ConfigPaths.migrate_if_needed()
+        if migrated:
+            self._migration_performed = True
+        elif error:
+            self._migration_error = error
+        else:
+            self._migration_performed = False
+
+        # Set policy directory using ConfigPaths
+        self.policy_dir = ConfigPaths.get_policies_dir()
 
         # Check for API key in environment
         self._load_api_key()
@@ -69,6 +81,20 @@ class ADHApp(App):
 
     def on_mount(self) -> None:
         """Initialize the app after mounting."""
+        # Show migration notification if migration was performed
+        if hasattr(self, '_migration_performed') and self._migration_performed:
+            self.notify(
+                "✓ Configuration migrated to ~/.config/adh-cli/\n"
+                "Old location: ~/.adh-cli/ (safe to delete)",
+                severity="information",
+                timeout=10
+            )
+        elif hasattr(self, '_migration_error') and self._migration_error:
+            self.notify(
+                f"⚠️ Configuration migration failed: {self._migration_error}",
+                severity="warning"
+            )
+
         # Initialize the policy-aware agent
         self._initialize_agent()
 
@@ -86,7 +112,7 @@ class ADHApp(App):
                 policy_dir=self.policy_dir,
                 confirmation_handler=self.handle_confirmation,
                 notification_handler=self.show_notification,
-                audit_log_path=self.policy_dir / "audit.log",
+                audit_log_path=ConfigPaths.get_audit_log(),
                 temperature=0.7,
                 max_tokens=2048,
             )

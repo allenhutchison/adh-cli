@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
 
 from adh_cli.app import ADHApp
+from adh_cli.core.config_paths import ConfigPaths
 
 
 class TestADHApp:
@@ -25,7 +26,7 @@ class TestADHApp:
     def test_app_initialization(self, app):
         """Test app initializes with default values."""
         assert app.agent is None
-        assert app.policy_dir == Path.home() / ".adh-cli" / "policies"
+        assert app.policy_dir == ConfigPaths.get_policies_dir()
         assert app.safety_enabled is True
         assert app.TITLE == "ADH CLI - Policy-Aware Agent"
 
@@ -55,7 +56,7 @@ class TestADHApp:
             policy_dir=app.policy_dir,
             confirmation_handler=app.handle_confirmation,
             notification_handler=app.show_notification,
-            audit_log_path=app.policy_dir / "audit.log",
+            audit_log_path=ConfigPaths.get_audit_log(),
             temperature=0.7,
             max_tokens=2048,
         )
