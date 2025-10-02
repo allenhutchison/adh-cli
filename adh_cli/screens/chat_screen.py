@@ -35,7 +35,7 @@ class ChatScreen(Screen):
     #chat-log {
         height: 100%;
         width: 100%;
-        border: solid $primary;
+        border: solid $border;
         border-title-align: center;
         padding: 2;
         background: $surface;
@@ -50,7 +50,15 @@ class ChatScreen(Screen):
 
     #chat-input {
         width: 100%;
-        margin: 0 2 2 2;
+        /* Remove bottom margin so input sits flush above the status bar */
+        margin: 0 2 0 2;
+        border: solid $border;
+        background: $panel;
+        color: $text-primary;
+    }
+
+    #chat-input:focus {
+        border: solid $border-focus;
     }
 
     #status-line {
@@ -59,7 +67,9 @@ class ChatScreen(Screen):
         background: $panel;
         color: $text-primary;
         padding: 0 1;
-        width: 100%;
+        /* Align with chat/input gutters */
+        margin: 0 2;
+        width: auto;
     }
 
     #status-line.thinking {

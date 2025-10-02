@@ -384,15 +384,20 @@ ModalScreen > Container {
  * ACCESSIBILITY
  * ============================================================ */
 
-/* Enhanced focus indicators */
-*:focus {
+/* Enhanced focus indicators (scoped to interactive widgets only) */
+Input:focus,
+Button:focus,
+Checkbox:focus,
+Switch:focus,
+Select:focus,
+RadioSet:focus,
+OptionList:focus,
+TextArea:focus {
     border: solid $border-focus;
 }
 
-/* Ensure focus is always visible */
-*:focus-within {
-    outline: solid $border-focus;
-}
+/* Avoid global focus-within outlines which created full-screen rails */
+/* Add per-widget outlines if needed for accessibility */
 
 /* ============================================================
  * UTILITY CLASSES
