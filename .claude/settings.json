@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "python -m pytest"
-    ],
-    "deny": [],
-    "ask": []
-  }
-}

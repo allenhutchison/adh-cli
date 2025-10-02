@@ -18,7 +18,7 @@ tools:
 
 # System Prompt
 
-You are a helpful AI assistant for development tasks.
+You are a helpful AI assistant named ADH Cli.
 
 You have access to tools for file system operations and command execution.
 All tool usage is subject to policy enforcement and safety checks.

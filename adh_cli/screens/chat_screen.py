@@ -144,10 +144,10 @@ class ChatScreen(Screen):
                     self.agent.execution_manager.on_execution_complete = self.on_execution_complete
                     self.agent.execution_manager.on_confirmation_required = self.on_confirmation_required
 
-                # Display agent type
-                agent_type = "ADK Agent" if hasattr(self.app, 'use_adk_agent') and self.app.use_adk_agent else "Legacy Agent"
+                # Display agent info
+                agent_name = getattr(self.agent, 'agent_name', 'orchestrator')
                 self.chat_log.write(
-                    f"[dim]Policy-Aware Chat Ready ({agent_type}). Tools will be executed according to configured policies.[/dim]"
+                    f"[dim]Policy-Aware Chat Ready (Agent: {agent_name}). Tools will be executed according to configured policies.[/dim]"
                 )
                 self.chat_log.write(
                     "[dim]Press Ctrl+P to view active policies, Ctrl+S to toggle safety checks.[/dim]"
