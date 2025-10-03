@@ -128,13 +128,17 @@ Global bindings defined in `ADHApp.BINDINGS`:
 ### Tool System
 
 #### Available Tools
-- **read_file**: Read text files with size limits
-- **write_file**: Write content with backup creation
-- **list_directory**: List directory contents
-- **execute_command**: Run shell commands with safety validation
-- **create_directory**: Create directories with permission checks
-- **delete_file**: Delete files with confirmation requirements
-- **get_file_info**: Get file/directory metadata
+
+All tools are available by default. Access control and confirmation requirements are managed by the policy engine.
+
+- **read_file**: Read text files with size limits (automatic)
+- **list_directory**: List directory contents (automatic)
+- **get_file_info**: Get file/directory metadata (automatic)
+- **create_directory**: Create directories with permission checks (automatic)
+- **write_file**: Write content with backup creation (requires confirmation)
+- **delete_file**: Delete files with confirmation requirements (requires confirmation)
+- **execute_command**: Run shell commands with safety validation (requires confirmation by default)
+- **fetch_url**: Fetch content from HTTP/HTTPS URLs (requires confirmation)
 
 #### Policy-Controlled Execution
 - **Tool Executor** (`adh_cli/core/tool_executor.py`):
@@ -174,15 +178,22 @@ Global bindings defined in `ADHApp.BINDINGS`:
 #### Default Policies
 Located in `adh_cli/policies/defaults/`:
 - **filesystem_policies.yaml**: File operation rules
-  - Read operations: automatic
-  - Write operations: require confirmation
-  - Delete operations: manual review
+  - Read operations (read_file, list_directory, get_file_info): automatic
+  - Directory creation: automatic
+  - Write operations (write_file): require confirmation
+  - Delete operations (delete_file): require confirmation
   - System files: denied
 - **command_policies.yaml**: Command execution rules
-  - Safe commands: notify only
+  - Safe read commands: notify only
+  - Git operations: read=automatic, write=confirmation
   - Package managers: require confirmation
+  - File modification commands: require confirmation
   - Dangerous commands: manual review
   - Destructive commands: blocked
+- **network_policies.yaml**: Network operation rules
+  - HTTP/HTTPS fetching (fetch_url): require confirmation
+  - Size limits enforced (10MB max)
+  - Only HTTP/HTTPS schemes allowed
 
 #### Custom Policies
 Users can create custom policies in `~/.adh-cli/policies/`:

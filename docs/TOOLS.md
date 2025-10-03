@@ -49,6 +49,25 @@ Parameters:
 | `shell` | `boolean` | true | Use shell execution |
 
 
+## `fetch_url`
+
+Fetch content from a URL (GET) with size/time limits
+
+- Tags: network, http, fetch
+- Effects: network_read
+
+Parameters:
+
+| Name | Type | Default | Description |
+|---|---|---|---|
+| `url` | `string` |  | HTTP/HTTPS URL to fetch |
+| `timeout` | `integer` | 20 | Timeout seconds |
+| `max_bytes` | `integer` | 500000 | Max bytes to read |
+| `as_text` | `boolean` | true | Decode text instead of base64 |
+| `encoding` | `string` | true | Text encoding override |
+| `headers` | `object` | true | Optional request headers |
+
+
 ## `get_file_info`
 
 Get information about a file or directory

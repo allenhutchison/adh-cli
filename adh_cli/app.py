@@ -152,7 +152,10 @@ class ADHApp(App):
             self.notify(f"Failed to initialize agent: {str(e)}", severity="error")
 
     def _register_default_tools(self):
-        """Register the default set of tools from specs registry."""
+        """Register the default set of tools from specs registry.
+
+        All tools are registered; access control is handled by the policy engine.
+        """
         if not self.agent:
             return
 
@@ -161,6 +164,8 @@ class ADHApp(App):
         from .tools.base import registry
 
         register_default_specs()
+
+        # Register all tools - the policy engine controls access and confirmation requirements
         for spec in registry.all():
             self.agent.register_tool(
                 name=spec.name,

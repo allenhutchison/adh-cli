@@ -1,5 +1,6 @@
 """Policy-aware wrapper for ADK FunctionTool."""
 
+import functools
 import inspect
 from typing import Any, Callable, Dict, Optional, TYPE_CHECKING
 from google.adk.tools import FunctionTool
@@ -56,10 +57,19 @@ class PolicyAwareFunctionTool(FunctionTool):
         self.execution_manager = execution_manager
         self.original_func = func
 
-        # Create policy-wrapped function
-        async def policy_wrapped_func(**kwargs):
+        # Create policy-wrapped function with proper metadata preservation
+        @functools.wraps(func)
+        async def policy_wrapped_func(*args, **kwargs):
             """Wrapper that enforces policy before execution."""
             execution_id = None
+
+            # Convert positional args to keyword args based on function signature
+            if args:
+                sig = inspect.signature(func)
+                param_names = list(sig.parameters.keys())
+                for i, arg in enumerate(args):
+                    if i < len(param_names):
+                        kwargs[param_names[i]] = arg
 
             # 1. Create tool call for policy evaluation
             tool_call = ToolCall(
@@ -93,12 +103,28 @@ class PolicyAwareFunctionTool(FunctionTool):
                 raise PermissionError(error_msg)
 
             # 5. Handle confirmation requirement (HUMAN-IN-THE-LOOP)
-            if decision.requires_confirmation and self.execution_manager and execution_id:
-                # Show UI confirmation widget and wait for user response
-                self.execution_manager.require_confirmation(execution_id, decision)
+            if decision.requires_confirmation:
+                user_confirmed = False
 
-                # BLOCK here until user confirms or cancels
-                user_confirmed = await self.execution_manager.wait_for_confirmation(execution_id)
+                # Use execution manager if available (preferred - shows in UI)
+                if self.execution_manager and execution_id:
+                    # Show UI confirmation widget and wait for user response
+                    self.execution_manager.require_confirmation(execution_id, decision)
+
+                    # BLOCK here until user confirms or cancels
+                    user_confirmed = await self.execution_manager.wait_for_confirmation(execution_id)
+
+                # Fall back to confirmation handler if no execution manager
+                elif self.confirmation_handler:
+                    user_confirmed = await self.confirmation_handler(
+                        tool_call=tool_call,
+                        decision=decision,
+                        message=decision.confirmation_message
+                    )
+
+                # If neither is available, deny by default (fail-safe)
+                else:
+                    user_confirmed = False
 
                 if not user_confirmed:
                     # User cancelled - abort execution
@@ -212,16 +238,12 @@ class PolicyAwareFunctionTool(FunctionTool):
                     # For unknown exception types, wrap in RuntimeError
                     raise RuntimeError(enhanced_msg) from e
 
-        # Set proper function name and docstring for ADK introspection
+        # Override function name for tool identification
+        # Note: functools.wraps() already copied __annotations__, __module__, __doc__, etc.
         policy_wrapped_func.__name__ = tool_name
-        # Get description from original function if available
-        if hasattr(func, '__doc__') and func.__doc__:
-            policy_wrapped_func.__doc__ = func.__doc__
-        else:
-            policy_wrapped_func.__doc__ = f"Policy-enforced wrapper for {tool_name}"
 
-        # Copy the original function's signature so ADK can introspect parameters
-        # This is critical - ADK uses the signature to determine what parameters to pass
+        # Ensure __signature__ is properly set for ADK introspection
+        # (functools.wraps doesn't copy __signature__, so we do it manually)
         policy_wrapped_func.__signature__ = inspect.signature(func)
 
         # Initialize parent FunctionTool with our wrapped function

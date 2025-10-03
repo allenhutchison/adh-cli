@@ -1,0 +1,9 @@
+network:
+  # HTTP/HTTPS fetching - requires confirmation
+  fetch_url:
+    pattern: 'fetch_url'
+    supervision: confirm
+    risk: medium
+    restrictions:
+      - type: size_limit
+        max_bytes: 10485760  # 10MB max download

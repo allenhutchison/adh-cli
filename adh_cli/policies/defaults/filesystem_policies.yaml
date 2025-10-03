@@ -20,6 +20,13 @@ filesystem:
     safety_checks:
       - "permission"
 
+  get_file_info:
+    pattern: "get_file_info"
+    supervision: "automatic"
+    risk: "low"
+    safety_checks:
+      - "permission"
+
   # Write operations - require confirmation
   write_file:
     pattern: "write_file"
@@ -38,6 +45,14 @@ filesystem:
           - "*.pem"
           - "id_rsa*"
           - "credentials*"
+
+  create_directory:
+    pattern: "create_directory"
+    supervision: "automatic"
+    risk: "low"
+    safety_checks:
+      - "disk_space"
+      - "permission"
 
   create_file:
     pattern: "create_*"
@@ -65,22 +80,20 @@ filesystem:
       - "backup"
       - "permission"
 
-  # Delete operations - high risk
+  # Delete operations - high risk, requires confirmation
   delete_file:
     pattern: "delete_*"
-    supervision: "manual"
+    supervision: "confirm"
     risk: "high"
     safety_checks:
       - "backup"
-      - "confirmation_double"
 
   remove_file:
     pattern: "remove_*"
-    supervision: "manual"
+    supervision: "confirm"
     risk: "high"
     safety_checks:
       - "backup"
-      - "confirmation_double"
 
   # System file operations - critical risk
   system_file_write:

@@ -1,24 +1,54 @@
 filesystem:
-  delete_file:
-    pattern: '*delete*'
-    risk: high
-    safety_checks:
-    - backup
-    - confirmation
-    supervision: manual
+  # Read operations - automatic execution
   read_file:
-    pattern: '*read*'
-    restrictions:
-    - max_bytes: 10485760
-      type: size_limit
+    pattern: 'read_file'
+    supervision: automatic
     risk: low
     safety_checks:
-    - sensitive_data
+      - size_limit
+      - sensitive_data
+    restrictions:
+      - type: size_limit
+        max_bytes: 10485760  # 10MB
+
+  list_directory:
+    pattern: 'list_directory'
     supervision: automatic
+    risk: low
+    safety_checks:
+      - permission
+
+  get_file_info:
+    pattern: 'get_file_info'
+    supervision: automatic
+    risk: low
+    safety_checks:
+      - permission
+
+  # Directory creation - automatic (low risk)
+  create_directory:
+    pattern: 'create_directory'
+    supervision: automatic
+    risk: low
+    safety_checks:
+      - disk_space
+      - permission
+
+  # Write operations - require confirmation
   write_file:
-    pattern: '*write*'
+    pattern: 'write_file'
+    supervision: confirm
     risk: medium
     safety_checks:
-    - backup
-    - disk_space
+      - backup
+      - disk_space
+      - permission
+      - sensitive_data
+
+  # Delete operations - require confirmation
+  delete_file:
+    pattern: 'delete_file'
     supervision: confirm
+    risk: high
+    safety_checks:
+      - backup

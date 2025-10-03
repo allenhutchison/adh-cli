@@ -60,22 +60,25 @@ class TestPolicyEngine:
         """Test PolicyEngine initialization."""
         engine = PolicyEngine(policy_dir=temp_policy_dir)
 
-        assert engine.policy_dir == temp_policy_dir
+        assert engine.user_policy_dir == temp_policy_dir
+        assert engine.builtin_policy_dir.exists()  # Built-in policies always exist
         assert engine.default_supervision == SupervisionLevel.CONFIRM
         assert isinstance(engine.rules, list)
         assert isinstance(engine.violations, list)
         assert isinstance(engine.user_preferences, dict)
 
     def test_default_policies_creation(self):
-        """Test that default policies are created if directory doesn't exist."""
+        """Test that built-in policies are always loaded even if user dir doesn't exist."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            policy_dir = Path(tmpdir) / "policies"
+            policy_dir = Path(tmpdir) / "policies"  # Non-existent user directory
             engine = PolicyEngine(policy_dir=policy_dir)
 
-            # Check that default policy files were created
-            assert policy_dir.exists()
-            assert (policy_dir / "filesystem.yaml").exists()
-            assert (policy_dir / "commands.yaml").exists()
+            # Check that rules were loaded from built-in policies
+            assert len(engine.rules) > 0
+            # Verify we have the expected built-in rules
+            rule_names = [rule.name for rule in engine.rules]
+            assert any("read_file" in name for name in rule_names)
+            assert any("write_file" in name for name in rule_names)
 
     def test_evaluate_matching_rule(self, engine_with_policies):
         """Test evaluating a tool call with matching rule."""
@@ -178,7 +181,7 @@ class TestPolicyEngine:
         decision = engine.evaluate_tool_call(tool_call)
 
         assert decision.allowed is True
-        assert decision.supervision_level == SupervisionLevel.MANUAL
+        assert decision.supervision_level == SupervisionLevel.CONFIRM
         assert decision.risk_level == RiskLevel.HIGH
         assert decision.requires_confirmation
 
@@ -302,12 +305,19 @@ class TestPolicyEngine:
             }
         }
 
-        policy_file = engine_with_policies.policy_dir / "restrictions.yaml"
+        # Use user_policy_dir if available, otherwise use a temp directory
+        if engine_with_policies.user_policy_dir:
+            policy_file = engine_with_policies.user_policy_dir / "restrictions.yaml"
+        else:
+            import tempfile
+            temp_dir = Path(tempfile.mkdtemp())
+            policy_file = temp_dir / "restrictions.yaml"
+
         with open(policy_file, "w") as f:
             yaml.dump(test_policy, f)
 
-        # Reload engine
-        engine = PolicyEngine(policy_dir=engine_with_policies.policy_dir)
+        # Reload engine with the same user policy directory
+        engine = PolicyEngine(policy_dir=engine_with_policies.user_policy_dir)
 
         tool_call = ToolCall(
             tool_name="write_file",

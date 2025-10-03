@@ -1,9 +1,9 @@
-command:
-  dangerous_commands:
-    pattern: rm*|format|dd|mkfs
-    risk: critical
-    supervision: deny
-  safe_commands:
-    pattern: ls|pwd|cat|grep|find
-    risk: low
-    supervision: notify
+commands:
+  # Default for all commands - require confirmation
+  execute_command:
+    pattern: 'execute_command'
+    supervision: confirm
+    risk: medium
+    safety_checks:
+      - command_validator
+      - sandbox

@@ -27,15 +27,22 @@ class PolicyEngine:
         """Initialize the policy engine.
 
         Args:
-            policy_dir: Directory containing policy definition files
+            policy_dir: Directory containing user policy files (optional)
+                       Built-in policies are always loaded first, then user policies
+                       can override them if provided.
         """
-        self.policy_dir = policy_dir or Path(__file__).parent / "definitions"
+        # Built-in policy directory
+        self.builtin_policy_dir = Path(__file__).parent / "definitions"
+
+        # User policy directory (optional)
+        self.user_policy_dir = policy_dir
+
         self.rules: List[PolicyRule] = []
         self.default_supervision = SupervisionLevel.CONFIRM
         self.violations: List[PolicyViolation] = []
         self.user_preferences: Dict[str, Any] = {}
 
-        # Load policies
+        # Load policies (built-in first, then user overrides)
         self._load_policies()
         self._load_user_preferences()
 
@@ -213,8 +220,9 @@ class PolicyEngine:
         auto_approve = self.user_preferences.get("auto_approve", [])
         for pattern in auto_approve:
             if fnmatch.fnmatch(tool_call.tool_name.lower(), pattern.lower()):
-                if decision.risk_level in [RiskLevel.NONE, RiskLevel.LOW]:
-                    decision.supervision_level = SupervisionLevel.AUTOMATIC
+                # When user explicitly auto-approves, bypass risk checks
+                # (This is used for "toggle safety off" functionality)
+                decision.supervision_level = SupervisionLevel.AUTOMATIC
 
         # Check for never-allow patterns
         never_allow = self.user_preferences.get("never_allow", [])
@@ -225,20 +233,29 @@ class PolicyEngine:
                 decision.reason = "Blocked by user preferences"
 
     def _load_policies(self):
-        """Load policy definitions from files."""
-        # Only create defaults if directory doesn't exist
-        if not self.policy_dir.exists():
-            self.policy_dir.mkdir(parents=True, exist_ok=True)
-            self._create_default_policies()
+        """Load policy definitions from files.
 
-        # Load all .yaml files in policy directory
-        for policy_file in self.policy_dir.glob("*.yaml"):
-            try:
-                with open(policy_file, "r") as f:
-                    data = yaml.safe_load(f)
-                    self._parse_policy_file(data)
-            except Exception as e:
-                print(f"Error loading policy file {policy_file}: {e}")
+        Loads built-in policies first, then user policies which can override them.
+        """
+        # Load built-in policies (always available)
+        if self.builtin_policy_dir.exists():
+            for policy_file in self.builtin_policy_dir.glob("*.yaml"):
+                try:
+                    with open(policy_file, "r") as f:
+                        data = yaml.safe_load(f)
+                        self._parse_policy_file(data)
+                except Exception as e:
+                    print(f"Error loading built-in policy file {policy_file}: {e}")
+
+        # Load user policies (can override built-in policies)
+        if self.user_policy_dir and self.user_policy_dir.exists():
+            for policy_file in self.user_policy_dir.glob("*.yaml"):
+                try:
+                    with open(policy_file, "r") as f:
+                        data = yaml.safe_load(f)
+                        self._parse_policy_file(data)
+                except Exception as e:
+                    print(f"Error loading user policy file {policy_file}: {e}")
 
     def _load_user_preferences(self):
         """Load user-specific policy preferences."""

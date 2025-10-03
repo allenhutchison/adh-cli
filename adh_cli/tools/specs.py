@@ -7,7 +7,7 @@ for each tool, separate from the implementation handlers.
 from __future__ import annotations
 
 from .base import ToolSpec, registry
-from . import shell_tools
+from . import shell_tools, web_tools
 
 
 def register_default_specs() -> None:
@@ -118,6 +118,25 @@ def register_default_specs() -> None:
             handler=shell_tools.get_file_info,
             tags=["filesystem", "read"],
             effects=["reads_fs"],
+        )
+    )
+
+    # Networking tools
+    add(
+        ToolSpec(
+            name="fetch_url",
+            description="Fetch content from a URL (GET) with size/time limits",
+            parameters={
+                "url": {"type": "string", "description": "HTTP/HTTPS URL to fetch"},
+                "timeout": {"type": "integer", "description": "Timeout seconds", "default": 20},
+                "max_bytes": {"type": "integer", "description": "Max bytes to read", "default": 500000},
+                "as_text": {"type": "boolean", "description": "Decode text instead of base64", "default": True},
+                "encoding": {"type": "string", "description": "Text encoding override", "nullable": True},
+                "headers": {"type": "object", "description": "Optional request headers", "nullable": True},
+            },
+            handler=web_tools.fetch_url,
+            tags=["network", "http", "fetch"],
+            effects=["network_read"],
         )
     )
 

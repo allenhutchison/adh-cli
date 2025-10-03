@@ -1,0 +1,18 @@
+# Network operation policies
+
+network:
+  # HTTP/HTTPS fetching - requires confirmation
+  fetch_url:
+    pattern: "fetch_url"
+    supervision: "confirm"
+    risk: "medium"
+    safety_checks:
+      - "url_validator"
+    restrictions:
+      - type: "url_scheme"
+        allow:
+          - "http"
+          - "https"
+      - type: "size_limit"
+        max_bytes: 10485760  # 10MB max download
+    priority: 10
