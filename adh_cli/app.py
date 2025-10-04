@@ -172,6 +172,7 @@ class ADHApp(App):
             api_key=self.api_key,
             policy_dir=self.policy_dir,
             audit_log_path=ConfigPaths.get_audit_log(),
+            parent_agent=self.agent,  # Pass parent agent for callbacks
         )
         delegate_tool = create_delegate_tool(delegator)
 

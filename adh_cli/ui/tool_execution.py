@@ -27,6 +27,7 @@ class ToolExecutionInfo:
     id: str  # Unique execution ID
     tool_name: str
     timestamp: datetime = field(default_factory=datetime.now)
+    agent_name: Optional[str] = None  # Name of agent executing (for delegated agents)
 
     # Parameters
     parameters: Dict[str, Any] = field(default_factory=dict)

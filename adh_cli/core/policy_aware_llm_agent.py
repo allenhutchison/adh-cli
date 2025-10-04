@@ -282,6 +282,7 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
             confirmation_handler=self.confirmation_handler,
             audit_logger=self.audit_logger,
             execution_manager=self.execution_manager,
+            agent_name=self.agent_name,  # Pass agent name for tracking
         )
 
         # Add to our tracking

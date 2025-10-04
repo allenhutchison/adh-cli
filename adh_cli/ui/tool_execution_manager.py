@@ -69,6 +69,7 @@ class ToolExecutionManager:
         tool_name: str,
         parameters: Dict[str, Any],
         policy_decision: Optional[PolicyDecision] = None,
+        agent_name: Optional[str] = None,
     ) -> ToolExecutionInfo:
         """Create a new tool execution tracking instance.
 
@@ -76,6 +77,7 @@ class ToolExecutionManager:
             tool_name: Name of the tool being executed
             parameters: Tool parameters
             policy_decision: Policy decision for this execution
+            agent_name: Name of agent executing (for delegated agents)
 
         Returns:
             New ToolExecutionInfo instance
@@ -99,6 +101,7 @@ class ToolExecutionManager:
             requires_confirmation=requires_confirmation,
             state=initial_state,
             timestamp=datetime.now(),
+            agent_name=agent_name,
         )
 
         # Track as active

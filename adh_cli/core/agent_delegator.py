@@ -40,6 +40,7 @@ class AgentDelegator:
         api_key: str,
         policy_dir: Optional[Path] = None,
         audit_log_path: Optional[Path] = None,
+        parent_agent: Optional[Any] = None,
     ):
         """Initialize the agent delegator.
 
@@ -47,10 +48,12 @@ class AgentDelegator:
             api_key: API key for Gemini
             policy_dir: Directory containing policy files
             audit_log_path: Path for audit logging
+            parent_agent: Parent agent (to get execution_manager callbacks from)
         """
         self.api_key = api_key
         self.policy_dir = policy_dir
         self.audit_log_path = audit_log_path
+        self.parent_agent = parent_agent
         self._agent_cache: Dict[str, PolicyAwareLlmAgent] = {}
 
     async def delegate(
@@ -72,11 +75,30 @@ class AgentDelegator:
         try:
             # Load or get cached agent
             if agent_name not in self._agent_cache:
+                # Get callbacks from parent agent's execution manager if available
+                on_execution_start = None
+                on_execution_update = None
+                on_execution_complete = None
+                on_confirmation_required = None
+
+                if self.parent_agent and hasattr(self.parent_agent, 'execution_manager'):
+                    exec_mgr = self.parent_agent.execution_manager
+                    on_execution_start = getattr(exec_mgr, 'on_execution_start', None)
+                    on_execution_update = getattr(exec_mgr, 'on_execution_update', None)
+                    on_execution_complete = getattr(exec_mgr, 'on_execution_complete', None)
+                    on_confirmation_required = getattr(exec_mgr, 'on_confirmation_required', None)
+
                 agent = PolicyAwareLlmAgent(
                     agent_name=agent_name,
                     api_key=self.api_key,
                     policy_dir=self.policy_dir,
                     audit_log_path=self.audit_log_path,
+                    # Pass execution manager callbacks so delegated agent's
+                    # tool calls appear in the UI
+                    on_execution_start=on_execution_start,
+                    on_execution_update=on_execution_update,
+                    on_execution_complete=on_execution_complete,
+                    on_confirmation_required=on_confirmation_required,
                 )
                 # Register tools specific to this agent
                 self._register_agent_tools(agent, agent_name)

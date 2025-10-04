@@ -417,8 +417,12 @@ class ChatScreen(Screen):
             content.append("Result: ", style="dim")
             content.append(result_str, style="dim")
 
-        # Create panel
-        title = f"[bold]🔧 Tool: {info.tool_name}[/bold]"
+        # Create panel with agent name if from delegated agent
+        if info.agent_name and info.agent_name != "orchestrator":
+            title = f"[bold]🔧 Tool: {info.tool_name}[/bold] [dim](via {info.agent_name})[/dim]"
+        else:
+            title = f"[bold]🔧 Tool: {info.tool_name}[/bold]"
+
         panel = Panel(
             content,
             title=title,

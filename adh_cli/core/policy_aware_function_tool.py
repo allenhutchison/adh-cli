@@ -37,6 +37,7 @@ class PolicyAwareFunctionTool(FunctionTool):
         confirmation_handler: Optional[Callable] = None,
         audit_logger: Optional[Callable] = None,
         execution_manager: Optional["ToolExecutionManager"] = None,
+        agent_name: Optional[str] = None,
     ):
         """Initialize policy-aware function tool.
 
@@ -48,6 +49,7 @@ class PolicyAwareFunctionTool(FunctionTool):
             confirmation_handler: Handler for user confirmations (not used directly)
             audit_logger: Logger for audit trail
             execution_manager: Optional execution manager for UI tracking
+            agent_name: Name of agent executing (for delegated agents)
         """
         self.tool_name = tool_name
         self.policy_engine = policy_engine
@@ -55,6 +57,7 @@ class PolicyAwareFunctionTool(FunctionTool):
         self.confirmation_handler = confirmation_handler
         self.audit_logger = audit_logger
         self.execution_manager = execution_manager
+        self.agent_name = agent_name
         self.original_func = func
 
         # Create policy-wrapped function with proper metadata preservation
@@ -87,6 +90,7 @@ class PolicyAwareFunctionTool(FunctionTool):
                     tool_name=tool_name,
                     parameters=kwargs,
                     policy_decision=decision,
+                    agent_name=self.agent_name,  # Pass agent name for delegated agents
                 )
                 execution_id = execution_info.id
 
