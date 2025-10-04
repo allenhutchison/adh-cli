@@ -66,6 +66,11 @@ class ToolExecutionWidget(Widget):
         background: $surface;
     }
 
+    ToolExecutionWidget #tool-content {
+        width: 100%;
+        height: auto;
+    }
+
     ToolExecutionWidget .header {
         width: 100%;
         height: auto;
@@ -89,14 +94,54 @@ class ToolExecutionWidget(Widget):
 
     ToolExecutionWidget .button-container {
         width: 100%;
-        height: 3;
+        height: 5;
+        min-height: 5;
         align: center middle;
         margin-top: 1;
+        visibility: visible;
+        opacity: 1.0;
     }
 
-    ToolExecutionWidget Button {
+    ToolExecutionWidget #confirm-btn {
         margin: 0 1;
         min-width: 12;
+        width: auto;
+        height: 3;
+        min-height: 3;
+        visibility: visible;
+        opacity: 1.0;
+        background: $primary;
+        color: $text-on-primary;
+        border: solid $primary;
+        padding: 0 2;
+    }
+
+    ToolExecutionWidget #cancel-btn {
+        margin: 0 1;
+        min-width: 12;
+        width: auto;
+        height: 3;
+        min-height: 3;
+        visibility: visible;
+        opacity: 1.0;
+        background: $panel;
+        color: $text-primary;
+        border: solid $border;
+        padding: 0 2;
+    }
+
+    ToolExecutionWidget #details-btn {
+        margin: 0 1;
+        min-width: 12;
+        width: auto;
+        height: 3;
+        min-height: 3;
+        visibility: visible;
+        opacity: 1.0;
+        background: $panel;
+        color: $text-primary;
+        border: solid $border;
+        padding: 0 2;
     }
 
     ToolExecutionWidget .risk-badge {
@@ -163,7 +208,7 @@ class ToolExecutionWidget(Widget):
 
     def compose(self) -> ComposeResult:
         """Compose the widget layout."""
-        with Container():
+        with Container(id="tool-content"):
             yield Static(id="header", classes="header")
             yield Static(id="params", classes="params-compact")
 
@@ -175,6 +220,10 @@ class ToolExecutionWidget(Widget):
 
     def on_mount(self) -> None:
         """Handle widget mount."""
+        # Hide buttons initially
+        button_container = self.query_one("#button-container", Horizontal)
+        button_container.styles.display = "none"
+
         # Force update during mount (is_mounted will be False during on_mount)
         self._update_display(force=True)
 
@@ -287,9 +336,22 @@ class ToolExecutionWidget(Widget):
         info = self.execution_info
         button_container = self.query_one("#button-container", Horizontal)
 
-        # Only show buttons when confirming
+        # Show/hide buttons based on state
         if info.state == ToolExecutionState.CONFIRMING and info.requires_confirmation:
+            # Force visibility via both property and styles
             button_container.display = True
+            button_container.styles.display = "block"
+            button_container.styles.height = 5  # Force explicit height
+            button_container.styles.min_height = 5
+            button_container.styles.visibility = "visible"
+            button_container.styles.opacity = 1.0
+
+            # Make sure buttons themselves are visible
+            for btn in button_container.query(Button):
+                btn.display = True
+                btn.styles.height = 3  # Force button height
+                btn.styles.visibility = "visible"
+                btn.styles.opacity = 1.0
 
             # Update details button text
             details_btn = self.query_one("#details-btn", Button)
@@ -298,7 +360,9 @@ class ToolExecutionWidget(Widget):
             else:
                 details_btn.label = "📋 Details"
         else:
+            # Hide buttons
             button_container.display = False
+            button_container.styles.display = "none"
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button press events."""

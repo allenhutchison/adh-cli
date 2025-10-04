@@ -81,12 +81,23 @@ class ToolExecutionManager:
             New ToolExecutionInfo instance
         """
         execution_id = str(uuid.uuid4())
+
+        # Extract requires_confirmation from policy_decision if available
+        requires_confirmation = False
+        if policy_decision and hasattr(policy_decision, 'requires_confirmation'):
+            requires_confirmation = policy_decision.requires_confirmation
+
+        # Start in CONFIRMING state if confirmation is required
+        # Otherwise start in PENDING state
+        initial_state = ToolExecutionState.CONFIRMING if requires_confirmation else ToolExecutionState.PENDING
+
         info = ToolExecutionInfo(
             id=execution_id,
             tool_name=tool_name,
             parameters=parameters,
             policy_decision=policy_decision,
-            state=ToolExecutionState.PENDING,
+            requires_confirmation=requires_confirmation,
+            state=initial_state,
             timestamp=datetime.now(),
         )
 
