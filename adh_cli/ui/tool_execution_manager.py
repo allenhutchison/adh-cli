@@ -265,7 +265,11 @@ class ToolExecutionManager:
 
         # Emit confirmation required event
         if info and self.on_confirmation_required:
-            self.on_confirmation_required(info, policy_decision)
+            # Call the callback - it may be sync or async
+            result = self.on_confirmation_required(info, policy_decision)
+            # If it's a coroutine, schedule it as a task
+            if asyncio.iscoroutine(result):
+                asyncio.create_task(result)
 
         return info
 

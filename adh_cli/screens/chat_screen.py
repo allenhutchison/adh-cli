@@ -1,10 +1,10 @@
 """Chat screen with policy-aware agent integration."""
 
-from typing import Optional, Dict
+from typing import Optional
 from pathlib import Path
 from textual import on
 from textual.app import ComposeResult
-from textual.containers import Container, Horizontal, VerticalScroll
+from textual.containers import Container, VerticalScroll
 from textual.screen import Screen
 from textual.widgets import Input, RichLog, Static
 from textual.binding import Binding
@@ -13,7 +13,6 @@ from rich.panel import Panel
 
 from ..core.tool_executor import ExecutionContext
 from ..ui.confirmation_dialog import ConfirmationDialog, PolicyNotification
-from ..ui.tool_execution_widget import ToolExecutionWidget
 from ..ui.tool_execution import ToolExecutionInfo
 from ..policies.policy_types import PolicyDecision
 
@@ -39,13 +38,6 @@ class ChatScreen(Screen):
         border-title-align: center;
         padding: 2;
         background: $surface;
-    }
-
-    #notification-area {
-        height: auto;
-        max-height: 10;
-        width: 100%;
-        padding: 0 2;
     }
 
     #chat-input {
@@ -99,9 +91,6 @@ class ChatScreen(Screen):
         self.safety_enabled = True
         self.context = ExecutionContext()
 
-        # Track tool execution widgets by execution ID
-        self.execution_widgets: Dict[str, ToolExecutionWidget] = {}
-
     def compose(self) -> ComposeResult:
         """Create child widgets for the chat screen."""
         # Status line
@@ -122,10 +111,6 @@ class ChatScreen(Screen):
             log.border_title = "Policy-Aware ADH Chat"
             log.can_focus = True
             yield log
-
-        # Notification area for tool execution widgets
-        with VerticalScroll(id="notification-area"):
-            pass
 
         # Input area
         yield Input(
@@ -312,6 +297,89 @@ class ChatScreen(Screen):
 
         self.chat_log.write("")  # Add spacing
 
+    def _add_tool_message(self, info: ToolExecutionInfo) -> None:
+        """Add a tool execution message to the chat log.
+
+        Args:
+            info: Tool execution information
+        """
+        from rich.text import Text
+        from ..ui.tool_execution import format_parameters_inline
+
+        # Determine border style based on state
+        state_styles = {
+            "pending": "dim",
+            "confirming": "yellow",
+            "executing": "blue",
+            "success": "green",
+            "failed": "red",
+            "blocked": "red",
+            "cancelled": "dim",
+        }
+        border_style = state_styles.get(info.state.value, "white")
+
+        # Build content
+        content = Text()
+
+        # Status line
+        content.append(f"{info.status_icon} ", style="bold")
+        content.append(info.status_text, style=border_style)
+        content.append("\n\n")
+
+        # Parameters (compact inline format)
+        if info.parameters:
+            inline_params = format_parameters_inline(
+                info.parameters,
+                max_params=3,
+                max_value_length=60
+            )
+            content.append("Parameters: ", style="dim")
+            content.append(inline_params, style="")
+            content.append("\n")
+
+        # Risk level (if confirming)
+        if info.state.value == "confirming" and info.policy_decision:
+            risk = info.policy_decision.risk_level
+            risk_colors = {
+                "none": "green",
+                "low": "green",
+                "medium": "yellow",
+                "high": "red",
+                "critical": "bold red",
+            }
+            risk_color = risk_colors.get(risk.value, "white")
+            content.append("Risk: ", style="dim")
+            content.append(f"{risk.value.upper()}", style=risk_color)
+            content.append("\n")
+
+        # Error message (if failed)
+        if info.state.value == "failed" and info.error:
+            content.append("\n")
+            content.append("Error: ", style="bold red")
+            content.append(str(info.error), style="red")
+
+        # Result preview (if success and result exists)
+        if info.state.value == "success" and info.result:
+            result_str = str(info.result)
+            if len(result_str) > 200:
+                result_str = result_str[:200] + "..."
+            content.append("\n")
+            content.append("Result: ", style="dim")
+            content.append(result_str, style="dim")
+
+        # Create panel
+        title = f"[bold]🔧 Tool: {info.tool_name}[/bold]"
+        panel = Panel(
+            content,
+            title=title,
+            title_align="left",
+            border_style=border_style,
+            padding=(0, 1),
+        )
+
+        self.chat_log.write(panel)
+        self.chat_log.write("")  # Add spacing
+
     def action_clear_chat(self) -> None:
         """Clear the chat log."""
         self.chat_log.clear()
@@ -368,20 +436,8 @@ class ChatScreen(Screen):
         Args:
             info: Execution information
         """
-        notification_area = self.query_one("#notification-area", VerticalScroll)
-
-        # Create widget for this execution
-        widget = ToolExecutionWidget(
-            execution_info=info,
-            on_confirm=self._handle_widget_confirm,
-            on_cancel=self._handle_widget_cancel,
-        )
-
-        # Track widget
-        self.execution_widgets[info.id] = widget
-
-        # Mount widget
-        notification_area.mount(widget)
+        # Add tool message to chat log
+        self._add_tool_message(info)
 
     def on_execution_update(self, info: ToolExecutionInfo) -> None:
         """Handle execution update event from manager.
@@ -389,10 +445,8 @@ class ChatScreen(Screen):
         Args:
             info: Updated execution information
         """
-        # Update widget if it exists
-        widget = self.execution_widgets.get(info.id)
-        if widget:
-            widget.update_info(info)
+        # Nothing needed - updates will be shown via on_execution_complete
+        pass
 
     def on_execution_complete(self, info: ToolExecutionInfo) -> None:
         """Handle execution complete event from manager.
@@ -400,53 +454,30 @@ class ChatScreen(Screen):
         Args:
             info: Completed execution information
         """
-        # Update widget to show completion
-        widget = self.execution_widgets.get(info.id)
-        if widget:
-            widget.update_info(info)
+        # Add completion message to chat log
+        self._add_tool_message(info)
 
-            # Auto-remove after 3 seconds for successful executions
-            if info.state.value == "success":
-                self.set_timer(3.0, lambda: self._remove_execution_widget(info.id))
-
-    def on_confirmation_required(self, info: ToolExecutionInfo, decision: PolicyDecision) -> None:
+    async def on_confirmation_required(self, info: ToolExecutionInfo, decision: PolicyDecision) -> None:
         """Handle confirmation required event from manager.
 
         Args:
             info: Execution information requiring confirmation
             decision: Policy decision
         """
-        # Update widget to show confirmation state
-        widget = self.execution_widgets.get(info.id)
-        if widget:
-            widget.update_info(info)
+        # Show modal confirmation dialog
+        dialog = ConfirmationDialog(
+            tool_name=info.tool_name,
+            parameters=info.parameters,
+            decision=decision,
+        )
 
-    def _remove_execution_widget(self, execution_id: str) -> None:
-        """Remove an execution widget.
+        # Push dialog and wait for user response
+        result = await self.app.push_screen_wait(dialog)
 
-        Args:
-            execution_id: ID of execution to remove
-        """
-        widget = self.execution_widgets.pop(execution_id, None)
-        if widget and widget.is_mounted:
-            widget.remove()
-
-    async def _handle_widget_confirm(self, info: ToolExecutionInfo) -> None:
-        """Handle confirm button click from widget.
-
-        Args:
-            info: Execution information
-        """
-        # Notify agent's execution manager that user confirmed
-        if self.agent and hasattr(self.agent, 'execution_manager'):
+        # Handle user response
+        if result:
+            # User confirmed - notify execution manager to proceed
             self.agent.execution_manager.confirm_execution(info.id)
-
-    async def _handle_widget_cancel(self, info: ToolExecutionInfo) -> None:
-        """Handle cancel button click from widget.
-
-        Args:
-            info: Execution information
-        """
-        # Notify agent's execution manager that user cancelled
-        if self.agent and hasattr(self.agent, 'execution_manager'):
+        else:
+            # User cancelled - notify execution manager to abort
             self.agent.execution_manager.cancel_execution(info.id)
