@@ -161,9 +161,36 @@ class ADHApp(App):
 
         # Load tool specs and register them with the agent
         from .tools.specs import register_default_specs
-        from .tools.base import registry
+        from .tools.base import registry, ToolSpec
+        from .core.agent_delegator import AgentDelegator
+        from .tools.agent_tools import create_delegate_tool
 
         register_default_specs()
+
+        # Register agent delegation tool dynamically (needs runtime config)
+        delegator = AgentDelegator(
+            api_key=self.api_key,
+            policy_dir=self.policy_dir,
+            audit_log_path=ConfigPaths.get_audit_log(),
+        )
+        delegate_tool = create_delegate_tool(delegator)
+
+        # Add to registry if not already present
+        if registry.get("delegate_to_agent") is None:
+            registry.register(
+                ToolSpec(
+                    name="delegate_to_agent",
+                    description="Delegate a task to a specialist agent (planner, code_reviewer, etc.)",
+                    parameters={
+                        "agent": {"type": "string", "description": "Name of specialist agent"},
+                        "task": {"type": "string", "description": "Task description for the agent"},
+                        "context": {"type": "object", "description": "Additional context", "nullable": True},
+                    },
+                    handler=delegate_tool,
+                    tags=["agent", "delegation"],
+                    effects=["delegates_task"],
+                )
+            )
 
         # Register all tools - the policy engine controls access and confirmation requirements
         for spec in registry.all():

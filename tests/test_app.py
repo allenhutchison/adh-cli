@@ -71,8 +71,8 @@ class TestADHApp:
 
             app._register_default_tools()
 
-            # Check all 8 tools were registered (including fetch_url)
-            assert app.agent.register_tool.call_count == 8
+            # Check all 9 tools were registered (including fetch_url and delegate_to_agent)
+            assert app.agent.register_tool.call_count == 9
 
             # Check specific tools - they use keyword arguments
             call_kwargs = [call.kwargs for call in app.agent.register_tool.call_args_list]
@@ -82,6 +82,7 @@ class TestADHApp:
             assert 'list_directory' in tool_names
             assert 'execute_command' in tool_names
             assert 'create_directory' in tool_names
+            assert 'delegate_to_agent' in tool_names
             assert 'fetch_url' in tool_names
             assert 'delete_file' in tool_names
             assert 'get_file_info' in tool_names

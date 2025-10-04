@@ -422,7 +422,7 @@ class TestPolicyAwareLlmAgent:
 
             # Should contain parts of the orchestrator prompt
             assert "helpful AI assistant" in prompt
-            assert "Tool Execution Behavior" in prompt
+            assert "Tool Execution Guidelines" in prompt  # Updated from new orchestrator prompt
             # Should have tool descriptions injected
             assert "test_tool" in prompt
 
