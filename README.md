@@ -230,14 +230,14 @@ adh-cli/
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Run tests: `task test`
-4. Check coverage: `task test-cov`
-5. Format code: `task format`
-6. Commit your changes
-7. Push to your branch
-8. Open a Pull Request
+See CONTRIBUTING.md for full details. Quick start:
+
+```bash
+uv venv && source .venv/bin/activate
+uv pip install -e '.[dev]'
+task hooks-install
+task lint && task format && task test
+```
 
 ## License
 
