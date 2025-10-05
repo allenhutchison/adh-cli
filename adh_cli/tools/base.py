@@ -47,4 +47,3 @@ class ToolRegistry:
 
 # Global, simple registry used by the app at startup
 registry = ToolRegistry()
-

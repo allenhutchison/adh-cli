@@ -26,9 +26,21 @@ class ADHCommandProvider(Provider):
         """
         # Show all commands by default for discoverability
         commands = [
-            ("Settings", "Open application settings (API key, model, agent)", self._run_settings),
-            ("Show Policies", "Display active policy rules and preferences", self._run_show_policies),
-            ("Toggle Safety", "Enable/disable safety checks for tool execution", self._run_toggle_safety),
+            (
+                "Settings",
+                "Open application settings (API key, model, agent)",
+                self._run_settings,
+            ),
+            (
+                "Show Policies",
+                "Display active policy rules and preferences",
+                self._run_show_policies,
+            ),
+            (
+                "Toggle Safety",
+                "Enable/disable safety checks for tool execution",
+                self._run_toggle_safety,
+            ),
             ("Clear Chat", "Clear the chat history", self._run_clear_chat),
         ]
 
@@ -47,19 +59,19 @@ class ADHCommandProvider(Provider):
     def _run_show_policies(self) -> None:
         """Run the show_policies action."""
         # This action is on the ChatScreen
-        if hasattr(self.screen, 'action_show_policies'):
+        if hasattr(self.screen, "action_show_policies"):
             self.screen.action_show_policies()
 
     def _run_toggle_safety(self) -> None:
         """Run the toggle_safety action."""
         # This action is on the ChatScreen
-        if hasattr(self.screen, 'action_toggle_safety'):
+        if hasattr(self.screen, "action_toggle_safety"):
             self.screen.action_toggle_safety()
 
     def _run_clear_chat(self) -> None:
         """Run the clear_chat action."""
         # This action is on the ChatScreen
-        if hasattr(self.screen, 'action_clear_chat'):
+        if hasattr(self.screen, "action_clear_chat"):
             self.screen.action_clear_chat()
 
     async def search(self, query: str) -> Hits:
@@ -75,9 +87,21 @@ class ADHCommandProvider(Provider):
 
         # ADH CLI-specific commands
         commands = [
-            ("Settings", "Open application settings (API key, model, agent)", self._run_settings),
-            ("Show Policies", "Display active policy rules and preferences", self._run_show_policies),
-            ("Toggle Safety", "Enable/disable safety checks for tool execution", self._run_toggle_safety),
+            (
+                "Settings",
+                "Open application settings (API key, model, agent)",
+                self._run_settings,
+            ),
+            (
+                "Show Policies",
+                "Display active policy rules and preferences",
+                self._run_show_policies,
+            ),
+            (
+                "Toggle Safety",
+                "Enable/disable safety checks for tool execution",
+                self._run_toggle_safety,
+            ),
             ("Clear Chat", "Clear the chat history", self._run_clear_chat),
         ]
 
@@ -109,7 +133,10 @@ class SettingsCommandProvider(Provider):
         commands = [
             ("Configure API Key", "Set or update Google API key for Gemini"),
             ("Select Model", "Choose Gemini model (Flash, Flash Lite, Pro)"),
-            ("Change Orchestrator Agent", "Select which agent to use for orchestration"),
+            (
+                "Change Orchestrator Agent",
+                "Select which agent to use for orchestration",
+            ),
             ("Adjust Temperature", "Modify AI generation temperature"),
             ("Configure Max Tokens", "Set maximum output token limit"),
         ]
@@ -137,7 +164,10 @@ class SettingsCommandProvider(Provider):
         commands = [
             ("Configure API Key", "Set or update Google API key for Gemini"),
             ("Select Model", "Choose Gemini model (Flash, Flash Lite, Pro)"),
-            ("Change Orchestrator Agent", "Select which agent to use for orchestration"),
+            (
+                "Change Orchestrator Agent",
+                "Select which agent to use for orchestration",
+            ),
             ("Adjust Temperature", "Modify AI generation temperature"),
             ("Configure Max Tokens", "Set maximum output token limit"),
         ]

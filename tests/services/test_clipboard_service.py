@@ -1,9 +1,7 @@
 """Unit tests for the clipboard service."""
 
 import subprocess
-import platform
-from unittest.mock import Mock, patch, MagicMock
-import pytest
+from unittest.mock import Mock, patch
 
 from adh_cli.services.clipboard_service import ClipboardService
 
@@ -17,8 +15,8 @@ class TestClipboardServiceCopy:
         assert not success
         assert message == "No text to copy"
 
-    @patch('platform.system')
-    @patch('subprocess.Popen')
+    @patch("platform.system")
+    @patch("subprocess.Popen")
     def test_copy_macos_success(self, mock_popen, mock_platform):
         """Test successful copy on macOS."""
         mock_platform.return_value = "Darwin"
@@ -36,8 +34,8 @@ class TestClipboardServiceCopy:
         mock_popen.assert_called_once_with("pbcopy", stdin=subprocess.PIPE, shell=False)
         mock_process.communicate.assert_called_once_with(b"test text")
 
-    @patch('platform.system')
-    @patch('subprocess.Popen')
+    @patch("platform.system")
+    @patch("subprocess.Popen")
     def test_copy_macos_failure(self, mock_popen, mock_platform):
         """Test failed copy on macOS."""
         mock_platform.return_value = "Darwin"
@@ -53,8 +51,8 @@ class TestClipboardServiceCopy:
         assert not success
         assert message == "Failed to copy to clipboard"
 
-    @patch('platform.system')
-    @patch('subprocess.Popen')
+    @patch("platform.system")
+    @patch("subprocess.Popen")
     def test_copy_linux_xclip_success(self, mock_popen, mock_platform):
         """Test successful copy on Linux using xclip."""
         mock_platform.return_value = "Linux"
@@ -72,11 +70,11 @@ class TestClipboardServiceCopy:
         mock_popen.assert_called_once_with(
             ["xclip", "-selection", "clipboard"],
             stdin=subprocess.PIPE,
-            stderr=subprocess.DEVNULL
+            stderr=subprocess.DEVNULL,
         )
 
-    @patch('platform.system')
-    @patch('subprocess.Popen')
+    @patch("platform.system")
+    @patch("subprocess.Popen")
     def test_copy_linux_xsel_fallback(self, mock_popen, mock_platform):
         """Test fallback to xsel when xclip is not available on Linux."""
         mock_platform.return_value = "Linux"
@@ -87,10 +85,7 @@ class TestClipboardServiceCopy:
         mock_process.communicate.return_value = (None, None)
         mock_process.returncode = 0
 
-        mock_popen.side_effect = [
-            FileNotFoundError("xclip not found"),
-            mock_process
-        ]
+        mock_popen.side_effect = [FileNotFoundError("xclip not found"), mock_process]
 
         success, message = ClipboardService.copy_to_clipboard("test text")
 
@@ -102,8 +97,8 @@ class TestClipboardServiceCopy:
         second_call_args = mock_popen.call_args_list[1]
         assert second_call_args[0][0] == ["xsel", "--clipboard", "--input"]
 
-    @patch('platform.system')
-    @patch('subprocess.Popen')
+    @patch("platform.system")
+    @patch("subprocess.Popen")
     def test_copy_linux_no_clipboard_tool(self, mock_popen, mock_platform):
         """Test error when no clipboard tool is available on Linux."""
         mock_platform.return_value = "Linux"
@@ -111,7 +106,7 @@ class TestClipboardServiceCopy:
         # Both xclip and xsel raise FileNotFoundError
         mock_popen.side_effect = [
             FileNotFoundError("xclip not found"),
-            FileNotFoundError("xsel not found")
+            FileNotFoundError("xsel not found"),
         ]
 
         success, message = ClipboardService.copy_to_clipboard("test text")
@@ -119,8 +114,8 @@ class TestClipboardServiceCopy:
         assert not success
         assert message == "Could not copy to clipboard. Install xclip or xsel"
 
-    @patch('platform.system')
-    @patch('subprocess.Popen')
+    @patch("platform.system")
+    @patch("subprocess.Popen")
     def test_copy_windows_success(self, mock_popen, mock_platform):
         """Test successful copy on Windows."""
         mock_platform.return_value = "Windows"
@@ -137,10 +132,10 @@ class TestClipboardServiceCopy:
         assert message == "Successfully copied to clipboard"
         mock_popen.assert_called_once_with("clip", stdin=subprocess.PIPE, shell=True)
         # Windows uses UTF-16LE encoding
-        mock_process.communicate.assert_called_once_with("test text".encode('utf-16le'))
+        mock_process.communicate.assert_called_once_with("test text".encode("utf-16le"))
 
-    @patch('platform.system')
-    @patch('subprocess.Popen')
+    @patch("platform.system")
+    @patch("subprocess.Popen")
     def test_copy_windows_failure(self, mock_popen, mock_platform):
         """Test failed copy on Windows."""
         mock_platform.return_value = "Windows"
@@ -153,7 +148,7 @@ class TestClipboardServiceCopy:
         assert not success
         assert "Clipboard copy not available on this Windows version" in message
 
-    @patch('platform.system')
+    @patch("platform.system")
     def test_copy_unsupported_platform(self, mock_platform):
         """Test error on unsupported platform."""
         mock_platform.return_value = "FreeBSD"
@@ -163,8 +158,8 @@ class TestClipboardServiceCopy:
         assert not success
         assert message == "Unsupported platform: FreeBSD"
 
-    @patch('platform.system')
-    @patch('subprocess.Popen')
+    @patch("platform.system")
+    @patch("subprocess.Popen")
     def test_copy_with_unicode_text(self, mock_popen, mock_platform):
         """Test copying text with Unicode characters."""
         mock_platform.return_value = "Darwin"
@@ -178,14 +173,14 @@ class TestClipboardServiceCopy:
         success, message = ClipboardService.copy_to_clipboard(unicode_text)
 
         assert success
-        mock_process.communicate.assert_called_once_with(unicode_text.encode('utf-8'))
+        mock_process.communicate.assert_called_once_with(unicode_text.encode("utf-8"))
 
 
 class TestClipboardServicePaste:
     """Test cases for paste_from_clipboard functionality."""
 
-    @patch('platform.system')
-    @patch('subprocess.run')
+    @patch("platform.system")
+    @patch("subprocess.run")
     def test_paste_macos_success(self, mock_run, mock_platform):
         """Test successful paste on macOS."""
         mock_platform.return_value = "Darwin"
@@ -200,14 +195,11 @@ class TestClipboardServicePaste:
         assert success
         assert text == "pasted text"
         mock_run.assert_called_once_with(
-            "pbpaste",
-            capture_output=True,
-            text=True,
-            shell=False
+            "pbpaste", capture_output=True, text=True, shell=False
         )
 
-    @patch('platform.system')
-    @patch('subprocess.run')
+    @patch("platform.system")
+    @patch("subprocess.run")
     def test_paste_macos_failure(self, mock_run, mock_platform):
         """Test failed paste on macOS."""
         mock_platform.return_value = "Darwin"
@@ -221,8 +213,8 @@ class TestClipboardServicePaste:
         assert not success
         assert message == "Failed to paste from clipboard"
 
-    @patch('platform.system')
-    @patch('subprocess.run')
+    @patch("platform.system")
+    @patch("subprocess.run")
     def test_paste_linux_xclip_success(self, mock_run, mock_platform):
         """Test successful paste on Linux using xclip."""
         mock_platform.return_value = "Linux"
@@ -240,11 +232,11 @@ class TestClipboardServicePaste:
             ["xclip", "-selection", "clipboard", "-out"],
             capture_output=True,
             text=True,
-            stderr=subprocess.DEVNULL
+            stderr=subprocess.DEVNULL,
         )
 
-    @patch('platform.system')
-    @patch('subprocess.run')
+    @patch("platform.system")
+    @patch("subprocess.run")
     def test_paste_linux_xsel_fallback(self, mock_run, mock_platform):
         """Test fallback to xsel when xclip is not available on Linux."""
         mock_platform.return_value = "Linux"
@@ -255,10 +247,7 @@ class TestClipboardServicePaste:
         mock_result.returncode = 0
         mock_result.stdout = "pasted text"
 
-        mock_run.side_effect = [
-            FileNotFoundError("xclip not found"),
-            mock_result
-        ]
+        mock_run.side_effect = [FileNotFoundError("xclip not found"), mock_result]
 
         success, text = ClipboardService.paste_from_clipboard()
 
@@ -266,8 +255,8 @@ class TestClipboardServicePaste:
         assert text == "pasted text"
         assert mock_run.call_count == 2
 
-    @patch('platform.system')
-    @patch('subprocess.run')
+    @patch("platform.system")
+    @patch("subprocess.run")
     def test_paste_windows_success(self, mock_run, mock_platform):
         """Test successful paste on Windows."""
         mock_platform.return_value = "Windows"
@@ -285,10 +274,10 @@ class TestClipboardServicePaste:
             ["powershell", "-command", "Get-Clipboard"],
             capture_output=True,
             text=True,
-            shell=False
+            shell=False,
         )
 
-    @patch('platform.system')
+    @patch("platform.system")
     def test_paste_unsupported_platform(self, mock_platform):
         """Test error on unsupported platform."""
         mock_platform.return_value = "FreeBSD"
@@ -298,8 +287,8 @@ class TestClipboardServicePaste:
         assert not success
         assert message == "Unsupported platform: FreeBSD"
 
-    @patch('platform.system')
-    @patch('subprocess.run')
+    @patch("platform.system")
+    @patch("subprocess.run")
     def test_paste_exception_handling(self, mock_run, mock_platform):
         """Test exception handling during paste operation."""
         mock_platform.return_value = "Darwin"

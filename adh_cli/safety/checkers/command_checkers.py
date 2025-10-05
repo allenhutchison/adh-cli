@@ -20,25 +20,71 @@ class CommandValidator(SafetyChecker):
     def _get_dangerous_commands(self) -> Set[str]:
         """Get list of dangerous commands."""
         return {
-            "rm", "rmdir", "del", "format", "mkfs", "dd",
-            "fdisk", "parted", "wipefs", "shred",
-            "shutdown", "reboot", "halt", "poweroff",
-            "kill", "killall", "pkill",
-            "chmod", "chown", "chgrp",
-            "useradd", "userdel", "usermod",
-            "systemctl", "service",
-            "iptables", "firewall-cmd",
+            "rm",
+            "rmdir",
+            "del",
+            "format",
+            "mkfs",
+            "dd",
+            "fdisk",
+            "parted",
+            "wipefs",
+            "shred",
+            "shutdown",
+            "reboot",
+            "halt",
+            "poweroff",
+            "kill",
+            "killall",
+            "pkill",
+            "chmod",
+            "chown",
+            "chgrp",
+            "useradd",
+            "userdel",
+            "usermod",
+            "systemctl",
+            "service",
+            "iptables",
+            "firewall-cmd",
         }
 
     def _get_safe_commands(self) -> Set[str]:
         """Get list of safe commands."""
         return {
-            "ls", "dir", "pwd", "cd", "echo", "cat", "less", "more",
-            "grep", "find", "which", "whereis", "whoami", "id",
-            "date", "time", "cal", "df", "du", "free",
-            "ps", "top", "htop", "jobs", "history",
-            "head", "tail", "wc", "sort", "uniq",
-            "diff", "comm", "cmp",
+            "ls",
+            "dir",
+            "pwd",
+            "cd",
+            "echo",
+            "cat",
+            "less",
+            "more",
+            "grep",
+            "find",
+            "which",
+            "whereis",
+            "whoami",
+            "id",
+            "date",
+            "time",
+            "cal",
+            "df",
+            "du",
+            "free",
+            "ps",
+            "top",
+            "htop",
+            "jobs",
+            "history",
+            "head",
+            "tail",
+            "wc",
+            "sort",
+            "uniq",
+            "diff",
+            "comm",
+            "cmp",
         }
 
     async def check(self, tool_call: ToolCall) -> SafetyResult:
@@ -69,13 +115,18 @@ class CommandValidator(SafetyChecker):
             # Check if it's a dangerous command
             if base_cmd in self.dangerous_commands:
                 # Check for especially dangerous patterns
-                if base_cmd == "rm" and any(arg in parts for arg in ["-rf", "-r", "-f", "/*", "~/*"]):
+                if base_cmd == "rm" and any(
+                    arg in parts for arg in ["-rf", "-r", "-f", "/*", "~/*"]
+                ):
                     return SafetyResult(
                         checker_name=self.name,
                         status=SafetyStatus.FAILED,
                         message=f"Dangerous command blocked: {base_cmd} with risky flags",
                         risk_level=RiskLevel.CRITICAL,
-                        suggestions=["Use a safer alternative", "Be more specific with paths"],
+                        suggestions=[
+                            "Use a safer alternative",
+                            "Be more specific with paths",
+                        ],
                     )
 
                 return SafetyResult(
@@ -84,7 +135,10 @@ class CommandValidator(SafetyChecker):
                     message=f"Potentially dangerous command: {base_cmd}",
                     risk_level=RiskLevel.HIGH,
                     can_override=True,
-                    suggestions=["Review command carefully", "Consider safer alternatives"],
+                    suggestions=[
+                        "Review command carefully",
+                        "Consider safer alternatives",
+                    ],
                 )
 
             # Check if it's a safe command
@@ -168,8 +222,12 @@ class SandboxChecker(SafetyChecker):
             for protected in self.protected_paths:
                 try:
                     # Resolve both paths to handle symlinks
-                    resolved_protected = protected.resolve() if protected.exists() else protected
-                    if path == resolved_protected or path.is_relative_to(resolved_protected):
+                    resolved_protected = (
+                        protected.resolve() if protected.exists() else protected
+                    )
+                    if path == resolved_protected or path.is_relative_to(
+                        resolved_protected
+                    ):
                         return SafetyResult(
                             checker_name=self.name,
                             status=SafetyStatus.FAILED,
@@ -180,7 +238,9 @@ class SandboxChecker(SafetyChecker):
                 except (ValueError, AttributeError):
                     # is_relative_to not available in Python < 3.9, fall back to old method
                     try:
-                        path.relative_to(resolved_protected if protected.exists() else protected)
+                        path.relative_to(
+                            resolved_protected if protected.exists() else protected
+                        )
                         return SafetyResult(
                             checker_name=self.name,
                             status=SafetyStatus.FAILED,

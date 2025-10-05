@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from textual import on
 from textual.app import ComposeResult
-from textual.containers import Container, Horizontal, Vertical, VerticalScroll
+from textual.containers import Container, Horizontal, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Select, Static, Switch
 from textual.binding import Binding
@@ -139,22 +139,23 @@ class SettingsModal(ModalScreen):
                 yield Input(
                     placeholder="Enter your Google API key",
                     password=True,
-                    id="api-key-input"
+                    id="api-key-input",
                 )
 
                 yield Label("\nModel Selection:")
                 yield Select.from_values(
-                    ["Gemini Flash Latest", "Gemini Flash Lite Latest", "Gemini 2.5 Pro"],
-                    id="model-select"
+                    [
+                        "Gemini Flash Latest",
+                        "Gemini Flash Lite Latest",
+                        "Gemini 2.5 Pro",
+                    ],
+                    id="model-select",
                 )
 
                 yield Label("\nOrchestrator Agent:")
                 # Discover and populate agent list
                 available_agents = self._discover_agents()
-                yield Select.from_values(
-                    available_agents,
-                    id="orchestrator-select"
-                )
+                yield Select.from_values(available_agents, id="orchestrator-select")
 
                 yield Label("\nGeneration Parameters")
 
@@ -199,7 +200,7 @@ class SettingsModal(ModalScreen):
         model_map = {
             "Gemini Flash Latest": "gemini-flash-latest",
             "Gemini Flash Lite Latest": "gemini-flash-lite-latest",
-            "Gemini 2.5 Pro": "gemini-2.5-pro"
+            "Gemini 2.5 Pro": "gemini-2.5-pro",
         }
         model = model_map.get(selected_option, "gemini-flash-latest")
         orchestrator_agent = self.query_one("#orchestrator-select", Select).value
@@ -222,7 +223,10 @@ class SettingsModal(ModalScreen):
         with open(config_file, "w") as f:
             json.dump(settings, f, indent=2)
 
-        self.notify("Settings saved successfully! Restart required for agent change.", severity="information")
+        self.notify(
+            "Settings saved successfully! Restart required for agent change.",
+            severity="information",
+        )
         self.dismiss()
 
     @on(Button.Pressed, "#btn-reset")
@@ -263,24 +267,32 @@ class SettingsModal(ModalScreen):
                     reverse_map = {
                         "gemini-flash-latest": "Gemini Flash Latest",
                         "gemini-flash-lite-latest": "Gemini Flash Lite Latest",
-                        "gemini-2.5-pro": "Gemini 2.5 Pro"
+                        "gemini-2.5-pro": "Gemini 2.5 Pro",
                     }
                     if model_value in reverse_map:
                         try:
-                            self.query_one("#model-select", Select).value = reverse_map[model_value]
+                            self.query_one("#model-select", Select).value = reverse_map[
+                                model_value
+                            ]
                         except Exception:
                             # If setting the value fails, just skip it
                             pass
                 if "orchestrator_agent" in settings:
                     try:
-                        self.query_one("#orchestrator-select", Select).value = settings["orchestrator_agent"]
+                        self.query_one("#orchestrator-select", Select).value = settings[
+                            "orchestrator_agent"
+                        ]
                     except Exception:
                         # If setting the value fails (agent not found), use default
                         pass
                 if "temperature" in settings:
-                    self.query_one("#temperature-input", Input).value = str(settings["temperature"])
+                    self.query_one("#temperature-input", Input).value = str(
+                        settings["temperature"]
+                    )
                 if "max_tokens" in settings:
-                    self.query_one("#max-tokens-input", Input).value = str(settings["max_tokens"])
+                    self.query_one("#max-tokens-input", Input).value = str(
+                        settings["max_tokens"]
+                    )
                 if "top_p" in settings:
                     self.query_one("#top-p-input", Input).value = str(settings["top_p"])
                 if "top_k" in settings:

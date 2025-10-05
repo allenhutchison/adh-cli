@@ -2,10 +2,9 @@
 
 from typing import Optional, Callable
 from textual.app import ComposeResult
-from textual.containers import Container, Horizontal, Vertical
+from textual.containers import Container, Horizontal
 from textual.widget import Widget
 from textual.widgets import Static, Button
-from textual.reactive import reactive
 from rich.text import Text
 
 from adh_cli.ui.tool_execution import (
@@ -14,7 +13,6 @@ from adh_cli.ui.tool_execution import (
     format_parameters_inline,
     format_parameters_expanded,
 )
-from adh_cli.policies.policy_types import RiskLevel
 
 
 class ToolExecutionWidget(Widget):
@@ -172,7 +170,7 @@ class ToolExecutionWidget(Widget):
         on_confirm: Optional[Callable] = None,
         on_cancel: Optional[Callable] = None,
         on_details: Optional[Callable] = None,
-        **kwargs
+        **kwargs,
     ):
         """Initialize tool execution widget.
 
@@ -309,7 +307,9 @@ class ToolExecutionWidget(Widget):
             params_widget.remove_class("params-compact")
             params_widget.add_class("params-expanded")
 
-            formatted = format_parameters_expanded(info.parameters, max_value_length=200)
+            formatted = format_parameters_expanded(
+                info.parameters, max_value_length=200
+            )
             lines = ["[bold]Parameters:[/bold]"]
             for key, value, original_len in formatted:
                 lines.append(f"  • {key}: {value}")
@@ -327,7 +327,9 @@ class ToolExecutionWidget(Widget):
             params_widget.remove_class("params-expanded")
             params_widget.add_class("params-compact")
             # Always show a concise inline summary for non-expanded states
-            inline = format_parameters_inline(info.parameters, max_params=3, max_value_length=60)
+            inline = format_parameters_inline(
+                info.parameters, max_params=3, max_value_length=60
+            )
             params_widget.update(inline)
             params_widget.display = True
 

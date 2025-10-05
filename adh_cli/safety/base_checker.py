@@ -11,11 +11,11 @@ from ..policies.policy_types import ToolCall, RiskLevel
 class SafetyStatus(Enum):
     """Status of a safety check."""
 
-    PASSED = "passed"      # Check passed, safe to proceed
-    WARNING = "warning"    # Check passed with warnings
-    FAILED = "failed"      # Check failed, should block execution
-    ERROR = "error"        # Error during check execution
-    SKIPPED = "skipped"    # Check was skipped
+    PASSED = "passed"  # Check passed, safe to proceed
+    WARNING = "warning"  # Check passed with warnings
+    FAILED = "failed"  # Check failed, should block execution
+    ERROR = "error"  # Error during check execution
+    SKIPPED = "skipped"  # Check was skipped
 
 
 @dataclass

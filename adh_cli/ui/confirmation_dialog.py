@@ -4,13 +4,11 @@ from typing import Optional, Dict, Any, Callable
 from textual.app import ComposeResult
 from textual.containers import Container, Vertical, Horizontal
 from textual.screen import ModalScreen
-from textual.widgets import Static, Button, Label, RichLog
+from textual.widgets import Static, Button, Label
 from textual.widget import Widget
 from rich.text import Text
-from rich.panel import Panel
-from rich.table import Table
 
-from adh_cli.policies.policy_types import PolicyDecision, RiskLevel, SupervisionLevel
+from adh_cli.policies.policy_types import PolicyDecision, SupervisionLevel
 
 
 class ConfirmationDialog(ModalScreen):
@@ -95,7 +93,7 @@ class ConfirmationDialog(ModalScreen):
         parameters: Dict[str, Any],
         decision: PolicyDecision,
         callback: Optional[Callable] = None,
-        **kwargs
+        **kwargs,
     ):
         """Initialize confirmation dialog.
 
@@ -116,16 +114,13 @@ class ConfirmationDialog(ModalScreen):
         """Compose the dialog layout."""
         with Container():
             # Title
-            yield Label(
-                f"⚠️ Confirmation Required: {self.tool_name}",
-                classes="title"
-            )
+            yield Label(f"⚠️ Confirmation Required: {self.tool_name}", classes="title")
 
             # Risk level badge
             risk_class = f"risk-{self.decision.risk_level.value}"
             yield Label(
                 f"Risk Level: {self.decision.risk_level.value.upper()}",
-                classes=f"risk-badge {risk_class}"
+                classes=f"risk-badge {risk_class}",
             )
 
             # Decision details
@@ -222,12 +217,7 @@ class PolicyNotification(Widget):
     }
     """
 
-    def __init__(
-        self,
-        message: str,
-        level: str = "info",
-        **kwargs
-    ):
+    def __init__(self, message: str, level: str = "info", **kwargs):
         """Initialize notification widget.
 
         Args:

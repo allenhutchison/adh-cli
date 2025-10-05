@@ -1,10 +1,9 @@
 """Tests for safety checkers."""
 
 import pytest
-import asyncio
 import tempfile
 from pathlib import Path
-from adh_cli.safety.base_checker import SafetyChecker, SafetyResult, SafetyStatus
+from adh_cli.safety.base_checker import SafetyStatus
 from adh_cli.safety.checkers import (
     BackupChecker,
     DiskSpaceChecker,

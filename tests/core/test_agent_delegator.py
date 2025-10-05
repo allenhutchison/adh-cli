@@ -19,7 +19,7 @@ class TestAgentResponse:
             task_type="planning",
             result="Detailed plan here",
             metadata={"context": "test"},
-            success=True
+            success=True,
         )
         assert response.agent_name == "planner"
         assert response.task_type == "planning"
@@ -35,7 +35,7 @@ class TestAgentResponse:
             result="",
             metadata={},
             success=False,
-            error="Agent not found"
+            error="Agent not found",
         )
         assert response.success is False
         assert response.error == "Agent not found"
@@ -51,7 +51,7 @@ class TestAgentDelegator:
             delegator = AgentDelegator(
                 api_key="test_api_key",
                 policy_dir=Path(tmpdir),
-                audit_log_path=Path(tmpdir) / "audit.log"
+                audit_log_path=Path(tmpdir) / "audit.log",
             )
             yield delegator
 
@@ -71,7 +71,9 @@ class TestAgentDelegator:
     @pytest.mark.asyncio
     async def test_delegation_success(self, delegator):
         """Test successful delegation to an agent."""
-        with patch('adh_cli.core.agent_delegator.PolicyAwareLlmAgent') as mock_agent_class:
+        with patch(
+            "adh_cli.core.agent_delegator.PolicyAwareLlmAgent"
+        ) as mock_agent_class:
             # Setup mock agent
             mock_agent = Mock()
             mock_agent.chat = AsyncMock(return_value="This is the plan")
@@ -79,8 +81,7 @@ class TestAgentDelegator:
 
             # Delegate task
             response = await delegator.delegate(
-                agent_name="planner",
-                task="Create a plan for feature X"
+                agent_name="planner", task="Create a plan for feature X"
             )
 
             # Verify response
@@ -97,12 +98,16 @@ class TestAgentDelegator:
             assert call_kwargs["api_key"] == "test_api_key"
 
             # Verify chat was called
-            mock_agent.chat.assert_called_once_with("Create a plan for feature X", context=None)
+            mock_agent.chat.assert_called_once_with(
+                "Create a plan for feature X", context=None
+            )
 
     @pytest.mark.asyncio
     async def test_delegation_with_context(self, delegator):
         """Test delegation with context parameters."""
-        with patch('adh_cli.core.agent_delegator.PolicyAwareLlmAgent') as mock_agent_class:
+        with patch(
+            "adh_cli.core.agent_delegator.PolicyAwareLlmAgent"
+        ) as mock_agent_class:
             mock_agent = Mock()
             mock_agent.chat = AsyncMock(return_value="Plan with context")
             mock_agent_class.return_value = mock_agent
@@ -110,13 +115,11 @@ class TestAgentDelegator:
             context = {
                 "user_id": "test_user",
                 "working_dir": "/test/path",
-                "requirements": "Must be fast"
+                "requirements": "Must be fast",
             }
 
             response = await delegator.delegate(
-                agent_name="planner",
-                task="Plan feature",
-                context=context
+                agent_name="planner", task="Plan feature", context=context
             )
 
             assert response.success is True
@@ -133,13 +136,14 @@ class TestAgentDelegator:
     @pytest.mark.asyncio
     async def test_delegation_failure(self, delegator):
         """Test delegation when agent fails."""
-        with patch('adh_cli.core.agent_delegator.PolicyAwareLlmAgent') as mock_agent_class:
+        with patch(
+            "adh_cli.core.agent_delegator.PolicyAwareLlmAgent"
+        ) as mock_agent_class:
             # Make agent initialization fail
             mock_agent_class.side_effect = Exception("Agent not found")
 
             response = await delegator.delegate(
-                agent_name="nonexistent",
-                task="Do something"
+                agent_name="nonexistent", task="Do something"
             )
 
             assert response.success is False
@@ -149,7 +153,9 @@ class TestAgentDelegator:
     @pytest.mark.asyncio
     async def test_agent_caching(self, delegator):
         """Test that agents are cached after first use."""
-        with patch('adh_cli.core.agent_delegator.PolicyAwareLlmAgent') as mock_agent_class:
+        with patch(
+            "adh_cli.core.agent_delegator.PolicyAwareLlmAgent"
+        ) as mock_agent_class:
             mock_agent = Mock()
             mock_agent.chat = AsyncMock(return_value="Result")
             mock_agent_class.return_value = mock_agent
@@ -170,7 +176,9 @@ class TestAgentDelegator:
     @pytest.mark.asyncio
     async def test_register_agent_tools(self, delegator):
         """Test that appropriate tools are registered for agents."""
-        with patch('adh_cli.core.agent_delegator.PolicyAwareLlmAgent') as mock_agent_class:
+        with patch(
+            "adh_cli.core.agent_delegator.PolicyAwareLlmAgent"
+        ) as mock_agent_class:
             mock_agent = Mock()
             mock_agent.chat = AsyncMock(return_value="Result")
             mock_agent.register_tool = Mock()
@@ -179,8 +187,12 @@ class TestAgentDelegator:
             await delegator.delegate(agent_name="planner", task="Task")
 
             # Verify read-only tools were registered
-            assert mock_agent.register_tool.call_count == 3  # read_file, list_directory, get_file_info
-            tool_names = [call.kwargs["name"] for call in mock_agent.register_tool.call_args_list]
+            assert (
+                mock_agent.register_tool.call_count == 3
+            )  # read_file, list_directory, get_file_info
+            tool_names = [
+                call.kwargs["name"] for call in mock_agent.register_tool.call_args_list
+            ]
             assert "read_file" in tool_names
             assert "list_directory" in tool_names
             assert "get_file_info" in tool_names
@@ -209,41 +221,41 @@ class TestDelegateToolCreation:
     async def test_create_delegate_tool_success(self):
         """Test creating and using delegate_to_agent tool."""
         mock_delegator = Mock()
-        mock_delegator.delegate = AsyncMock(return_value=AgentResponse(
-            agent_name="planner",
-            task_type="planning",
-            result="Detailed plan",
-            metadata={},
-            success=True
-        ))
+        mock_delegator.delegate = AsyncMock(
+            return_value=AgentResponse(
+                agent_name="planner",
+                task_type="planning",
+                result="Detailed plan",
+                metadata={},
+                success=True,
+            )
+        )
 
         delegate_tool = create_delegate_tool(mock_delegator)
 
         result = await delegate_tool(
-            agent="planner",
-            task="Create plan",
-            context={"working_dir": "."}
+            agent="planner", task="Create plan", context={"working_dir": "."}
         )
 
         assert result == "Detailed plan"
         mock_delegator.delegate.assert_called_once_with(
-            agent_name="planner",
-            task="Create plan",
-            context={"working_dir": "."}
+            agent_name="planner", task="Create plan", context={"working_dir": "."}
         )
 
     @pytest.mark.asyncio
     async def test_create_delegate_tool_failure(self):
         """Test delegate_to_agent tool with failed delegation."""
         mock_delegator = Mock()
-        mock_delegator.delegate = AsyncMock(return_value=AgentResponse(
-            agent_name="planner",
-            task_type="planning",
-            result="",
-            metadata={},
-            success=False,
-            error="Connection timeout"
-        ))
+        mock_delegator.delegate = AsyncMock(
+            return_value=AgentResponse(
+                agent_name="planner",
+                task_type="planning",
+                result="",
+                metadata={},
+                success=False,
+                error="Connection timeout",
+            )
+        )
 
         delegate_tool = create_delegate_tool(mock_delegator)
 
@@ -256,13 +268,15 @@ class TestDelegateToolCreation:
     async def test_create_delegate_tool_no_context(self):
         """Test delegate_to_agent tool without context."""
         mock_delegator = Mock()
-        mock_delegator.delegate = AsyncMock(return_value=AgentResponse(
-            agent_name="planner",
-            task_type="planning",
-            result="Plan",
-            metadata={},
-            success=True
-        ))
+        mock_delegator.delegate = AsyncMock(
+            return_value=AgentResponse(
+                agent_name="planner",
+                task_type="planning",
+                result="Plan",
+                metadata={},
+                success=True,
+            )
+        )
 
         delegate_tool = create_delegate_tool(mock_delegator)
 

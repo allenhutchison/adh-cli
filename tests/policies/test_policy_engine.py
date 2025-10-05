@@ -9,7 +9,6 @@ from adh_cli.policies.policy_types import (
     ToolCall,
     SupervisionLevel,
     RiskLevel,
-    PolicyRule,
     RestrictionType,
 )
 
@@ -187,15 +186,28 @@ class TestPolicyEngine:
 
     def test_get_supervision_level(self, engine_with_policies):
         """Test getting supervision level for a tool."""
-        assert engine_with_policies.get_supervision_level("read_file") == SupervisionLevel.AUTOMATIC
-        assert engine_with_policies.get_supervision_level("delete_file") == SupervisionLevel.MANUAL
-        assert engine_with_policies.get_supervision_level("format_disk") == SupervisionLevel.DENY
+        assert (
+            engine_with_policies.get_supervision_level("read_file")
+            == SupervisionLevel.AUTOMATIC
+        )
+        assert (
+            engine_with_policies.get_supervision_level("delete_file")
+            == SupervisionLevel.MANUAL
+        )
+        assert (
+            engine_with_policies.get_supervision_level("format_disk")
+            == SupervisionLevel.DENY
+        )
 
     def test_requires_confirmation(self, engine_with_policies):
         """Test checking if confirmation is required."""
         assert not engine_with_policies.requires_confirmation("read_file", {})
-        assert engine_with_policies.requires_confirmation("delete_file", {"path": "/tmp/test.txt"})
-        assert not engine_with_policies.requires_confirmation("format_disk", {})  # Denied, not confirmed
+        assert engine_with_policies.requires_confirmation(
+            "delete_file", {"path": "/tmp/test.txt"}
+        )
+        assert not engine_with_policies.requires_confirmation(
+            "format_disk", {}
+        )  # Denied, not confirmed
 
     def test_user_preferences_auto_approve(self, temp_policy_dir):
         """Test user preferences for auto-approval."""
@@ -310,6 +322,7 @@ class TestPolicyEngine:
             policy_file = engine_with_policies.user_policy_dir / "restrictions.yaml"
         else:
             import tempfile
+
             temp_dir = Path(tempfile.mkdtemp())
             policy_file = temp_dir / "restrictions.yaml"
 

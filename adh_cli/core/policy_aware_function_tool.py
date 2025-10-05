@@ -2,12 +2,11 @@
 
 import functools
 import inspect
-from typing import Any, Callable, Dict, Optional, TYPE_CHECKING
+from typing import Callable, Optional, TYPE_CHECKING
 from google.adk.tools import FunctionTool
 from adh_cli.policies.policy_engine import PolicyEngine
-from adh_cli.policies.policy_types import ToolCall, PolicyDecision
+from adh_cli.policies.policy_types import ToolCall
 from adh_cli.safety.pipeline import SafetyPipeline, SafetyStatus
-from adh_cli.core.tool_executor import ExecutionContext
 
 if TYPE_CHECKING:
     from adh_cli.ui.tool_execution_manager import ToolExecutionManager
@@ -15,6 +14,7 @@ if TYPE_CHECKING:
 
 class SafetyError(Exception):
     """Exception raised when safety checks fail."""
+
     pass
 
 
@@ -75,11 +75,7 @@ class PolicyAwareFunctionTool(FunctionTool):
                         kwargs[param_names[i]] = arg
 
             # 1. Create tool call for policy evaluation
-            tool_call = ToolCall(
-                tool_name=tool_name,
-                parameters=kwargs,
-                context={}
-            )
+            tool_call = ToolCall(tool_name=tool_name, parameters=kwargs, context={})
 
             # 2. Evaluate against policy
             decision = self.policy_engine.evaluate_tool_call(tool_call)
@@ -102,7 +98,9 @@ class PolicyAwareFunctionTool(FunctionTool):
 
                 # Track blocked execution
                 if self.execution_manager and execution_id:
-                    self.execution_manager.block_execution(execution_id, reason=error_msg)
+                    self.execution_manager.block_execution(
+                        execution_id, reason=error_msg
+                    )
 
                 raise PermissionError(error_msg)
 
@@ -116,14 +114,16 @@ class PolicyAwareFunctionTool(FunctionTool):
                     self.execution_manager.require_confirmation(execution_id, decision)
 
                     # BLOCK here until user confirms or cancels
-                    user_confirmed = await self.execution_manager.wait_for_confirmation(execution_id)
+                    user_confirmed = await self.execution_manager.wait_for_confirmation(
+                        execution_id
+                    )
 
                 # Fall back to confirmation handler if no execution manager
                 elif self.confirmation_handler:
                     user_confirmed = await self.confirmation_handler(
                         tool_call=tool_call,
                         decision=decision,
-                        message=decision.confirmation_message
+                        message=decision.confirmation_message,
                     )
 
                 # If neither is available, deny by default (fail-safe)
@@ -139,13 +139,13 @@ class PolicyAwareFunctionTool(FunctionTool):
             if decision.safety_checks:
                 try:
                     pipeline_result = await self.safety_pipeline.run_checks(
-                        tool_call,
-                        decision.safety_checks
+                        tool_call, decision.safety_checks
                     )
 
                     # Check for failures
                     failed_checks = [
-                        r for r in pipeline_result.results
+                        r
+                        for r in pipeline_result.results
                         if r.status == SafetyStatus.FAILED
                     ]
 
@@ -157,7 +157,10 @@ class PolicyAwareFunctionTool(FunctionTool):
 
                     # Apply parameter modifications from safety checks
                     for result in pipeline_result.results:
-                        if hasattr(result, 'parameter_modifications') and result.parameter_modifications:
+                        if (
+                            hasattr(result, "parameter_modifications")
+                            and result.parameter_modifications
+                        ):
                             kwargs.update(result.parameter_modifications)
 
                 except Exception as e:
@@ -167,7 +170,7 @@ class PolicyAwareFunctionTool(FunctionTool):
                             tool_name=tool_name,
                             parameters=kwargs,
                             error=f"Safety check error: {str(e)}",
-                            success=False
+                            success=False,
                         )
                     # Re-raise if it's a SafetyError
                     if isinstance(e, SafetyError):
@@ -178,8 +181,10 @@ class PolicyAwareFunctionTool(FunctionTool):
                 await self.audit_logger(
                     tool_name=tool_name,
                     parameters=kwargs,
-                    decision=decision.dict() if hasattr(decision, 'dict') else str(decision),
-                    phase="pre_execution"
+                    decision=decision.dict()
+                    if hasattr(decision, "dict")
+                    else str(decision),
+                    phase="pre_execution",
                 )
 
             # 8. Mark execution as started
@@ -193,9 +198,7 @@ class PolicyAwareFunctionTool(FunctionTool):
                 # Track successful completion
                 if self.execution_manager and execution_id:
                     self.execution_manager.complete_execution(
-                        execution_id,
-                        success=True,
-                        result=result
+                        execution_id, success=True, result=result
                     )
 
                 # Log success
@@ -205,7 +208,7 @@ class PolicyAwareFunctionTool(FunctionTool):
                         parameters=kwargs,
                         result=str(result)[:200],  # Truncate long results
                         success=True,
-                        phase="post_execution"
+                        phase="post_execution",
                     )
 
                 return result
@@ -217,7 +220,7 @@ class PolicyAwareFunctionTool(FunctionTool):
                         execution_id,
                         success=False,
                         error=str(e),
-                        error_type=type(e).__name__
+                        error_type=type(e).__name__,
                     )
 
                 # Log failure
@@ -227,7 +230,7 @@ class PolicyAwareFunctionTool(FunctionTool):
                         parameters=kwargs,
                         error=str(e),
                         success=False,
-                        phase="execution_error"
+                        phase="execution_error",
                     )
 
                 # Re-raise with enhanced error message including calling signature
@@ -236,7 +239,9 @@ class PolicyAwareFunctionTool(FunctionTool):
                 enhanced_msg = f"{error_type} in {tool_name}({param_str}): {str(e)}"
 
                 # Create new exception with enhanced message but preserve original type
-                if isinstance(e, (FileNotFoundError, PermissionError, ValueError, TypeError)):
+                if isinstance(
+                    e, (FileNotFoundError, PermissionError, ValueError, TypeError)
+                ):
                     raise type(e)(enhanced_msg) from e
                 else:
                     # For unknown exception types, wrap in RuntimeError
@@ -258,5 +263,5 @@ class PolicyAwareFunctionTool(FunctionTool):
         # Confirm/Cancel in the UI.
         super().__init__(
             func=policy_wrapped_func,
-            require_confirmation=None  # We handle confirmation via UI, not ADK
+            require_confirmation=None,  # We handle confirmation via UI, not ADK
         )

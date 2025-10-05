@@ -1,12 +1,11 @@
 """Chat screen with policy-aware agent integration."""
 
 from typing import Optional
-from pathlib import Path
 from textual import on, events
 from textual.app import ComposeResult
-from textual.containers import Container, VerticalScroll
+from textual.containers import Container
 from textual.screen import Screen
-from textual.widgets import Input, RichLog, Static, TextArea
+from textual.widgets import RichLog, Static, TextArea
 from textual.binding import Binding
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -56,6 +55,7 @@ class ChatTextArea(TextArea):
 
     class Submitted(TextArea.Changed):
         """Message sent when user presses Enter."""
+
         pass
 
 
@@ -138,19 +138,12 @@ class ChatScreen(Screen):
     def compose(self) -> ComposeResult:
         """Create child widgets for the chat screen."""
         # Status line
-        yield Static(
-            "Policy-Aware Chat - Safety: ON",
-            id="status-line"
-        )
+        yield Static("Policy-Aware Chat - Safety: ON", id="status-line")
 
         # Main chat container
         with Container(id="chat-container"):
             log = RichLog(
-                id="chat-log",
-                wrap=True,
-                highlight=True,
-                markup=True,
-                auto_scroll=True
+                id="chat-log", wrap=True, highlight=True, markup=True, auto_scroll=True
             )
             log.border_title = "Policy-Aware ADH Chat"
             log.can_focus = True
@@ -170,19 +163,31 @@ class ChatScreen(Screen):
 
         try:
             # Get agent from app (already initialized with tools)
-            if hasattr(self.app, 'agent'):
+            if hasattr(self.app, "agent"):
                 self.agent = self.app.agent
 
                 # Register execution manager callbacks if agent has manager
-                if hasattr(self.agent, 'execution_manager') and self.agent.execution_manager:
-                    self.agent.execution_manager.on_execution_start = self.on_execution_start
-                    self.agent.execution_manager.on_execution_update = self.on_execution_update
-                    self.agent.execution_manager.on_execution_complete = self.on_execution_complete
-                    self.agent.execution_manager.on_confirmation_required = self.on_confirmation_required
+                if (
+                    hasattr(self.agent, "execution_manager")
+                    and self.agent.execution_manager
+                ):
+                    self.agent.execution_manager.on_execution_start = (
+                        self.on_execution_start
+                    )
+                    self.agent.execution_manager.on_execution_update = (
+                        self.on_execution_update
+                    )
+                    self.agent.execution_manager.on_execution_complete = (
+                        self.on_execution_complete
+                    )
+                    self.agent.execution_manager.on_confirmation_required = (
+                        self.on_confirmation_required
+                    )
 
                 # Display agent info
                 from rich.text import Text
-                agent_name = getattr(self.agent, 'agent_name', 'orchestrator')
+
+                agent_name = getattr(self.agent, "agent_name", "orchestrator")
 
                 welcome = Text()
                 welcome.append("Policy-Aware Chat Ready ", style="dim")
@@ -264,15 +269,13 @@ class ChatScreen(Screen):
         finally:
             # Restore status
             status_line.remove_class("thinking")
-            status_text = f"Policy-Aware Chat - Safety: {'ON' if self.safety_enabled else 'OFF'}"
+            status_text = (
+                f"Policy-Aware Chat - Safety: {'ON' if self.safety_enabled else 'OFF'}"
+            )
             status_line.update(status_text)
 
     async def handle_confirmation(
-        self,
-        tool_call=None,
-        decision=None,
-        message=None,
-        **kwargs
+        self, tool_call=None, decision=None, message=None, **kwargs
     ) -> bool:
         """Handle confirmation requests from policy engine.
 
@@ -325,6 +328,7 @@ class ChatScreen(Screen):
         if is_user:
             # User messages - bright blue, more prominent
             from rich.text import Text
+
             user_message = Text()
             user_message.append("You: ", style="bold blue")
             user_message.append(message, style="white")
@@ -379,9 +383,7 @@ class ChatScreen(Screen):
         # Parameters (compact inline format)
         if info.parameters:
             inline_params = format_parameters_inline(
-                info.parameters,
-                max_params=3,
-                max_value_length=60
+                info.parameters, max_params=3, max_value_length=60
             )
             content.append("Parameters: ", style="dim")
             content.append(inline_params, style="")
@@ -464,7 +466,9 @@ class ChatScreen(Screen):
         self.safety_enabled = not self.safety_enabled
 
         status_line = self.query_one("#status-line", Static)
-        status_text = f"Policy-Aware Chat - Safety: {'ON' if self.safety_enabled else 'OFF'}"
+        status_text = (
+            f"Policy-Aware Chat - Safety: {'ON' if self.safety_enabled else 'OFF'}"
+        )
         status_line.update(status_text)
 
         # Update agent preferences
@@ -474,11 +478,15 @@ class ChatScreen(Screen):
                 self.agent.policy_engine.user_preferences = {
                     "auto_approve": ["*"],
                 }
-                self.chat_log.write("[yellow]⚠️ Safety checks disabled. All tools will execute automatically.[/yellow]")
+                self.chat_log.write(
+                    "[yellow]⚠️ Safety checks disabled. All tools will execute automatically.[/yellow]"
+                )
             else:
                 # Re-enable normal policy enforcement
                 self.agent.policy_engine.user_preferences = {}
-                self.chat_log.write("[green]✓ Safety checks enabled. Tools subject to policy enforcement.[/green]")
+                self.chat_log.write(
+                    "[green]✓ Safety checks enabled. Tools subject to policy enforcement.[/green]"
+                )
 
         self.chat_log.write("")
 
@@ -511,7 +519,9 @@ class ChatScreen(Screen):
         # Add completion message to chat log
         self._add_tool_message(info)
 
-    async def on_confirmation_required(self, info: ToolExecutionInfo, decision: PolicyDecision) -> None:
+    async def on_confirmation_required(
+        self, info: ToolExecutionInfo, decision: PolicyDecision
+    ) -> None:
         """Handle confirmation required event from manager.
 
         Args:

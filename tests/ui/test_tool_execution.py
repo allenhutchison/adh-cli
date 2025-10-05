@@ -1,7 +1,7 @@
 """Tests for tool execution data models and utilities."""
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime
 from adh_cli.ui.tool_execution import (
     ToolExecutionState,
     ToolExecutionInfo,
@@ -9,7 +9,6 @@ from adh_cli.ui.tool_execution import (
     format_parameters_inline,
     format_parameters_expanded,
 )
-from adh_cli.policies.policy_types import PolicyDecision, SupervisionLevel, RiskLevel
 
 
 class TestToolExecutionInfo:
@@ -17,10 +16,7 @@ class TestToolExecutionInfo:
 
     def test_initialization_defaults(self):
         """Test default initialization."""
-        info = ToolExecutionInfo(
-            id="test-1",
-            tool_name="read_file"
-        )
+        info = ToolExecutionInfo(id="test-1", tool_name="read_file")
 
         assert info.id == "test-1"
         assert info.tool_name == "read_file"
@@ -38,7 +34,7 @@ class TestToolExecutionInfo:
             id="test-1",
             tool_name="read_file",
             parameters=params,
-            state=ToolExecutionState.EXECUTING
+            state=ToolExecutionState.EXECUTING,
         )
 
         assert info.parameters == params
@@ -50,7 +46,7 @@ class TestToolExecutionInfo:
             id="test-1",
             tool_name="read_file",
             started_at=datetime(2024, 1, 1, 12, 0, 0),
-            completed_at=datetime(2024, 1, 1, 12, 0, 2, 500000)
+            completed_at=datetime(2024, 1, 1, 12, 0, 2, 500000),
         )
 
         assert info.duration == pytest.approx(2.5, rel=0.01)
@@ -58,9 +54,7 @@ class TestToolExecutionInfo:
     def test_duration_none_when_not_complete(self):
         """Test duration is None when execution not complete."""
         info = ToolExecutionInfo(
-            id="test-1",
-            tool_name="read_file",
-            started_at=datetime.now()
+            id="test-1", tool_name="read_file", started_at=datetime.now()
         )
 
         assert info.duration is None
@@ -109,7 +103,9 @@ class TestToolExecutionInfo:
     def test_status_text(self):
         """Test status text for various states."""
         # Executing
-        info = ToolExecutionInfo(id="test-1", tool_name="test", state=ToolExecutionState.EXECUTING)
+        info = ToolExecutionInfo(
+            id="test-1", tool_name="test", state=ToolExecutionState.EXECUTING
+        )
         assert info.status_text == "Executing..."
 
         # Success with duration
@@ -118,16 +114,20 @@ class TestToolExecutionInfo:
             tool_name="test",
             state=ToolExecutionState.SUCCESS,
             started_at=datetime(2024, 1, 1, 12, 0, 0),
-            completed_at=datetime(2024, 1, 1, 12, 0, 1, 500000)
+            completed_at=datetime(2024, 1, 1, 12, 0, 1, 500000),
         )
         assert "Completed (1.50s)" in info.status_text
 
         # Failed
-        info = ToolExecutionInfo(id="test-1", tool_name="test", state=ToolExecutionState.FAILED)
+        info = ToolExecutionInfo(
+            id="test-1", tool_name="test", state=ToolExecutionState.FAILED
+        )
         assert info.status_text == "Failed"
 
         # Blocked
-        info = ToolExecutionInfo(id="test-1", tool_name="test", state=ToolExecutionState.BLOCKED)
+        info = ToolExecutionInfo(
+            id="test-1", tool_name="test", state=ToolExecutionState.BLOCKED
+        )
         assert info.status_text == "Blocked by Policy"
 
 
@@ -243,11 +243,7 @@ class TestFormatParametersInline:
 
     def test_multiple_parameters(self):
         """Test formatting with multiple parameters."""
-        params = {
-            "file_path": "test.txt",
-            "max_lines": 100,
-            "encoding": "utf-8"
-        }
+        params = {"file_path": "test.txt", "max_lines": 100, "encoding": "utf-8"}
         result = format_parameters_inline(params, max_params=3)
 
         assert "file_path" in result
@@ -258,10 +254,7 @@ class TestFormatParametersInline:
     def test_truncates_long_string_value(self):
         """Test that long string values are truncated with length indicator."""
         long_string = "a" * 100
-        result = format_parameters_inline(
-            {"content": long_string},
-            max_value_length=50
-        )
+        result = format_parameters_inline({"content": long_string}, max_value_length=50)
 
         assert "content:" in result
         assert "..." in result
@@ -285,11 +278,7 @@ class TestFormatParametersInline:
 
     def test_boolean_and_number_formatting(self):
         """Test formatting of boolean and number values."""
-        params = {
-            "confirm": True,
-            "count": 42,
-            "ratio": 3.14
-        }
+        params = {"confirm": True, "count": 42, "ratio": 3.14}
         result = format_parameters_inline(params)
 
         assert "confirm: true" in result
@@ -307,11 +296,7 @@ class TestFormatParametersExpanded:
 
     def test_multiple_parameters(self):
         """Test formatting with multiple parameters."""
-        params = {
-            "file_path": "test.txt",
-            "max_lines": 100,
-            "content": "Hello world"
-        }
+        params = {"file_path": "test.txt", "max_lines": 100, "content": "Hello world"}
         result = format_parameters_expanded(params)
 
         assert len(result) == 3

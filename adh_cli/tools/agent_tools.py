@@ -16,9 +16,7 @@ def create_delegate_tool(delegator: AgentDelegator):
     """
 
     async def delegate_to_agent(
-        agent: str,
-        task: str,
-        context: Optional[Dict[str, Any]] = None
+        agent: str, task: str, context: Optional[Dict[str, Any]] = None
     ) -> str:
         """Delegate a task to a specialist agent.
 
@@ -63,9 +61,7 @@ def create_delegate_tool(delegator: AgentDelegator):
             )
         """
         response = await delegator.delegate(
-            agent_name=agent,
-            task=task,
-            context=context or {}
+            agent_name=agent, task=task, context=context or {}
         )
 
         if response.success:

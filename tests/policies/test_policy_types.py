@@ -1,6 +1,5 @@
 """Tests for policy type definitions."""
 
-import pytest
 from datetime import datetime
 from adh_cli.policies.policy_types import (
     SupervisionLevel,
@@ -11,7 +10,6 @@ from adh_cli.policies.policy_types import (
     ToolCall,
     PolicyDecision,
     PolicyRule,
-    PolicyViolation,
 )
 
 

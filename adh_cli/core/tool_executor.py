@@ -4,14 +4,12 @@ import asyncio
 from typing import Any, Dict, Optional, Callable, List
 from dataclasses import dataclass, field
 from datetime import datetime
-import json
 
 from adh_cli.policies.policy_engine import PolicyEngine
 from adh_cli.policies.policy_types import (
     ToolCall,
     PolicyDecision,
     SupervisionLevel,
-    RiskLevel,
 )
 from adh_cli.safety.pipeline import SafetyPipeline
 from adh_cli.safety.base_checker import SafetyStatus
@@ -141,10 +139,7 @@ class ToolExecutor:
         safety_results = await self._run_safety_checks(tool_call, decision)
 
         # Check if any safety check failed
-        failed_checks = [
-            r for r in safety_results
-            if r.status == SafetyStatus.FAILED
-        ]
+        failed_checks = [r for r in safety_results if r.status == SafetyStatus.FAILED]
 
         if failed_checks:
             return ExecutionResult(
@@ -156,7 +151,8 @@ class ToolExecutor:
 
         # Check for warnings that need override
         warning_checks = [
-            r for r in safety_results
+            r
+            for r in safety_results
             if r.status == SafetyStatus.WARNING and not r.can_override
         ]
 
@@ -185,10 +181,7 @@ class ToolExecutor:
 
             # Execute with timeout if specified
             timeout = decision.metadata.get("timeout", 30.0)
-            result = await asyncio.wait_for(
-                handler(**modified_params),
-                timeout=timeout
-            )
+            result = await asyncio.wait_for(handler(**modified_params), timeout=timeout)
 
             execution_time = (datetime.now() - start_time).total_seconds()
 
@@ -287,14 +280,19 @@ class ToolExecutor:
                 # Import and register the checker class dynamically
                 try:
                     from adh_cli.safety import checkers
+
                     checker_class = getattr(checkers, check.checker_class)
-                    self.safety_pipeline.register_checker(check.checker_class, checker_class)
+                    self.safety_pipeline.register_checker(
+                        check.checker_class, checker_class
+                    )
                 except (ImportError, AttributeError):
                     # Skip if checker not found
                     continue
 
         # Run pipeline with the safety checks
-        pipeline_result = await self.safety_pipeline.run_checks(tool_call, decision.safety_checks)
+        pipeline_result = await self.safety_pipeline.run_checks(
+            tool_call, decision.safety_checks
+        )
         return pipeline_result.results
 
     def _apply_parameter_modifications(
@@ -312,7 +310,7 @@ class ToolExecutor:
         modified = parameters.copy()
 
         for result in safety_results:
-            if hasattr(result, 'parameter_modifications'):
+            if hasattr(result, "parameter_modifications"):
                 modified.update(result.parameter_modifications)
 
         return modified
@@ -322,7 +320,7 @@ class ToolExecutor:
         event_type: str,
         tool_call: ToolCall,
         decision: Optional[PolicyDecision] = None,
-        **kwargs
+        **kwargs,
     ):
         """Log an execution event.
 
@@ -344,11 +342,13 @@ class ToolExecutor:
         }
 
         if decision:
-            event_data.update({
-                "allowed": decision.allowed,
-                "supervision_level": decision.supervision_level.value,
-                "risk_level": decision.risk_level.value,
-            })
+            event_data.update(
+                {
+                    "allowed": decision.allowed,
+                    "supervision_level": decision.supervision_level.value,
+                    "risk_level": decision.risk_level.value,
+                }
+            )
 
         event_data.update(kwargs)
 
@@ -375,16 +375,14 @@ class PolicyAwareToolRegistry:
         Returns:
             Decorator function
         """
+
         def decorator(func: Callable):
             self.executor.register_tool(name, func)
             return func
+
         return decorator
 
-    async def execute(
-        self,
-        tool_name: str,
-        **parameters
-    ) -> ExecutionResult:
+    async def execute(self, tool_name: str, **parameters) -> ExecutionResult:
         """Execute a tool with policy enforcement.
 
         Args:

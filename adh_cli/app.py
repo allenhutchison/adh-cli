@@ -4,7 +4,6 @@ import os
 import json
 from pathlib import Path
 from dotenv import load_dotenv
-from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.widgets import Header, Footer
@@ -23,6 +22,7 @@ def get_adh_commands_provider():
         ADHCommandProvider class
     """
     from .commands import ADHCommandProvider
+
     return ADHCommandProvider
 
 
@@ -33,6 +33,7 @@ def get_settings_commands_provider():
         SettingsCommandProvider class
     """
     from .commands import SettingsCommandProvider
+
     return SettingsCommandProvider
 
 
@@ -57,7 +58,10 @@ class ADHApp(App):
     # Extend Textual's default commands with ADH CLI-specific providers
     # This preserves defaults (quit, toggle dark, show/hide keys, etc.)
     # while adding our custom commands (settings, policies, safety, clear)
-    COMMANDS = App.COMMANDS | {get_adh_commands_provider, get_settings_commands_provider}
+    COMMANDS = App.COMMANDS | {
+        get_adh_commands_provider,
+        get_settings_commands_provider,
+    }
 
     TITLE = "ADH CLI - Policy-Aware Agent"
     SUB_TITLE = "Safe AI-assisted development"
@@ -88,9 +92,8 @@ class ADHApp(App):
         # Load .env file if it exists
         load_dotenv()
 
-        self.api_key = (
-            os.environ.get("GOOGLE_API_KEY") or
-            os.environ.get("GEMINI_API_KEY")
+        self.api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get(
+            "GEMINI_API_KEY"
         )
 
     def _load_config(self):
@@ -102,7 +105,7 @@ class ADHApp(App):
         config_file = ConfigPaths.get_config_file()
         if config_file.exists():
             try:
-                with open(config_file, 'r') as f:
+                with open(config_file, "r") as f:
                     return json.load(f)
             except (json.JSONDecodeError, IOError):
                 pass
@@ -183,9 +186,19 @@ class ADHApp(App):
                     name="delegate_to_agent",
                     description="Delegate a task to a specialist agent (planner, code_reviewer, etc.)",
                     parameters={
-                        "agent": {"type": "string", "description": "Name of specialist agent"},
-                        "task": {"type": "string", "description": "Task description for the agent"},
-                        "context": {"type": "object", "description": "Additional context", "nullable": True},
+                        "agent": {
+                            "type": "string",
+                            "description": "Name of specialist agent",
+                        },
+                        "task": {
+                            "type": "string",
+                            "description": "Task description for the agent",
+                        },
+                        "context": {
+                            "type": "object",
+                            "description": "Additional context",
+                            "nullable": True,
+                        },
                     },
                     handler=delegate_tool,
                     tags=["agent", "delegation"],
@@ -202,7 +215,9 @@ class ADHApp(App):
                 handler=spec.handler,
             )
 
-    async def handle_confirmation(self, tool_call=None, decision=None, message=None, **kwargs):
+    async def handle_confirmation(
+        self, tool_call=None, decision=None, message=None, **kwargs
+    ):
         """Handle confirmation requests from the policy engine.
 
         Args:
@@ -256,6 +271,7 @@ class ADHApp(App):
     def action_show_settings(self) -> None:
         """Show settings as a modal."""
         from .screens.settings_modal import SettingsModal
+
         self.push_screen(SettingsModal())
 
     def action_show_policies(self) -> None:
@@ -288,9 +304,11 @@ class ADHApp(App):
         if self.agent:
             if not enabled:
                 # Disable safety by auto-approving everything
-                self.agent.set_user_preferences({
-                    "auto_approve": ["*"],
-                })
+                self.agent.set_user_preferences(
+                    {
+                        "auto_approve": ["*"],
+                    }
+                )
                 self.notify("⚠️ Safety checks disabled", severity="warning")
             else:
                 # Re-enable normal policy enforcement

@@ -29,7 +29,9 @@ def _fetch_sync(
 ) -> Dict[str, Any]:
     req = urllib.request.Request(url)
     ua = headers.get("User-Agent") if headers else None
-    req.add_header("User-Agent", ua or "adh-cli/0.1 (+https://github.com/allenhutchison/adh-cli)")
+    req.add_header(
+        "User-Agent", ua or "adh-cli/0.1 (+https://github.com/allenhutchison/adh-cli)"
+    )
     if headers:
         for k, v in headers.items():
             if k.lower() == "user-agent":
@@ -38,7 +40,11 @@ def _fetch_sync(
 
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         info = resp.info()
-        content_type = info.get_content_type() if hasattr(info, "get_content_type") else info.get("Content-Type", "")
+        content_type = (
+            info.get_content_type()
+            if hasattr(info, "get_content_type")
+            else info.get("Content-Type", "")
+        )
 
         # Read up to max_bytes + 1 so we can flag truncation
         data = resp.read(max_bytes + 1)

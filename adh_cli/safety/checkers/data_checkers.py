@@ -19,29 +19,23 @@ class SensitiveDataChecker(SafetyChecker):
         """Compile regex patterns for sensitive data detection."""
         patterns = [
             # API Keys and Tokens
-            r'(?i)(api[_\-\s]?key|api[_\-\s]?token|auth[_\-\s]?token|access[_\-\s]?token)[\s:=]+[\w\-]+',
-            r'(?i)bearer\s+[\w\-\.]+',
-
+            r"(?i)(api[_\-\s]?key|api[_\-\s]?token|auth[_\-\s]?token|access[_\-\s]?token)[\s:=]+[\w\-]+",
+            r"(?i)bearer\s+[\w\-\.]+",
             # AWS Keys
-            r'AKIA[0-9A-Z]{16}',
-            r'(?i)aws[_\-\s]?secret[_\-\s]?access[_\-\s]?key[\s:=]+[\w\-/+=]+',
-
+            r"AKIA[0-9A-Z]{16}",
+            r"(?i)aws[_\-\s]?secret[_\-\s]?access[_\-\s]?key[\s:=]+[\w\-/+=]+",
             # SSH Keys
-            r'-----BEGIN (RSA |DSA |EC |OPENSSH )?PRIVATE KEY-----',
-            r'ssh-rsa\s+[\w+/=]+',
-
+            r"-----BEGIN (RSA |DSA |EC |OPENSSH )?PRIVATE KEY-----",
+            r"ssh-rsa\s+[\w+/=]+",
             # Passwords
             r'(?i)password[\s:=]+["\']?[\w\-!@#$%^&*]+["\']?',
             r'(?i)pwd[\s:=]+["\']?[\w\-!@#$%^&*]+["\']?',
-
             # Credit Cards
-            r'\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|6(?:011|5[0-9]{2})[0-9]{12})\b',
-
+            r"\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|6(?:011|5[0-9]{2})[0-9]{12})\b",
             # Social Security Numbers
-            r'\b\d{3}-\d{2}-\d{4}\b',
-
+            r"\b\d{3}-\d{2}-\d{4}\b",
             # Email addresses (for PII detection)
-            r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
+            r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
         ]
 
         return [re.compile(pattern) for pattern in patterns]
@@ -58,10 +52,12 @@ class SensitiveDataChecker(SafetyChecker):
                 break
 
         # Check file content if reading/writing
-        file_path = tool_call.get_parameter("path") or tool_call.get_parameter("file_path")
+        file_path = tool_call.get_parameter("path") or tool_call.get_parameter(
+            "file_path"
+        )
         if file_path and Path(file_path).exists():
             try:
-                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                     content = f.read(1024 * 100)  # Read first 100KB
 
                 for pattern in self.patterns:

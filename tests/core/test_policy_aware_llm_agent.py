@@ -1,13 +1,12 @@
 """Tests for PolicyAwareLlmAgent."""
 
 import pytest
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
+from unittest.mock import Mock, AsyncMock, patch
 from pathlib import Path
 import tempfile
 
 from adh_cli.core.policy_aware_llm_agent import PolicyAwareLlmAgent
 from adh_cli.core.tool_executor import ExecutionContext
-from adh_cli.policies.policy_types import PolicyDecision, SupervisionLevel, RiskLevel
 
 
 class TestPolicyAwareLlmAgent:
@@ -27,10 +26,13 @@ class TestPolicyAwareLlmAgent:
     def agent_with_mock_adk(self):
         """Create agent with mocked ADK components."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            with patch('adh_cli.core.policy_aware_llm_agent.LlmAgent') as mock_llm_agent, \
-                 patch('adh_cli.core.policy_aware_llm_agent.Runner') as mock_runner, \
-                 patch('adh_cli.core.policy_aware_llm_agent.InMemorySessionService') as mock_session:
-
+            with (
+                patch("adh_cli.core.policy_aware_llm_agent.LlmAgent") as mock_llm_agent,
+                patch("adh_cli.core.policy_aware_llm_agent.Runner") as mock_runner,
+                patch(
+                    "adh_cli.core.policy_aware_llm_agent.InMemorySessionService"
+                ) as mock_session,
+            ):
                 # Configure mocks
                 mock_agent_instance = Mock()
                 mock_llm_agent.return_value = mock_agent_instance
@@ -64,10 +66,11 @@ class TestPolicyAwareLlmAgent:
     def test_agent_initialization_with_api_key(self):
         """Test agent initializes with API key."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            with patch('adh_cli.core.policy_aware_llm_agent.LlmAgent'), \
-                 patch('adh_cli.core.policy_aware_llm_agent.Runner'), \
-                 patch('adh_cli.core.policy_aware_llm_agent.InMemorySessionService'):
-
+            with (
+                patch("adh_cli.core.policy_aware_llm_agent.LlmAgent"),
+                patch("adh_cli.core.policy_aware_llm_agent.Runner"),
+                patch("adh_cli.core.policy_aware_llm_agent.InMemorySessionService"),
+            ):
                 agent = PolicyAwareLlmAgent(
                     api_key="test_key",
                     policy_dir=Path(tmpdir),
@@ -79,6 +82,7 @@ class TestPolicyAwareLlmAgent:
 
     def test_register_tool_without_api_key(self, agent_without_api_key):
         """Test tool registration without API key."""
+
         async def test_func(param: str):
             return f"Result: {param}"
 
@@ -94,6 +98,7 @@ class TestPolicyAwareLlmAgent:
 
     def test_register_multiple_tools(self, agent_without_api_key):
         """Test registering multiple tools."""
+
         async def tool1():
             return "tool1"
 
@@ -187,7 +192,9 @@ class TestPolicyAwareLlmAgent:
 
         agent_with_mock_adk.runner.run_async = mock_event_stream
 
-        result = await agent_with_mock_adk.chat("Do something", context=ExecutionContext())
+        result = await agent_with_mock_adk.chat(
+            "Do something", context=ExecutionContext()
+        )
 
         assert "Task completed" in result
         # Note: Tool execution notifications removed - now handled by ToolExecutionWidget UI
@@ -195,6 +202,7 @@ class TestPolicyAwareLlmAgent:
     @pytest.mark.asyncio
     async def test_chat_handles_permission_error(self, agent_with_mock_adk):
         """Test chat handles PermissionError from policy."""
+
         async def mock_event_stream(*args, **kwargs):
             raise PermissionError("Tool blocked by policy")
             yield  # Never reached
@@ -208,6 +216,7 @@ class TestPolicyAwareLlmAgent:
     @pytest.mark.asyncio
     async def test_chat_handles_general_error(self, agent_with_mock_adk):
         """Test chat handles general exceptions."""
+
         async def mock_event_stream(*args, **kwargs):
             raise ValueError("Some error")
             yield  # Never reached
@@ -248,9 +257,7 @@ class TestPolicyAwareLlmAgent:
             # Trigger audit log
             if agent.audit_logger:
                 await agent.audit_logger(
-                    tool_name="test_tool",
-                    parameters={"param": "value"},
-                    success=True
+                    tool_name="test_tool", parameters={"param": "value"}, success=True
                 )
 
             # Check file was created and has content
@@ -261,6 +268,7 @@ class TestPolicyAwareLlmAgent:
 
     def test_update_policies(self, agent_without_api_key):
         """Test updating policies."""
+
         # Register a tool first
         async def test_func():
             return "result"
@@ -293,11 +301,12 @@ class TestPolicyAwareLlmAgent:
         executor = agent_without_api_key.tool_executor
 
         assert executor is not None
-        assert hasattr(executor, 'execute')
+        assert hasattr(executor, "execute")
 
     @pytest.mark.asyncio
     async def test_tool_executor_execute(self, agent_without_api_key):
         """Test tool_executor.execute method."""
+
         async def test_func(param: str):
             return f"Result: {param}"
 
@@ -310,8 +319,7 @@ class TestPolicyAwareLlmAgent:
 
         executor = agent_without_api_key.tool_executor
         result = await executor.execute(
-            tool_name="test_tool",
-            parameters={"param": "value"}
+            tool_name="test_tool", parameters={"param": "value"}
         )
 
         assert result.success is True
@@ -321,10 +329,7 @@ class TestPolicyAwareLlmAgent:
     async def test_tool_executor_execute_not_found(self, agent_without_api_key):
         """Test tool_executor.execute with non-existent tool."""
         executor = agent_without_api_key.tool_executor
-        result = await executor.execute(
-            tool_name="nonexistent",
-            parameters={}
-        )
+        result = await executor.execute(tool_name="nonexistent", parameters={})
 
         assert result.success is False
         assert "not found" in result.error.lower()
@@ -333,9 +338,7 @@ class TestPolicyAwareLlmAgent:
         """Test loading default orchestrator agent."""
         with tempfile.TemporaryDirectory() as tmpdir:
             agent = PolicyAwareLlmAgent(
-                api_key=None,
-                policy_dir=Path(tmpdir),
-                agent_name="orchestrator"
+                api_key=None, policy_dir=Path(tmpdir), agent_name="orchestrator"
             )
 
             # Should load orchestrator agent definition
@@ -353,7 +356,7 @@ class TestPolicyAwareLlmAgent:
                 agent_name="nonexistent_agent",
                 model_name="gemini-pro",
                 temperature=0.5,
-                max_tokens=1024
+                max_tokens=1024,
             )
 
             # Should fallback to passed parameters
@@ -365,10 +368,7 @@ class TestPolicyAwareLlmAgent:
     def test_generate_tool_descriptions_empty(self):
         """Test generating tool descriptions with no tools."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            agent = PolicyAwareLlmAgent(
-                api_key=None,
-                policy_dir=Path(tmpdir)
-            )
+            agent = PolicyAwareLlmAgent(api_key=None, policy_dir=Path(tmpdir))
 
             descriptions = agent._generate_tool_descriptions()
             assert "No tools currently available" in descriptions
@@ -376,10 +376,7 @@ class TestPolicyAwareLlmAgent:
     def test_generate_tool_descriptions_with_tools(self):
         """Test generating tool descriptions with registered tools."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            agent = PolicyAwareLlmAgent(
-                api_key=None,
-                policy_dir=Path(tmpdir)
-            )
+            agent = PolicyAwareLlmAgent(api_key=None, policy_dir=Path(tmpdir))
 
             # Register a test tool
             async def test_tool(param: str):
@@ -390,7 +387,7 @@ class TestPolicyAwareLlmAgent:
                 name="test_tool",
                 description="A test tool",
                 parameters={"param": {"type": "string"}},
-                handler=test_tool
+                handler=test_tool,
             )
 
             descriptions = agent._generate_tool_descriptions()
@@ -401,9 +398,7 @@ class TestPolicyAwareLlmAgent:
         """Test system prompt uses agent definition."""
         with tempfile.TemporaryDirectory() as tmpdir:
             agent = PolicyAwareLlmAgent(
-                api_key=None,
-                policy_dir=Path(tmpdir),
-                agent_name="orchestrator"
+                api_key=None, policy_dir=Path(tmpdir), agent_name="orchestrator"
             )
 
             # Register a tool so we have tool descriptions
@@ -412,17 +407,16 @@ class TestPolicyAwareLlmAgent:
                 return param
 
             agent.register_tool(
-                name="test_tool",
-                description="Test",
-                parameters={},
-                handler=test_tool
+                name="test_tool", description="Test", parameters={}, handler=test_tool
             )
 
             prompt = agent._get_system_instruction()
 
             # Should contain parts of the orchestrator prompt
             assert "helpful AI assistant" in prompt
-            assert "Tool Execution Guidelines" in prompt  # Updated from new orchestrator prompt
+            assert (
+                "Tool Execution Guidelines" in prompt
+            )  # Updated from new orchestrator prompt
             assert "Agent Delegation" in prompt  # Should have new delegation section
             # Should have tool descriptions injected
             assert "test_tool" in prompt
@@ -431,9 +425,7 @@ class TestPolicyAwareLlmAgent:
         """Test system prompt falls back when agent definition not loaded."""
         with tempfile.TemporaryDirectory() as tmpdir:
             agent = PolicyAwareLlmAgent(
-                api_key=None,
-                policy_dir=Path(tmpdir),
-                agent_name="nonexistent"
+                api_key=None, policy_dir=Path(tmpdir), agent_name="nonexistent"
             )
 
             prompt = agent._get_system_instruction()

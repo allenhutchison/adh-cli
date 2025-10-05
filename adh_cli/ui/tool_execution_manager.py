@@ -39,7 +39,9 @@ class ToolExecutionManager:
         on_execution_start: Optional[Callable[[ToolExecutionInfo], Any]] = None,
         on_execution_update: Optional[Callable[[ToolExecutionInfo], Any]] = None,
         on_execution_complete: Optional[Callable[[ToolExecutionInfo], Any]] = None,
-        on_confirmation_required: Optional[Callable[[ToolExecutionInfo, PolicyDecision], Any]] = None,
+        on_confirmation_required: Optional[
+            Callable[[ToolExecutionInfo, PolicyDecision], Any]
+        ] = None,
         max_history: int = 100,
     ):
         """Initialize tool execution manager.
@@ -86,12 +88,16 @@ class ToolExecutionManager:
 
         # Extract requires_confirmation from policy_decision if available
         requires_confirmation = False
-        if policy_decision and hasattr(policy_decision, 'requires_confirmation'):
+        if policy_decision and hasattr(policy_decision, "requires_confirmation"):
             requires_confirmation = policy_decision.requires_confirmation
 
         # Start in CONFIRMING state if confirmation is required
         # Otherwise start in PENDING state
-        initial_state = ToolExecutionState.CONFIRMING if requires_confirmation else ToolExecutionState.PENDING
+        initial_state = (
+            ToolExecutionState.CONFIRMING
+            if requires_confirmation
+            else ToolExecutionState.PENDING
+        )
 
         info = ToolExecutionInfo(
             id=execution_id,
@@ -114,10 +120,7 @@ class ToolExecutionManager:
         return info
 
     def update_execution(
-        self,
-        execution_id: str,
-        state: Optional[ToolExecutionState] = None,
-        **kwargs
+        self, execution_id: str, state: Optional[ToolExecutionState] = None, **kwargs
     ) -> Optional[ToolExecutionInfo]:
         """Update an execution's state and properties.
 
@@ -162,9 +165,7 @@ class ToolExecutionManager:
             Updated ToolExecutionInfo, or None if not found
         """
         return self.update_execution(
-            execution_id,
-            state=ToolExecutionState.EXECUTING,
-            started_at=datetime.now()
+            execution_id, state=ToolExecutionState.EXECUTING, started_at=datetime.now()
         )
 
     def complete_execution(
@@ -222,9 +223,7 @@ class ToolExecutionManager:
         )
 
     def block_execution(
-        self,
-        execution_id: str,
-        reason: Optional[str] = None
+        self, execution_id: str, reason: Optional[str] = None
     ) -> Optional[ToolExecutionInfo]:
         """Mark execution as blocked by policy.
 
@@ -279,7 +278,7 @@ class ToolExecutionManager:
     async def wait_for_confirmation(
         self,
         execution_id: str,
-        timeout: Optional[float] = 300.0  # 5 minute default timeout
+        timeout: Optional[float] = 300.0,  # 5 minute default timeout
     ) -> bool:
         """Wait for user to confirm or cancel execution.
 
@@ -359,7 +358,7 @@ class ToolExecutionManager:
 
         # Trim history if needed
         if len(self._execution_history) > self.max_history:
-            self._execution_history = self._execution_history[-self.max_history:]
+            self._execution_history = self._execution_history[-self.max_history :]
 
         # Emit complete event
         if self.on_execution_complete:

@@ -3,8 +3,6 @@
 import os
 import shutil
 from pathlib import Path
-from typing import Optional
-import asyncio
 
 from ..base_checker import SafetyChecker, SafetyResult, SafetyStatus
 from ...policies.policy_types import ToolCall, RiskLevel
@@ -27,7 +25,9 @@ class BackupChecker(SafetyChecker):
             )
 
         # Get file path from parameters
-        file_path = tool_call.get_parameter("path") or tool_call.get_parameter("file_path")
+        file_path = tool_call.get_parameter("path") or tool_call.get_parameter(
+            "file_path"
+        )
         if not file_path:
             return SafetyResult(
                 checker_name=self.name,
@@ -113,7 +113,9 @@ class PermissionChecker(SafetyChecker):
 
     async def check(self, tool_call: ToolCall) -> SafetyResult:
         """Check if we have necessary permissions."""
-        file_path = tool_call.get_parameter("path") or tool_call.get_parameter("file_path")
+        file_path = tool_call.get_parameter("path") or tool_call.get_parameter(
+            "file_path"
+        )
         if not file_path:
             return SafetyResult(
                 checker_name=self.name,
@@ -175,7 +177,9 @@ class SizeLimitChecker(SafetyChecker):
 
     async def check(self, tool_call: ToolCall) -> SafetyResult:
         """Check if file size is within limits."""
-        file_path = tool_call.get_parameter("path") or tool_call.get_parameter("file_path")
+        file_path = tool_call.get_parameter("path") or tool_call.get_parameter(
+            "file_path"
+        )
         if not file_path:
             return SafetyResult(
                 checker_name=self.name,
@@ -201,7 +205,7 @@ class SizeLimitChecker(SafetyChecker):
             return SafetyResult(
                 checker_name=self.name,
                 status=SafetyStatus.WARNING,
-                message=f"File exceeds size limit: {file_size / (1024*1024):.1f}MB",
+                message=f"File exceeds size limit: {file_size / (1024 * 1024):.1f}MB",
                 risk_level=RiskLevel.MEDIUM,
                 can_override=True,
                 suggestions=["Consider processing file in chunks"],

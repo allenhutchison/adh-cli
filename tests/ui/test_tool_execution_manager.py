@@ -53,7 +53,7 @@ class TestToolExecutionManager:
         decision = PolicyDecision(
             allowed=True,
             supervision_level=SupervisionLevel.CONFIRM,
-            risk_level=RiskLevel.MEDIUM
+            risk_level=RiskLevel.MEDIUM,
         )
 
         info = manager.create_execution(
@@ -88,9 +88,7 @@ class TestToolExecutionManager:
         manager.on_execution_complete.reset_mock()
 
         result = manager.complete_execution(
-            info.id,
-            success=True,
-            result="file contents"
+            info.id, success=True, result="file contents"
         )
 
         assert result.state == ToolExecutionState.SUCCESS
@@ -115,7 +113,7 @@ class TestToolExecutionManager:
             info.id,
             success=False,
             error="File not found",
-            error_type="FileNotFoundError"
+            error_type="FileNotFoundError",
         )
 
         assert result.state == ToolExecutionState.FAILED
@@ -148,10 +146,7 @@ class TestToolExecutionManager:
             parameters={},
         )
 
-        result = manager.block_execution(
-            info.id,
-            reason="Tool blocked by policy"
-        )
+        result = manager.block_execution(info.id, reason="Tool blocked by policy")
 
         assert result.state == ToolExecutionState.BLOCKED
         assert result.error == "Tool blocked by policy"
@@ -163,7 +158,7 @@ class TestToolExecutionManager:
         decision = PolicyDecision(
             allowed=True,
             supervision_level=SupervisionLevel.CONFIRM,
-            risk_level=RiskLevel.MEDIUM
+            risk_level=RiskLevel.MEDIUM,
         )
 
         info = manager.create_execution(
@@ -186,7 +181,7 @@ class TestToolExecutionManager:
         decision = PolicyDecision(
             allowed=True,
             supervision_level=SupervisionLevel.CONFIRM,
-            risk_level=RiskLevel.MEDIUM
+            risk_level=RiskLevel.MEDIUM,
         )
 
         info = manager.create_execution(
@@ -211,7 +206,7 @@ class TestToolExecutionManager:
             info.id,
             state=ToolExecutionState.EXECUTING,
             started_at=datetime.now(),
-            custom_field="value"  # Should be ignored if not an attribute
+            custom_field="value",  # Should be ignored if not an attribute
         )
 
         assert result.state == ToolExecutionState.EXECUTING
@@ -252,7 +247,9 @@ class TestToolExecutionManager:
         """Test getting all active executions."""
         info1 = manager.create_execution("tool1", {})
         info2 = manager.create_execution("tool2", {})
-        manager.complete_execution(info1.id, success=True)  # Completes, moves to history
+        manager.complete_execution(
+            info1.id, success=True
+        )  # Completes, moves to history
 
         active = manager.get_active_executions()
 
@@ -314,7 +311,7 @@ class TestToolExecutionManager:
         """Test tracking multiple active executions."""
         info1 = manager.create_execution("tool1", {})
         info2 = manager.create_execution("tool2", {})
-        info3 = manager.create_execution("tool3", {})
+        manager.create_execution("tool3", {})
 
         assert manager.active_count == 3
 
@@ -342,7 +339,7 @@ class TestToolExecutionManager:
         decision = PolicyDecision(
             allowed=True,
             supervision_level=SupervisionLevel.CONFIRM,
-            risk_level=RiskLevel.MEDIUM
+            risk_level=RiskLevel.MEDIUM,
         )
         manager.require_confirmation(info.id, decision)
         assert manager.get_execution(info.id).state == ToolExecutionState.CONFIRMING
@@ -398,7 +395,7 @@ class TestConfirmationWaiting:
             supervision_level=SupervisionLevel.CONFIRM,
             risk_level=RiskLevel.MEDIUM,
             requires_confirmation=True,
-            confirmation_message="Confirm this operation?"
+            confirmation_message="Confirm this operation?",
         )
 
     @pytest.mark.asyncio
@@ -494,7 +491,9 @@ class TestConfirmationWaiting:
             await manager.wait_for_confirmation(info.id)
 
     @pytest.mark.asyncio
-    async def test_multiple_confirmations_different_executions(self, manager, policy_decision):
+    async def test_multiple_confirmations_different_executions(
+        self, manager, policy_decision
+    ):
         """Test multiple pending confirmations for different executions."""
         # Create two executions both requiring confirmation
         info1 = manager.create_execution("tool1", {})
