@@ -90,6 +90,26 @@ task run
 adh-cli --debug
 ```
 
+### Run via uvx (no install)
+
+Using uvx you can run directly from GitHub without installing:
+
+```bash
+# From GitHub shorthand (recommended)
+uvx --from gh:allenhutchison/adh-cli adh-cli
+
+# Or from a git URL
+uvx --from git+https://github.com/allenhutchison/adh-cli.git adh-cli
+
+# Pass options and environment as usual
+GOOGLE_API_KEY=your-key uvx --from gh:allenhutchison/adh-cli adh-cli -- --debug
+```
+
+Notes:
+- Requires `uv` v0.4.0+.
+- `adh-cli` is the console script name exposed by the package.
+- Ensure `GOOGLE_API_KEY` or `GEMINI_API_KEY` is set in your environment.
+
 ### Development Mode
 
 ```bash

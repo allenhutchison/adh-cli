@@ -33,6 +33,16 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["adh_cli"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+adh_cli = [
+    "ui/*.tcss",
+    "policies/definitions/*.yaml",
+    "policies/defaults/*.yaml",
+    "agents/README.md",
+    "agents/*/agent.md",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
