@@ -556,7 +556,7 @@ class TestPolicyAwareLlmAgent:
 
         assert result == "fallback response"
         agent_with_mock_adk._run_url_context_fallback.assert_awaited_once_with(
-            original_message=f"Please analyze {url}", url=url
+            original_message=f"Please analyze {url}", urls=[url]
         )
 
     @pytest.mark.asyncio
@@ -595,8 +595,45 @@ class TestPolicyAwareLlmAgent:
 
         result = await agent_with_mock_adk._run_url_context_fallback(
             original_message="Summarize https://example.com/file",
-            url="https://example.com/file",
+            urls=["https://example.com/file"],
         )
 
         assert "Generated answer" in result
-        assert "fallback fetch" in result
+        assert "fallback fetch for https://example.com/file" in result
+
+    @pytest.mark.asyncio
+    async def test_run_url_context_fallback_multiple_urls(
+        self, agent_with_mock_adk, monkeypatch
+    ):
+        """Fallback collates multiple URLs and reports failures."""
+
+        async def fake_fetch(url: str, **kwargs):
+            if url.endswith("first"):
+                return {"success": True, "content": "First content"}
+            raise ValueError("invalid url")
+
+        monkeypatch.setattr(
+            "adh_cli.tools.web_tools.fetch_url", fake_fetch, raising=True
+        )
+
+        agent_with_mock_adk._generate_fallback_response = AsyncMock(
+            return_value=(True, "Combined answer")
+        )
+
+        urls = [
+            "https://example.com/first",
+            "https://example.com/second",
+        ]
+
+        result = await agent_with_mock_adk._run_url_context_fallback(
+            original_message="Use these URLs",
+            urls=urls,
+        )
+
+        assert "Combined answer" in result
+        assert "Some URLs failed" in result
+
+        prompt = agent_with_mock_adk._generate_fallback_response.call_args[0][0]
+        assert "https://example.com/first" in prompt
+        assert "https://example.com/second" in prompt
+        assert "Some URLs could not be fetched" in prompt

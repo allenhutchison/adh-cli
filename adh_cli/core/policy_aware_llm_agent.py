@@ -13,6 +13,7 @@ from google.adk.sessions import InMemorySessionService
 from google.adk.tools.base_tool import BaseTool
 from google import genai
 from google.genai import types
+from pydantic import ValidationError
 
 from adh_cli.core.policy_aware_function_tool import PolicyAwareFunctionTool
 from adh_cli.core.tool_executor import ExecutionContext, ExecutionResult
@@ -593,7 +594,7 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
 
         return await self._run_url_context_fallback(
             original_message=original_message,
-            url=urls[0],
+            urls=urls,
         )
 
     def _url_context_failed(self, final_event, initial_response: str) -> bool:
@@ -615,7 +616,7 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
                 statuses = [
                     entry.url_retrieval_status for entry in parsed.url_metadata or []
                 ]
-            except Exception:
+            except ValidationError:
                 statuses = []
 
         if statuses:
@@ -657,51 +658,112 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
         return url
 
     async def _run_url_context_fallback(
-        self, *, original_message: str, url: str
+        self, *, original_message: str, urls: List[str]
     ) -> str:
         """Fetch URL content locally and re-query Gemini with the retrieved text."""
 
-        normalized_url = self._normalize_url_for_fallback(url)
+        url_pairs = [
+            (url, self._normalize_url_for_fallback(url))
+            for url in urls
+        ]
 
-        try:
-            fetch_result = await web_tools.fetch_url(normalized_url)
-        except Exception as exc:  # noqa: BLE001
-            return f"❌ Error fetching {url}: {exc}"
+        async def fetch_single(
+            original: str, normalized: str
+        ) -> tuple[str, str, Dict[str, Any]]:
+            try:
+                result = await web_tools.fetch_url(normalized)
+            except ValueError as exc:
+                return original, normalized, {"success": False, "error": str(exc)}
+            return original, normalized, result
 
-        if not fetch_result.get("success", False):
-            error = fetch_result.get("error") or "Unknown error"
-            return f"❌ Error fetching {url}: {error}"
+        fetch_results = await asyncio.gather(
+            *(fetch_single(original, normalized) for original, normalized in url_pairs)
+        )
 
-        content = fetch_result.get("content") or ""
-        if not content.strip():
-            return f"❌ No readable content returned from {url}."
+        successes: List[Dict[str, str]] = []
+        errors: List[tuple[str, str]] = []
 
-        truncated = content[: self._FALLBACK_MAX_CONTENT_CHARS]
-        if len(content) > self._FALLBACK_MAX_CONTENT_CHARS:
-            truncated = f"{truncated}\n... [content truncated]"
+        for original, normalized, result in fetch_results:
+            if not result.get("success", False):
+                errors.append((original, result.get("error") or "Unknown error"))
+                continue
+
+            content = (result.get("content") or "").strip()
+            if not content:
+                errors.append((original, "No readable content returned."))
+                continue
+
+            truncated = content[: self._FALLBACK_MAX_CONTENT_CHARS]
+            if len(content) > self._FALLBACK_MAX_CONTENT_CHARS:
+                truncated = f"{truncated}\n... [content truncated]"
+
+            successes.append(
+                {
+                    "original": original,
+                    "normalized": normalized,
+                    "content": truncated,
+                }
+            )
+
+        if not successes:
+            if errors:
+                error_summary = "; ".join(
+                    f"{original} ({message})" for original, message in errors
+                )
+                return f"❌ Error fetching URLs: {error_summary}"
+            return "❌ No readable content returned from provided URLs."
+
+        sections = []
+        for item in successes:
+            sections.append(
+                "\n".join(
+                    [
+                        f"Source URL: {item['original']}",
+                        f"Fetched URL: {item['normalized']}",
+                        "---",
+                        item["content"],
+                        "---",
+                    ]
+                )
+            )
+
+        fetched_block = "\n\n".join(sections)
+
+        error_block = ""
+        if errors:
+            error_block = "\nSome URLs could not be fetched:\n" + "\n".join(
+                f"- {original}: {message}" for original, message in errors
+            )
 
         fallback_prompt = (
-            "The user provided a URL that Gemini could not retrieve automatically.\n"
+            "The user provided URL(s) that Gemini could not retrieve automatically.\n"
             f"Original request:\n{original_message}\n\n"
             "I fetched the page content for you instead. Use only the content below to"
-            " answer the request and do not attempt to fetch the URL again.\n\n"
-            f"Source URL: {url}\n"
-            f"Fetched URL: {normalized_url}\n"
-            "---\n"
-            f"{truncated}\n"
-            "---\n"
+            " answer the request and do not attempt to fetch the URLs again.\n\n"
+            f"{fetched_block}"
+            f"{error_block}\n"
         )
 
         success, generated = await self._generate_fallback_response(fallback_prompt)
 
+        fetched_urls = ", ".join(item["original"] for item in successes)
+        failure_suffix = ""
+        if errors:
+            failure_suffix = " Some URLs failed: " + "; ".join(
+                f"{original} ({message})" for original, message in errors
+            )
+
         if success and generated:
             return (
-                f"{generated}\n\n(Responded using fallback fetch of {url}. "
-                "Content may be truncated.)"
+                f"{generated}\n\n(Responded using fallback fetch for {fetched_urls}. "
+                f"Content may be truncated.{failure_suffix})"
             )
 
         if success:
-            return "Fallback fetch succeeded, but Gemini returned no content."
+            return (
+                "Fallback fetch succeeded, but Gemini returned no content."
+                f"{failure_suffix}"
+            )
 
         return generated
 
