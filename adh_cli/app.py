@@ -208,12 +208,22 @@ class ADHApp(App):
 
         # Register all tools - the policy engine controls access and confirmation requirements
         for spec in registry.all():
-            self.agent.register_tool(
-                name=spec.name,
-                description=spec.description,
-                parameters=spec.parameters,
-                handler=spec.handler,
-            )
+            if spec.name == "google_search":
+                continue
+            if spec.adk_tool_factory is not None:
+                self.agent.register_native_tool(
+                    name=spec.name,
+                    description=spec.description,
+                    parameters=spec.parameters,
+                    factory=spec.adk_tool_factory,
+                )
+            elif spec.handler is not None:
+                self.agent.register_tool(
+                    name=spec.name,
+                    description=spec.description,
+                    parameters=spec.parameters,
+                    handler=spec.handler,
+                )
 
     async def handle_confirmation(
         self, tool_call=None, decision=None, message=None, **kwargs

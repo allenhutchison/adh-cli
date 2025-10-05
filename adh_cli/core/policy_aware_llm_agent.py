@@ -8,14 +8,147 @@ from datetime import datetime
 from google.adk.agents import LlmAgent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
+from google.adk.tools.base_tool import BaseTool
 from google.genai import types
 
 from adh_cli.core.policy_aware_function_tool import PolicyAwareFunctionTool
 from adh_cli.core.tool_executor import ExecutionContext, ExecutionResult
 from adh_cli.policies.policy_engine import PolicyEngine
+from adh_cli.policies.policy_types import ToolCall
 from adh_cli.safety.pipeline import SafetyPipeline
 from adh_cli.ui.tool_execution_manager import ToolExecutionManager
 from adh_cli.agents.agent_loader import AgentLoader
+
+
+class PolicyAwareNativeTool(BaseTool):
+    """Wraps a native ADK tool with policy, confirmation, and audit hooks."""
+
+    def __init__(
+        self,
+        *,
+        tool_name: str,
+        inner_tool: BaseTool,
+        policy_engine: PolicyEngine,
+        confirmation_handler: Optional[Callable],
+        audit_logger: Optional[Callable],
+        execution_manager: Optional[ToolExecutionManager],
+        agent_name: Optional[str],
+    ) -> None:
+        super().__init__(
+            name=getattr(inner_tool, "name", tool_name),
+            description=getattr(inner_tool, "description", tool_name),
+            is_long_running=getattr(inner_tool, "is_long_running", False),
+            custom_metadata=getattr(inner_tool, "custom_metadata", None),
+        )
+        self.tool_name = tool_name
+        self.inner_tool = inner_tool
+        self.policy_engine = policy_engine
+        self.confirmation_handler = confirmation_handler
+        self.audit_logger = audit_logger
+        self.execution_manager = execution_manager
+        self.agent_name = agent_name
+
+    async def process_llm_request(
+        self, *, tool_context, llm_request
+    ) -> None:  # type: ignore[override]
+        tool_call = ToolCall(tool_name=self.tool_name, parameters={}, context={})
+        decision = self.policy_engine.evaluate_tool_call(tool_call)
+
+        execution_id = None
+        if self.execution_manager:
+            execution_info = self.execution_manager.create_execution(
+                tool_name=self.tool_name,
+                parameters={},
+                policy_decision=decision,
+                agent_name=self.agent_name,
+            )
+            execution_id = execution_info.id
+
+        if not decision.allowed:
+            error_msg = f"Tool '{self.tool_name}' blocked by policy"
+            if decision.reason:
+                error_msg += f": {decision.reason}"
+            if self.execution_manager and execution_id:
+                self.execution_manager.block_execution(execution_id, reason=error_msg)
+            raise PermissionError(error_msg)
+
+        if decision.requires_confirmation:
+            confirmed = False
+            if self.execution_manager and execution_id:
+                self.execution_manager.require_confirmation(execution_id, decision)
+                confirmed = await self.execution_manager.wait_for_confirmation(
+                    execution_id
+                )
+            elif self.confirmation_handler:
+                confirmed = await self.confirmation_handler(
+                    tool_call=tool_call,
+                    decision=decision,
+                    message=decision.confirmation_message,
+                )
+
+            if not confirmed:
+                if self.execution_manager and execution_id:
+                    self.execution_manager.complete_execution(
+                        execution_id,
+                        success=False,
+                        error="Tool execution cancelled by user",
+                    )
+                raise PermissionError(
+                    f"Tool '{self.tool_name}' execution cancelled by user"
+                )
+
+        if self.execution_manager and execution_id:
+            self.execution_manager.start_execution(execution_id)
+
+        if self.audit_logger:
+            await self.audit_logger(
+                tool_name=self.tool_name,
+                parameters={},
+                decision=decision.dict() if hasattr(decision, "dict") else str(decision),
+                phase="pre_execution",
+            )
+
+        try:
+            await self.inner_tool.process_llm_request(
+                tool_context=tool_context, llm_request=llm_request
+            )
+
+            if self.execution_manager and execution_id:
+                self.execution_manager.complete_execution(
+                    execution_id,
+                    success=True,
+                    result="Delegated to Gemini built-in tool",
+                )
+
+            if self.audit_logger:
+                await self.audit_logger(
+                    tool_name=self.tool_name,
+                    parameters={},
+                    success=True,
+                    phase="post_execution",
+                    result="Delegated to Gemini built-in tool",
+                )
+
+        except Exception as exc:  # noqa: BLE001
+            if self.execution_manager and execution_id:
+                self.execution_manager.complete_execution(
+                    execution_id,
+                    success=False,
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                )
+            if self.audit_logger:
+                await self.audit_logger(
+                    tool_name=self.tool_name,
+                    parameters={},
+                    success=False,
+                    phase="execution_error",
+                    error=str(exc),
+                )
+            raise
+
+    def _get_declaration(self):  # pragma: no cover - delegate to inner tool
+        return getattr(self.inner_tool, "_get_declaration", lambda: None)()
 
 
 class PolicyAwareLlmAgent:
@@ -88,8 +221,10 @@ class PolicyAwareLlmAgent:
         self.safety_pipeline = SafetyPipeline()
 
         # Track registered tools
-        self.tools: List[PolicyAwareFunctionTool] = []
+        self.tools: List[BaseTool] = []
         self.tool_handlers: Dict[str, Callable] = {}
+        self.native_tools: Dict[str, Dict[str, Any]] = {}
+        self.tool_metadata: Dict[str, Dict[str, Any]] = {}
 
         # Create audit logger
         self.audit_logger = self._create_audit_logger(audit_log_path)
@@ -189,14 +324,19 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
 
         descriptions = []
         for tool in self.tools:
-            # Get the tool's name and description
-            tool_name = tool.tool_name if hasattr(tool, "tool_name") else "unknown"
+            tool_name = getattr(tool, "tool_name", getattr(tool, "name", "unknown"))
+            metadata = self.tool_metadata.get(tool_name, {})
+            description = metadata.get("description") or ""
 
-            # Try to get description from the function's docstring
-            description = ""
-            if hasattr(tool, "func") and tool.func.__doc__:
-                # Get first line of docstring
+            if (
+                not description
+                and hasattr(tool, "func")
+                and getattr(tool.func, "__doc__", None)
+            ):
                 description = tool.func.__doc__.strip().split("\n")[0]
+
+            if not description and getattr(tool, "description", None):
+                description = str(tool.description)
 
             descriptions.append(f"- **{tool_name}**: {description}")
 
@@ -278,8 +418,51 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
         # Add to our tracking
         self.tools.append(policy_tool)
         self.tool_handlers[name] = handler
+        self.tool_metadata[name] = {
+            "description": description,
+            "parameters": parameters,
+        }
 
         # Update LlmAgent with new tools (if initialized)
+        if self.llm_agent:
+            self._update_agent_tools()
+
+    def register_native_tool(
+        self,
+        *,
+        name: str,
+        description: str,
+        parameters: Dict[str, Any],
+        factory: Callable[[], BaseTool],
+    ) -> None:
+        """Register a native ADK tool (e.g., Gemini built-ins).
+
+        Args:
+            name: Tool name as exposed to the policy system/UI.
+            description: Human-readable description for prompts/metadata.
+            parameters: Declarative parameter description (for docs/policy).
+            factory: Callable that returns a new BaseTool instance.
+        """
+
+        if name in self.native_tools:
+            return
+
+        wrapped_tool = PolicyAwareNativeTool(
+            tool_name=name,
+            inner_tool=factory(),
+            policy_engine=self.policy_engine,
+            confirmation_handler=self.confirmation_handler,
+            audit_logger=self.audit_logger,
+            execution_manager=self.execution_manager,
+            agent_name=self.agent_name,
+        )
+        self.native_tools[name] = {"factory": factory}
+        self.tool_metadata[name] = {
+            "description": description,
+            "parameters": parameters,
+        }
+        self.tools.append(wrapped_tool)
+
         if self.llm_agent:
             self._update_agent_tools()
 
@@ -380,28 +563,53 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
         # Create new policy engine
         self.policy_engine = PolicyEngine(policy_dir=policy_dir)
 
-        # Store current tool metadata
-        tool_metadata = [
-            {
-                "name": name,
-                "handler": handler,
-                "description": "",  # We don't store this
-                "parameters": {},  # We don't store this
-            }
-            for name, handler in self.tool_handlers.items()
-        ]
+        # Store current tool metadata for re-registration
+        function_tools = []
+        for name, handler in self.tool_handlers.items():
+            meta = self.tool_metadata.get(name, {})
+            function_tools.append(
+                {
+                    "name": name,
+                    "handler": handler,
+                    "description": meta.get("description", ""),
+                    "parameters": meta.get("parameters", {}),
+                }
+            )
 
-        # Clear current tools
+        native_tools = []
+        for name, data in self.native_tools.items():
+            meta = self.tool_metadata.get(name, {})
+            native_tools.append(
+                {
+                    "name": name,
+                    "factory": data["factory"],
+                    "description": meta.get("description", ""),
+                    "parameters": meta.get("parameters", {}),
+                }
+            )
+
+        # Clear current registrations
         self.tools.clear()
         self.tool_handlers.clear()
+        self.native_tools.clear()
+        self.tool_metadata.clear()
 
-        # Re-register all tools with new policy engine
-        for tool_meta in tool_metadata:
+        # Re-register function tools with new policy engine
+        for tool_meta in function_tools:
             self.register_tool(
                 name=tool_meta["name"],
                 description=tool_meta["description"],
                 parameters=tool_meta["parameters"],
                 handler=tool_meta["handler"],
+            )
+
+        # Re-register native tools (policy enforcement handled via metadata/policies)
+        for tool_meta in native_tools:
+            self.register_native_tool(
+                name=tool_meta["name"],
+                description=tool_meta["description"],
+                parameters=tool_meta["parameters"],
+                factory=tool_meta["factory"],
             )
 
     def set_user_preferences(self, preferences: Dict[str, Any]):

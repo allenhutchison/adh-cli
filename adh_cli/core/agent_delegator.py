@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .policy_aware_llm_agent import PolicyAwareLlmAgent
 from ..core.tool_executor import ExecutionContext
+from ..tools.base import registry
 
 
 @dataclass
@@ -170,8 +171,23 @@ class AgentDelegator:
             agent_name: Name of the agent
         """
         from ..tools import shell_tools
+        from ..tools.specs import register_default_specs
 
         # All agents get read-only tools for exploration
+        if agent_name == "search":
+            register_default_specs()
+            search_spec = registry.get("google_search")
+            if search_spec is None or search_spec.adk_tool_factory is None:
+                raise ValueError("Google search tool specification not registered")
+            agent.register_native_tool(
+                name=search_spec.name,
+                description=search_spec.description,
+                parameters=search_spec.parameters,
+                factory=search_spec.adk_tool_factory,
+            )
+            return
+
+        # Default agents get read-only tools for exploration
         agent.register_tool(
             name="read_file",
             description="Read contents of a text file",

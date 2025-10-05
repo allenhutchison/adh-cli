@@ -82,6 +82,20 @@ Parameters:
 | `file_path` | `string` |  | Path to the file or directory |
 
 
+## `google_search`
+
+Search the public web using Google's search index via Gemini's built-in tool.
+
+- Tags: network, search, web
+- Effects: network_read, external_search
+
+Parameters:
+
+| Name | Type | Default | Description |
+|---|---|---|---|
+| `query` | `string` |  | Search query describing what to look up |
+
+
 ## `list_directory`
 
 List contents of a directory

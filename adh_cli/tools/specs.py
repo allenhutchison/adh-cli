@@ -7,7 +7,7 @@ for each tool, separate from the implementation handlers.
 from __future__ import annotations
 
 from .base import ToolSpec, registry
-from . import shell_tools, web_tools
+from . import shell_tools, web_tools, google_tools
 
 
 def register_default_specs() -> None:
@@ -204,6 +204,22 @@ def register_default_specs() -> None:
             handler=web_tools.fetch_url,
             tags=["network", "http", "fetch"],
             effects=["network_read"],
+        )
+    )
+
+    add(
+        ToolSpec(
+            name="google_search",
+            description="Search the public web using Google's search index via Gemini's built-in tool.",
+            parameters={
+                "query": {
+                    "type": "string",
+                    "description": "Search query describing what to look up",
+                },
+            },
+            adk_tool_factory=google_tools.create_google_search_tool,
+            tags=["network", "search", "web"],
+            effects=["network_read", "external_search"],
         )
     )
 
