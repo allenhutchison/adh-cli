@@ -662,10 +662,7 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
     ) -> str:
         """Fetch URL content locally and re-query Gemini with the retrieved text."""
 
-        url_pairs = [
-            (url, self._normalize_url_for_fallback(url))
-            for url in urls
-        ]
+        url_pairs = [(url, self._normalize_url_for_fallback(url)) for url in urls]
 
         async def fetch_single(
             original: str, normalized: str
