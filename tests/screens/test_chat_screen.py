@@ -4,7 +4,9 @@ import pytest
 from unittest.mock import Mock, AsyncMock, patch, MagicMock, PropertyMock
 from pathlib import Path
 
-from adh_cli.screens.chat_screen import ChatScreen
+from textual import events
+
+from adh_cli.screens.chat_screen import ChatScreen, ChatTextArea
 from adh_cli.core.tool_executor import ExecutionContext
 
 
@@ -71,11 +73,11 @@ class TestChatScreen:
     def test_on_input_submitted_empty(self, screen):
         """Test submitting empty input does nothing."""
         mock_input = Mock()
-        mock_input.value = "  "  # Empty/whitespace
+        mock_input.text = "  "  # Empty/whitespace
+        mock_input.clear = Mock(side_effect=lambda: setattr(mock_input, "text", ""))
         screen.query_one.return_value = mock_input
 
-        from textual.widgets import Input
-        event = Mock(spec=Input.Submitted)
+        event = Mock(spec=ChatTextArea.Submitted)
 
         screen.on_input_submitted(event)
 
@@ -85,11 +87,12 @@ class TestChatScreen:
     def test_on_input_submitted_with_message(self, screen):
         """Test submitting a message."""
         mock_input = Mock()
-        mock_input.value = "Test message"
+        mock_input.text = "Test message"
+        mock_input.clear = Mock(side_effect=lambda: setattr(mock_input, "text", ""))
         mock_log = Mock()
 
         def query_side_effect(selector, widget_type):
-            if widget_type.__name__ == 'Input':
+            if widget_type.__name__ == 'ChatTextArea':
                 return mock_input
             elif widget_type.__name__ == 'RichLog':
                 return mock_log
@@ -109,13 +112,12 @@ class TestChatScreen:
 
         screen.run_worker = Mock(side_effect=capture_worker)
 
-        from textual.widgets import Input
-        event = Mock(spec=Input.Submitted)
+        event = Mock(spec=ChatTextArea.Submitted)
 
         screen.on_input_submitted(event)
 
         # Check input was cleared
-        assert mock_input.value == ""
+        assert mock_input.text == ""
 
         # Check worker was started
         screen.run_worker.assert_called_once()
@@ -283,3 +285,68 @@ class TestChatScreen:
         assert screen.safety_enabled is True
         screen.agent.policy_engine.user_preferences = {}
         screen.chat_log.write.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_chat_text_area_enter_submits(monkeypatch):
+    """Enter should submit the chat message."""
+    widget = ChatTextArea()
+    messages = []
+
+    def capture(message):
+        messages.append(message)
+
+    widget.post_message = capture
+
+    event = events.Key("enter", None)
+    await widget._on_key(event)
+
+    assert len(messages) == 1
+    assert isinstance(messages[0], ChatTextArea.Submitted)
+
+
+@pytest.mark.asyncio
+async def test_chat_text_area_shift_enter_inserts_newline(monkeypatch):
+    """Shift+Enter should insert a newline without submitting."""
+    widget = ChatTextArea()
+    inserted = []
+    original_insert = widget.insert
+
+    def record_insert(text, *args, **kwargs):
+        inserted.append(text)
+        return original_insert(text, *args, **kwargs)
+
+    widget.insert = record_insert
+
+    messages = []
+    widget.post_message = lambda message: messages.append(message)
+
+    event = events.Key("enter", None)
+    event.shift = True
+    await widget._on_key(event)
+
+    assert "\n" in inserted
+    assert not any(isinstance(message, ChatTextArea.Submitted) for message in messages)
+
+
+@pytest.mark.asyncio
+async def test_chat_text_area_ctrl_j_inserts_newline(monkeypatch):
+    """Ctrl+J should insert a newline without submitting."""
+    widget = ChatTextArea()
+    inserted = []
+    original_insert = widget.insert
+
+    def record_insert(text, *args, **kwargs):
+        inserted.append(text)
+        return original_insert(text, *args, **kwargs)
+
+    widget.insert = record_insert
+
+    messages = []
+    widget.post_message = lambda message: messages.append(message)
+
+    event = events.Key("ctrl+j", None)
+    await widget._on_key(event)
+
+    assert "\n" in inserted
+    assert not any(isinstance(message, ChatTextArea.Submitted) for message in messages)

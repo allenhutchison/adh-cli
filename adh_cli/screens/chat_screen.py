@@ -2,11 +2,11 @@
 
 from typing import Optional
 from pathlib import Path
-from textual import on
+from textual import on, events
 from textual.app import ComposeResult
 from textual.containers import Container, VerticalScroll
 from textual.screen import Screen
-from textual.widgets import Input, RichLog, Static
+from textual.widgets import Input, RichLog, Static, TextArea
 from textual.binding import Binding
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -15,6 +15,48 @@ from ..core.tool_executor import ExecutionContext
 from ..ui.confirmation_dialog import ConfirmationDialog, PolicyNotification
 from ..ui.tool_execution import ToolExecutionInfo
 from ..policies.policy_types import PolicyDecision
+
+
+class ChatTextArea(TextArea):
+    """Custom TextArea that submits on Enter and inserts newline on Shift+Enter."""
+
+    def action_submit(self) -> None:
+        """Submit the message."""
+        self.post_message(self.Submitted(self))
+
+    async def _on_key(self, event: events.Key) -> None:
+        """Handle Enter / Shift+Enter to support submissions and newlines."""
+        key = event.key.lower()
+
+        if key in {"enter", "return"}:
+            if getattr(event, "shift", False):
+                if self.read_only:
+                    return
+                event.stop()
+                event.prevent_default()
+                self._restart_blink()
+                self.insert("\n")
+                return
+
+            event.stop()
+            event.prevent_default()
+            self.post_message(self.Submitted(self))
+            return
+
+        if key in {"ctrl+j", "newline"}:
+            if self.read_only:
+                return
+            event.stop()
+            event.prevent_default()
+            self._restart_blink()
+            self.insert("\n")
+            return
+
+        await super()._on_key(event)
+
+    class Submitted(TextArea.Changed):
+        """Message sent when user presses Enter."""
+        pass
 
 
 class ChatScreen(Screen):
@@ -42,6 +84,8 @@ class ChatScreen(Screen):
 
     #chat-input {
         width: 100%;
+        height: auto;
+        max-height: 10;
         /* Remove bottom margin so input sits flush above the status bar */
         margin: 0 2 0 2;
         border: solid $border;
@@ -112,11 +156,13 @@ class ChatScreen(Screen):
             log.can_focus = True
             yield log
 
-        # Input area
-        yield Input(
-            placeholder="Type your message here... (Ctrl+P for policies)",
-            id="chat-input"
+        # Input area (ChatTextArea for multi-line support)
+        text_area = ChatTextArea(id="chat-input")
+        text_area.show_line_numbers = False
+        text_area.border_title = (
+            "Type your message (Enter to send, Shift+Enter or Ctrl+J for new line)"
         )
+        yield text_area
 
     def on_mount(self) -> None:
         """Initialize services when screen is mounted."""
@@ -151,12 +197,16 @@ class ChatScreen(Screen):
                 # Keyboard shortcuts
                 shortcuts = Text()
                 shortcuts.append("Keyboard shortcuts: ", style="dim")
+                shortcuts.append("Enter", style="bold")
+                shortcuts.append(" send | ", style="dim")
+                shortcuts.append("Shift+Enter", style="bold")
+                shortcuts.append(" / ", style="dim")
+                shortcuts.append("Ctrl+J", style="bold")
+                shortcuts.append(" newline | ", style="dim")
                 shortcuts.append("Ctrl+/", style="bold")
                 shortcuts.append(" policies | ", style="dim")
                 shortcuts.append("Ctrl+S", style="bold")
                 shortcuts.append(" safety | ", style="dim")
-                shortcuts.append("Ctrl+,", style="bold")
-                shortcuts.append(" settings | ", style="dim")
                 shortcuts.append("Ctrl+L", style="bold")
                 shortcuts.append(" clear", style="dim")
                 self.chat_log.write(shortcuts)
@@ -168,19 +218,19 @@ class ChatScreen(Screen):
             self.chat_log.write(f"[red]Error accessing agent: {str(e)}[/red]")
 
         # Focus input
-        self.query_one("#chat-input", Input).focus()
+        self.query_one("#chat-input", ChatTextArea).focus()
 
-    @on(Input.Submitted, "#chat-input")
-    def on_input_submitted(self, event: Input.Submitted) -> None:
-        """Handle message submission."""
-        input_widget = self.query_one("#chat-input", Input)
-        message = input_widget.value.strip()
+    @on(ChatTextArea.Submitted, "#chat-input")
+    def on_input_submitted(self, event: ChatTextArea.Submitted) -> None:
+        """Handle message submission when Enter is pressed."""
+        input_widget = self.query_one("#chat-input", ChatTextArea)
+        message = input_widget.text.strip()
 
         if not message:
             return
 
         # Clear input and show message
-        input_widget.value = ""
+        input_widget.clear()
         self._add_message("You", message, is_user=True)
 
         # Check agent availability
