@@ -8,15 +8,26 @@ from google.genai import types
 
 
 class UrlContextTool(BaseTool):
-    """Lightweight UrlContext tool compatible with Gemini Flash models."""
+    """Enable Gemini's built-in URL context capability for a request."""
 
     def __init__(self) -> None:
-        super().__init__(name="url_context", description="url_context")
+        super().__init__(
+            name="google_url_context",
+            description="Enables grounding responses in the content of provided URLs.",
+        )
 
     async def process_llm_request(self, *, tool_context, llm_request) -> None:  # type: ignore[override]
         llm_request.config = llm_request.config or types.GenerateContentConfig()
         llm_request.config.tools = llm_request.config.tools or []
-        llm_request.config.tools.append(types.Tool(url_context=types.UrlContext()))
+
+        already_enabled = any(
+            getattr(tool, "url_context", None) is not None
+            for tool in llm_request.config.tools
+        )
+        if not already_enabled:
+            llm_request.config.tools.append(
+                types.Tool(url_context=types.UrlContext())
+            )
 
 
 def create_google_search_tool() -> GoogleSearchTool:

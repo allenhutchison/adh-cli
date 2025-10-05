@@ -1,6 +1,8 @@
 """ADK-based agent with policy enforcement."""
 
+import asyncio
 import json
+import re
 from typing import Any, Callable, Dict, List, Optional
 from pathlib import Path
 from datetime import datetime
@@ -9,6 +11,7 @@ from google.adk.agents import LlmAgent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.tools.base_tool import BaseTool
+from google import genai
 from google.genai import types
 
 from adh_cli.core.policy_aware_function_tool import PolicyAwareFunctionTool
@@ -18,6 +21,7 @@ from adh_cli.policies.policy_types import ToolCall
 from adh_cli.safety.pipeline import SafetyPipeline
 from adh_cli.ui.tool_execution_manager import ToolExecutionManager
 from adh_cli.agents.agent_loader import AgentLoader
+from adh_cli.tools import web_tools
 
 
 class PolicyAwareNativeTool(BaseTool):
@@ -158,6 +162,10 @@ class PolicyAwareLlmAgent:
     while maintaining full policy enforcement, safety checks, and user
     confirmation workflows.
     """
+
+    _URL_PATTERN = re.compile(r"https?://\S+")
+    _URL_CONTEXT_SUCCESS = types.UrlRetrievalStatus.URL_RETRIEVAL_STATUS_SUCCESS
+    _FALLBACK_MAX_CONTENT_CHARS = 100_000
 
     def __init__(
         self,
@@ -529,6 +537,7 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
         user_content = types.Content(role="user", parts=[types.Part(text=message)])
 
         response_text = ""
+        final_event = None
 
         # Stream events from runner
         try:
@@ -540,10 +549,21 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
                 # pop-up notifications here
 
                 # Collect final response
-                if event.is_final_response() and event.content:
-                    for part in event.content.parts:
-                        if hasattr(part, "text") and part.text:
-                            response_text += part.text
+                if event.is_final_response():
+                    final_event = event
+                    if event.content:
+                        for part in event.content.parts:
+                            if hasattr(part, "text") and part.text:
+                                response_text += part.text
+
+            if final_event:
+                fallback_response = await self._maybe_run_url_context_fallback(
+                    original_message=message,
+                    final_event=final_event,
+                    initial_response=response_text,
+                )
+                if fallback_response is not None:
+                    return fallback_response
 
             return response_text or "Task completed."
 
@@ -554,6 +574,169 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
         except Exception as e:
             # Other errors
             return f"❌ Error: {str(e)}"
+
+    async def _maybe_run_url_context_fallback(
+        self,
+        *,
+        original_message: str,
+        final_event,
+        initial_response: str,
+    ) -> Optional[str]:
+        """Run a local fetch fallback when Gemini cannot retrieve URL context."""
+
+        urls = self._extract_urls(original_message)
+        if not urls or not self.api_key:
+            return None
+
+        if not self._url_context_failed(final_event, initial_response):
+            return None
+
+        return await self._run_url_context_fallback(
+            original_message=original_message,
+            url=urls[0],
+        )
+
+    def _url_context_failed(self, final_event, initial_response: str) -> bool:
+        """Heuristic check to determine if URL context retrieval failed."""
+
+        response_text = (initial_response or "").strip()
+
+        url_context_meta = None
+        metadata = getattr(final_event, "custom_metadata", None)
+        if isinstance(metadata, dict):
+            url_context_meta = metadata.get("urlContextMetadata") or metadata.get(
+                "url_context_metadata"
+            )
+
+        statuses: List[types.UrlRetrievalStatus] = []
+        if url_context_meta:
+            try:
+                parsed = types.UrlContextMetadata.model_validate(url_context_meta)
+                statuses = [
+                    entry.url_retrieval_status
+                    for entry in parsed.url_metadata or []
+                ]
+            except Exception:
+                statuses = []
+
+        if statuses:
+            return not any(status == self._URL_CONTEXT_SUCCESS for status in statuses)
+
+        grounding_metadata = getattr(final_event, "grounding_metadata", None)
+        if grounding_metadata is not None:
+            try:
+                chunks = getattr(grounding_metadata, "grounding_chunks", None) or []
+                if chunks:
+                    return False
+            except Exception:
+                pass
+
+        return not response_text
+
+    @classmethod
+    def _extract_urls(cls, text: str) -> List[str]:
+        """Extract HTTP(S) URLs from text while trimming trailing punctuation."""
+
+        if not text:
+            return []
+
+        urls: List[str] = []
+        for match in cls._URL_PATTERN.findall(text):
+            cleaned = match.rstrip("),.]")
+            if cleaned and cleaned not in urls:
+                urls.append(cleaned)
+        return urls
+
+    @staticmethod
+    def _normalize_url_for_fallback(url: str) -> str:
+        """Adjust URLs that require special handling before fetching."""
+
+        if "github.com" in url and "/blob/" in url:
+            return url.replace("github.com", "raw.githubusercontent.com").replace(
+                "/blob/", "/"
+            )
+        return url
+
+    async def _run_url_context_fallback(self, *, original_message: str, url: str) -> str:
+        """Fetch URL content locally and re-query Gemini with the retrieved text."""
+
+        normalized_url = self._normalize_url_for_fallback(url)
+
+        try:
+            fetch_result = await web_tools.fetch_url(normalized_url)
+        except Exception as exc:  # noqa: BLE001
+            return f"❌ Error fetching {url}: {exc}"
+
+        if not fetch_result.get("success", False):
+            error = fetch_result.get("error") or "Unknown error"
+            return f"❌ Error fetching {url}: {error}"
+
+        content = fetch_result.get("content") or ""
+        if not content.strip():
+            return f"❌ No readable content returned from {url}."
+
+        truncated = content[: self._FALLBACK_MAX_CONTENT_CHARS]
+        if len(content) > self._FALLBACK_MAX_CONTENT_CHARS:
+            truncated = f"{truncated}\n... [content truncated]"
+
+        fallback_prompt = (
+            "The user provided a URL that Gemini could not retrieve automatically.\n"
+            f"Original request:\n{original_message}\n\n"
+            "I fetched the page content for you instead. Use only the content below to"
+            " answer the request and do not attempt to fetch the URL again.\n\n"
+            f"Source URL: {url}\n"
+            f"Fetched URL: {normalized_url}\n"
+            "---\n"
+            f"{truncated}\n"
+            "---\n"
+        )
+
+        success, generated = await self._generate_fallback_response(fallback_prompt)
+
+        if success and generated:
+            return (
+                f"{generated}\n\n(Responded using fallback fetch of {url}. "
+                "Content may be truncated.)"
+            )
+
+        if success:
+            return "Fallback fetch succeeded, but Gemini returned no content."
+
+        return generated
+
+    async def _generate_fallback_response(self, prompt: str) -> tuple[bool, str]:
+        """Run a synchronous Gemini generate-content call in a thread."""
+
+        def _call() -> tuple[bool, str]:
+            client = genai.Client(api_key=self.api_key)
+            response = client.models.generate_content(
+                model=self.model_name,
+                contents=[
+                    types.Content(
+                        role="user",
+                        parts=[types.Part(text=prompt)],
+                    )
+                ],
+                config=types.GenerateContentConfig(
+                    temperature=self.temperature,
+                    max_output_tokens=self.max_tokens,
+                ),
+            )
+
+            if response.candidates and response.candidates[0].content:
+                text_parts: List[str] = []
+                for part in response.candidates[0].content.parts:
+                    if getattr(part, "text", None):
+                        text_parts.append(part.text)
+                combined = "".join(text_parts).strip()
+                return True, combined
+
+            return True, ""
+
+        try:
+            return await asyncio.to_thread(_call)
+        except Exception as exc:  # noqa: BLE001
+            return False, f"❌ Error generating fallback response: {exc}"
 
     def update_policies(self, policy_dir: Path):
         """Update policies from a directory.
