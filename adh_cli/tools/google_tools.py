@@ -25,9 +25,7 @@ class UrlContextTool(BaseTool):
             for tool in llm_request.config.tools
         )
         if not already_enabled:
-            llm_request.config.tools.append(
-                types.Tool(url_context=types.UrlContext())
-            )
+            llm_request.config.tools.append(types.Tool(url_context=types.UrlContext()))
 
 
 def create_google_search_tool() -> GoogleSearchTool:

@@ -613,8 +613,7 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
             try:
                 parsed = types.UrlContextMetadata.model_validate(url_context_meta)
                 statuses = [
-                    entry.url_retrieval_status
-                    for entry in parsed.url_metadata or []
+                    entry.url_retrieval_status for entry in parsed.url_metadata or []
                 ]
             except Exception:
                 statuses = []
@@ -657,7 +656,9 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
             )
         return url
 
-    async def _run_url_context_fallback(self, *, original_message: str, url: str) -> str:
+    async def _run_url_context_fallback(
+        self, *, original_message: str, url: str
+    ) -> str:
         """Fetch URL content locally and re-query Gemini with the retrieved text."""
 
         normalized_url = self._normalize_url_for_fallback(url)

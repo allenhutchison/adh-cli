@@ -513,7 +513,8 @@ class TestPolicyAwareLlmAgent:
         )
 
         assert (
-            agent_without_api_key._url_context_failed(event, initial_response="") is True
+            agent_without_api_key._url_context_failed(event, initial_response="")
+            is True
         )
 
     def test_extract_urls_deduplicates(self, agent_without_api_key):
@@ -521,9 +522,7 @@ class TestPolicyAwareLlmAgent:
 
         text = "See https://example.com/path, and https://example.com/path)."
 
-        assert agent_without_api_key._extract_urls(text) == [
-            "https://example.com/path"
-        ]
+        assert agent_without_api_key._extract_urls(text) == ["https://example.com/path"]
 
     @pytest.mark.asyncio
     async def test_maybe_run_url_context_fallback_invokes_handler(
