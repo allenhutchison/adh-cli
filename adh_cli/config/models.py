@@ -101,10 +101,13 @@ class ModelRegistry:
         return cls._ALL_MODELS
 
     @classmethod
+    @classmethod
     def _indexed_models(cls) -> Dict[str, ModelConfig]:
         """Return a mapping of model identifiers to configuration objects."""
 
-        return {model.id: model for model in cls.all_models()}
+        if not hasattr(cls, "_cached_indexed_models"):
+            cls._cached_indexed_models = {model.id: model for model in cls.all_models()}
+        return cls._cached_indexed_models
 
     @classmethod
     def get_by_id(cls, model_id: Optional[str]) -> Optional[ModelConfig]:
