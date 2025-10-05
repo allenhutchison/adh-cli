@@ -1,6 +1,6 @@
 # ADR 008: Centralized Model Configuration
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2025-09-30
 **Deciders:** Project Team
 **Tags:** refactoring, configuration, maintainability, medium-priority

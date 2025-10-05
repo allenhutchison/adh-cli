@@ -23,6 +23,7 @@ from adh_cli.safety.pipeline import SafetyPipeline
 from adh_cli.ui.tool_execution_manager import ToolExecutionManager
 from adh_cli.agents.agent_loader import AgentLoader
 from adh_cli.tools import web_tools
+from adh_cli.config.models import ModelConfig, ModelRegistry, get_default_model
 
 
 class PolicyAwareNativeTool(BaseTool):
@@ -170,7 +171,7 @@ class PolicyAwareLlmAgent:
 
     def __init__(
         self,
-        model_name: str = "gemini-flash-latest",
+        model_name: Optional[str] = None,
         api_key: Optional[str] = None,
         policy_dir: Optional[Path] = None,
         confirmation_handler: Optional[Callable] = None,
@@ -207,21 +208,33 @@ class PolicyAwareLlmAgent:
         self.confirmation_handler = confirmation_handler
         self.notification_handler = notification_handler
 
-        # Load agent definition
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+
+        agent_model_config: Optional[ModelConfig] = None
+        self.agent_definition = None
         try:
             loader = AgentLoader()
             self.agent_definition = loader.load(agent_name)
-
-            # Use agent configuration (overriding defaults)
-            self.model_name = self.agent_definition.model
+        except FileNotFoundError:
+            self.agent_definition = None
+        else:
+            agent_model_config = self.agent_definition.model_config
             self.temperature = self.agent_definition.temperature
             self.max_tokens = self.agent_definition.max_tokens
-        except (FileNotFoundError, ValueError):
-            # Fallback to defaults if agent loading fails
-            self.agent_definition = None
-            self.model_name = model_name
-            self.temperature = temperature
-            self.max_tokens = max_tokens
+
+        if model_name:
+            override_model = ModelRegistry.get_by_id(model_name)
+            if not override_model:
+                raise ValueError(f"Unknown model: {model_name}")
+            self.model_config = override_model
+        elif agent_model_config:
+            self.model_config = agent_model_config
+        else:
+            self.model_config = get_default_model()
+
+        self.model_id = self.model_config.id
+        self.model_name = self.model_config.api_id
 
         # Initialize policy engine
         self.policy_engine = PolicyEngine(policy_dir=policy_dir)

@@ -2,6 +2,7 @@
 
 import pytest
 from adh_cli.agents.agent_loader import Agent, AgentLoader, load_agent
+from adh_cli.config.models import ModelRegistry
 
 
 class TestAgent:
@@ -13,7 +14,8 @@ class TestAgent:
 
         assert agent.name == "test_agent"
         assert agent.description == "Test agent"
-        assert agent.model == "gemini-flash-latest"
+        assert agent.model == ModelRegistry.DEFAULT.id
+        assert agent.model_config.id == ModelRegistry.DEFAULT.id
         assert agent.temperature == 0.7
         assert agent.max_tokens == 2048
         assert agent.tools == []
@@ -32,6 +34,7 @@ class TestAgent:
         )
 
         assert agent.model == "gemini-pro"
+        assert agent.model_config.id == ModelRegistry.PRO_25.id
         assert agent.temperature == 0.3
         assert agent.max_tokens == 4096
         assert agent.tools == ["shell", "web"]
@@ -159,7 +162,8 @@ Custom agent prompt.""")
         loader = AgentLoader(agents_dir=tmp_path)
         agent = loader.load("custom")
 
-        assert agent.model == "gemini-pro"
+        assert agent.model == ModelRegistry.PRO_25.id
+        assert agent.model_config.id == ModelRegistry.PRO_25.id
         assert agent.temperature == 0.3
         assert agent.max_tokens == 4096
         assert agent.top_p == 0.9

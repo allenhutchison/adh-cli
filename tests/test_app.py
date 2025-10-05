@@ -7,6 +7,7 @@ from unittest.mock import Mock, AsyncMock, patch
 
 from adh_cli.app import ADHApp
 from adh_cli.core.config_paths import ConfigPaths
+from adh_cli.config.models import ModelRegistry
 
 
 class TestADHApp:
@@ -51,7 +52,7 @@ class TestADHApp:
 
         # Check ADK agent was created
         mock_agent_class.assert_called_once_with(
-            model_name="gemini-flash-latest",
+            model_name=None,
             api_key="test_key",
             policy_dir=app.policy_dir,
             confirmation_handler=app.handle_confirmation,
@@ -203,7 +204,7 @@ class TestADHApp:
 
             config_data = {
                 "api_key": "test_key",
-                "model": "gemini-flash-latest",
+                "model": ModelRegistry.DEFAULT.id,
                 "orchestrator_agent": "custom_agent",
                 "temperature": 0.5,
                 "max_tokens": 1024,

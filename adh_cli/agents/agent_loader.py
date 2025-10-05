@@ -7,6 +7,8 @@ from typing import Any, Dict, List, Optional, Set
 
 import yaml
 
+from adh_cli.config.models import ModelConfig, ModelRegistry
+
 
 @dataclass
 class Agent:
@@ -14,7 +16,7 @@ class Agent:
 
     name: str
     description: str
-    model: str = "gemini-flash-latest"
+    model: str = field(default_factory=lambda: ModelRegistry.DEFAULT.id)
     temperature: float = 0.7
     max_tokens: int = 2048
     top_p: float = 0.95
@@ -59,6 +61,13 @@ class Agent:
         for var_name, var_value in variables.items():
             prompt = prompt.replace(f"{{{{{var_name}}}}}", str(var_value))
         return prompt
+
+    @property
+    def model_config(self) -> ModelConfig:
+        """Return the resolved model configuration for this agent."""
+
+        model = ModelRegistry.get_by_id(self.model)
+        return model or ModelRegistry.DEFAULT
 
 
 class AgentLoader:
@@ -156,11 +165,16 @@ class AgentLoader:
                 if isinstance(var, str):
                     agent_variables.add(var)
 
+        configured_model = metadata.get("model")
+        model_config = ModelRegistry.get_by_id(configured_model)
+        if configured_model and not model_config:
+            raise ValueError(f"Unknown model '{configured_model}' in {agent_path}")
+
         # Create the agent
         agent = Agent(
             name=metadata.get("name", name),
             description=metadata.get("description", ""),
-            model=metadata.get("model", "gemini-flash-latest"),
+            model=(model_config.id if model_config else ModelRegistry.DEFAULT.id),
             temperature=metadata.get("temperature", 0.7),
             max_tokens=metadata.get("max_tokens", 2048),
             top_p=metadata.get("top_p", 0.95),
