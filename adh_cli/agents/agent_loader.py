@@ -1,9 +1,11 @@
 """Agent loader for markdown-driven agents."""
 
-import yaml
-from pathlib import Path
-from typing import Dict, Any, List, Optional, Set
+import re
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set
+
+import yaml
 
 
 @dataclass
@@ -140,7 +142,6 @@ class AgentLoader:
 
         # Extract variables from prompts
         all_text = f"{system_prompt}\n{user_prompt_template}"
-        import re
 
         variable_pattern = r"\{\{(\w+)\}\}"
         found_variables = set(re.findall(variable_pattern, all_text))

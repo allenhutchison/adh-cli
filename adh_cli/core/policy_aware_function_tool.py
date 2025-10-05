@@ -5,7 +5,7 @@ import inspect
 from typing import Callable, Optional, TYPE_CHECKING
 from google.adk.tools import FunctionTool
 from adh_cli.policies.policy_engine import PolicyEngine
-from adh_cli.policies.policy_types import ToolCall
+from adh_cli.policies.policy_types import ToolCall, PolicyDecision
 from adh_cli.safety.pipeline import SafetyPipeline, SafetyStatus
 
 if TYPE_CHECKING:
@@ -78,7 +78,7 @@ class PolicyAwareFunctionTool(FunctionTool):
             tool_call = ToolCall(tool_name=tool_name, parameters=kwargs, context={})
 
             # 2. Evaluate against policy
-            decision = self.policy_engine.evaluate_tool_call(tool_call)
+            decision: PolicyDecision = self.policy_engine.evaluate_tool_call(tool_call)
 
             # 3. Track execution start (if manager available)
             if self.execution_manager:
