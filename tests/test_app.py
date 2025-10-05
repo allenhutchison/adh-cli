@@ -188,7 +188,9 @@ class TestADHApp:
         assert app.theme == "adh-light"
 
     @patch("adh_cli.app.PolicyAwareLlmAgent")
-    def test_load_config_with_orchestrator_agent(self, mock_agent_class, app, monkeypatch):
+    def test_load_config_with_orchestrator_agent(
+        self, mock_agent_class, app, monkeypatch
+    ):
         """Test loading config with orchestrator_agent setting."""
         import json
 

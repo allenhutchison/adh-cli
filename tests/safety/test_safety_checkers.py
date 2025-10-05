@@ -44,6 +44,7 @@ class TestBackupChecker:
             # Redirect backups dir to a temporary location to avoid writing outside workspace
             with tempfile.TemporaryDirectory() as tmpdir:
                 from adh_cli.core.config_paths import ConfigPaths
+
                 monkeypatch.setattr(ConfigPaths, "BASE_DIR", Path(tmpdir))
 
             checker = BackupChecker()

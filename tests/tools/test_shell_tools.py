@@ -196,6 +196,7 @@ class TestExecuteCommand:
     @pytest.mark.asyncio
     async def test_execute_with_timeout(self, monkeypatch):
         """Test command timeout without sending OS signals."""
+
         class DummyProcess:
             def __init__(self):
                 self.returncode = None
