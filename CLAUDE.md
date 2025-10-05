@@ -23,21 +23,14 @@ source .venv/bin/activate  # On macOS/Linux
 # or
 .venv\Scripts\activate  # On Windows
 
-# Install dependencies using uv
-uv pip install -r requirements.txt
-uv pip install -r requirements-dev.txt
-
-# Install package in editable mode
-uv pip install -e .
+# Install dependencies using uv (editable + dev extras)
+uv pip install -e '.[dev]'
 ```
 
 ### Installation (Alternative with pip)
 ```bash
 # If not using uv, you can use standard pip
-pip install -e .
-
-# Install development dependencies
-pip install -r requirements-dev.txt
+pip install -e '.[dev]'
 ```
 
 ### Running the Application

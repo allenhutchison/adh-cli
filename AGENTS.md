@@ -4,15 +4,14 @@
 - `adh_cli/`: application code (Textual TUI). Key areas: `app.py`, `screens/`, `services/`, `tools/`, CLI entry `__main__.py`.
 - `tests/`: pytest suite mirrored by area, e.g. `tests/screens/test_chat_screen.py`.
 - `docs/`, `screenshots/`: documentation assets and UI snapshots.
-- `pyproject.toml`: dependencies, tasks, pytest/coverage config. `Makefile`: friendly wrappers.
+- `pyproject.toml`: dependencies, tasks, pytest/coverage config.
 
 ## Build, Test, and Development Commands
-- `make help`: list available commands.
-- `task run` or `make run`: run the installed CLI (`adh-cli`).
-- `task dev` or `make dev`: run with Textual dev tools.
+- `task run`: run the installed CLI (`adh-cli`).
+- `task dev`: run with Textual dev tools.
 - `task test` / `task test-cov`: run tests / with coverage.
 - `task lint` / `task format`: lint and format with Ruff.
-- `task build` / `make build`: build distributions.
+- `task build`: build distributions.
 - Optional: `task console` (Textual console), `task clean`, `task install-dev`.
 
 ## Coding Style & Naming Conventions
@@ -38,6 +37,6 @@
 - Avoid logging sensitive values; scrub screenshots.
 
 ## Agent-Specific Instructions
-- Prefer `Makefile`/`task` commands over custom scripts.
+- Prefer `task` commands over custom scripts.
 - Keep diffs minimal and localized; update/extend tests with changes.
 - See `CLAUDE.md` and `GEMINI.md` for assistant usage conventions.

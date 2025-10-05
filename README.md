@@ -31,12 +31,12 @@ cd adh-cli
 # Using uv (recommended)
 uv venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-uv pip install -r requirements.txt
+uv pip install -e '.[dev]'
 
 # Or using pip
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -e '.[dev]'
 
 # Install in development mode
 uv pip install -e .
@@ -45,10 +45,10 @@ uv pip install -e .
 ### Development Setup
 
 ```bash
-# Install development dependencies
-uv pip install -r requirements-dev.txt
+# Install development dependencies (editable + dev extras)
+uv pip install -e '.[dev]'
 
-# Or use the task command
+# Or use the task command (same as above)
 task install-dev
 ```
 
@@ -147,7 +147,7 @@ task console
 
 ### Available Commands
 
-The project uses `taskipy` for task management (similar to npm scripts):
+The project uses `taskipy` for task management:
 
 ```bash
 task test         # Run tests
@@ -159,14 +159,6 @@ task dev          # Run in development mode
 task build        # Build distribution package
 task clean        # Clean build artifacts
 ```
-
-Or use Make:
-
-```bash
-make help         # Show all available commands
-make test         # Run tests
-make test-cov     # Run tests with coverage
-make dev          # Run in development mode
 ```
 
 ### Running Tests
@@ -187,11 +179,7 @@ task test-watch
 
 ### Test Coverage
 
-Current test coverage:
-- Overall: 35% coverage
-- `clipboard_service.py`: 90% coverage
-- `chat_screen.py`: 78% coverage
-- 32 tests, all passing
+Run `task test-cov` to see coverage details.
 
 ## Project Structure
 
@@ -216,10 +204,8 @@ adh-cli/
 │   │   └── test_clipboard_service.py
 │   └── screens/
 │       └── test_chat_screen.py
-├── Makefile               # Make commands
+├── scripts/               # Helper scripts
 ├── pyproject.toml         # Project configuration & task definitions
-├── requirements.txt       # Runtime dependencies
-├── requirements-dev.txt   # Development dependencies
 ├── CLAUDE.md             # AI assistant instructions
 └── README.md             # This file
 ```
@@ -241,7 +227,6 @@ adh-cli/
 - 🧪 Added comprehensive test suite (32 tests)
 - 🛠️ Added task runner support (taskipy) for npm-style commands
 - 📊 Configured test coverage reporting
-- 🔧 Added Makefile for traditional command interface
 
 ## Contributing
 
