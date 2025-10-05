@@ -208,7 +208,7 @@ class ADHApp(App):
 
         # Register all tools - the policy engine controls access and confirmation requirements
         for spec in registry.all():
-            if spec.name == "google_search":
+            if spec.name in {"google_search", "google_url_context"}:
                 continue
             if spec.adk_tool_factory is not None:
                 self.agent.register_native_tool(

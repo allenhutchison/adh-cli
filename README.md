@@ -5,7 +5,7 @@ ADH CLI is a policy-aware Terminal User Interface (TUI) for working with Google�
 ## Highlights
 - **Policy-aware orchestration** – Every tool call flows through a policy engine (`PolicyDecision`, safety pipeline, audit logging) before execution.
 - **Human-in-the-loop tooling** – The tool execution manager shows pending/active runs, supports confirmation and cancellation, and keeps a local history.
-- **Optional Google Search tool** – Gemini’s built-in web search (requires Python 3.10+).
+- **Optional Google web tools** – Gemini’s built-in web search and URL context (requires Python 3.10+).
 - **Configurable agents** – Agents are defined in Markdown (`adh_cli/agents/`) and loaded at runtime with variable substitution and model overrides.
 - **Themed Textual UI** – Dark/light themes, command palette integrations, clipboard export, and keyboard-friendly chat navigation.
 - **XDG-compliant storage** – Config, policies, audit logs, and backups live under `~/.config/adh-cli/` via `ConfigPaths`.

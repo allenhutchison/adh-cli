@@ -96,6 +96,20 @@ Parameters:
 | `query` | `string` |  | Search query describing what to look up |
 
 
+## `google_url_context`
+
+Fetch and ground responses in the content of provided URLs via Gemini's built-in tool.
+
+- Tags: network, web, context
+- Effects: network_read, external_content
+
+Parameters:
+
+| Name | Type | Default | Description |
+|---|---|---|---|
+| `urls` | `array` |  | List of URLs to provide as context |
+
+
 ## `list_directory`
 
 List contents of a directory

@@ -2,9 +2,12 @@
 
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+
+from google.genai import types as genai_types
 
 from adh_cli.core.policy_aware_llm_agent import PolicyAwareLlmAgent
 from adh_cli.core.tool_executor import ExecutionContext
@@ -471,3 +474,166 @@ class TestPolicyAwareLlmAgent:
             # Should contain fallback prompt
             assert "helpful AI assistant" in prompt
             assert "IMMEDIATELY use tools" in prompt
+
+    def test_url_context_failed_detects_success(self, agent_without_api_key):
+        """URL context fallback not needed when retrieval succeeds."""
+
+        event = SimpleNamespace(
+            custom_metadata={
+                "urlContextMetadata": {
+                    "urlMetadata": [
+                        {
+                            "urlRetrievalStatus": genai_types.UrlRetrievalStatus.URL_RETRIEVAL_STATUS_SUCCESS.value
+                        }
+                    ]
+                }
+            },
+            grounding_metadata=None,
+        )
+
+        assert (
+            agent_without_api_key._url_context_failed(event, initial_response="result")
+            is False
+        )
+
+    def test_url_context_failed_detects_failure(self, agent_without_api_key):
+        """URL context fallback triggers when retrieval metadata signals failure."""
+
+        event = SimpleNamespace(
+            custom_metadata={
+                "urlContextMetadata": {
+                    "urlMetadata": [
+                        {
+                            "urlRetrievalStatus": genai_types.UrlRetrievalStatus.URL_RETRIEVAL_STATUS_ERROR.value
+                        }
+                    ]
+                }
+            },
+            grounding_metadata=None,
+        )
+
+        assert (
+            agent_without_api_key._url_context_failed(event, initial_response="")
+            is True
+        )
+
+    def test_extract_urls_deduplicates(self, agent_without_api_key):
+        """URL extraction removes trailing punctuation and duplicates."""
+
+        text = "See https://example.com/path, and https://example.com/path)."
+
+        assert agent_without_api_key._extract_urls(text) == ["https://example.com/path"]
+
+    @pytest.mark.asyncio
+    async def test_maybe_run_url_context_fallback_invokes_handler(
+        self, agent_with_mock_adk
+    ):
+        """Fallback handler runs when metadata indicates URL retrieval failure."""
+
+        url = "https://example.com/data"
+        event = SimpleNamespace(
+            custom_metadata={
+                "urlContextMetadata": {
+                    "urlMetadata": [
+                        {
+                            "urlRetrievalStatus": genai_types.UrlRetrievalStatus.URL_RETRIEVAL_STATUS_ERROR.value
+                        }
+                    ]
+                }
+            },
+            grounding_metadata=None,
+        )
+
+        agent_with_mock_adk._run_url_context_fallback = AsyncMock(
+            return_value="fallback response"
+        )
+
+        result = await agent_with_mock_adk._maybe_run_url_context_fallback(
+            original_message=f"Please analyze {url}",
+            final_event=event,
+            initial_response="",
+        )
+
+        assert result == "fallback response"
+        agent_with_mock_adk._run_url_context_fallback.assert_awaited_once_with(
+            original_message=f"Please analyze {url}", urls=[url]
+        )
+
+    @pytest.mark.asyncio
+    async def test_maybe_run_url_context_fallback_skips_without_urls(
+        self, agent_with_mock_adk
+    ):
+        """Fallback isn't attempted when the message has no URLs."""
+
+        event = SimpleNamespace(custom_metadata={}, grounding_metadata=None)
+
+        result = await agent_with_mock_adk._maybe_run_url_context_fallback(
+            original_message="No links here",
+            final_event=event,
+            initial_response="",
+        )
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_run_url_context_fallback_happy_path(
+        self, agent_with_mock_adk, monkeypatch
+    ):
+        """Local fetch fallback returns generated text when everything succeeds."""
+
+        async def fake_fetch(url: str, **kwargs):  # noqa: D401 - simple stub
+            assert url == "https://example.com/file"
+            return {"success": True, "content": "Example content"}
+
+        monkeypatch.setattr(
+            "adh_cli.tools.web_tools.fetch_url", fake_fetch, raising=True
+        )
+
+        agent_with_mock_adk._generate_fallback_response = AsyncMock(
+            return_value=(True, "Generated answer")
+        )
+
+        result = await agent_with_mock_adk._run_url_context_fallback(
+            original_message="Summarize https://example.com/file",
+            urls=["https://example.com/file"],
+        )
+
+        assert "Generated answer" in result
+        assert "fallback fetch for https://example.com/file" in result
+
+    @pytest.mark.asyncio
+    async def test_run_url_context_fallback_multiple_urls(
+        self, agent_with_mock_adk, monkeypatch
+    ):
+        """Fallback collates multiple URLs and reports failures."""
+
+        async def fake_fetch(url: str, **kwargs):
+            if url.endswith("first"):
+                return {"success": True, "content": "First content"}
+            raise ValueError("invalid url")
+
+        monkeypatch.setattr(
+            "adh_cli.tools.web_tools.fetch_url", fake_fetch, raising=True
+        )
+
+        agent_with_mock_adk._generate_fallback_response = AsyncMock(
+            return_value=(True, "Combined answer")
+        )
+
+        urls = [
+            "https://example.com/first",
+            "https://example.com/second",
+        ]
+
+        result = await agent_with_mock_adk._run_url_context_fallback(
+            original_message="Use these URLs",
+            urls=urls,
+        )
+
+        assert "Combined answer" in result
+        assert "Some URLs failed" in result
+
+        prompt = agent_with_mock_adk._generate_fallback_response.call_args[0][0]
+        assert "https://example.com/first" in prompt
+        assert "https://example.com/second" in prompt
+        assert "Some URLs could not be fetched" in prompt
