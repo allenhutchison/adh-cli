@@ -1,5 +1,7 @@
 """Tests for async shell tools."""
 
+import asyncio
+
 import pytest
 import tempfile
 from pathlib import Path
@@ -192,10 +194,32 @@ class TestExecuteCommand:
         assert result["return_code"] == 1
 
     @pytest.mark.asyncio
-    async def test_execute_with_timeout(self):
-        """Test command timeout."""
+    async def test_execute_with_timeout(self, monkeypatch):
+        """Test command timeout without sending OS signals."""
+        class DummyProcess:
+            def __init__(self):
+                self.returncode = None
+
+            async def communicate(self):
+                # Simulate a long-running process so wait_for times out
+                await asyncio.sleep(5)
+                return b"", b""
+
+            def kill(self):
+                # No-op kill to avoid OS signal in restricted environments
+                self.returncode = -9
+
+            async def wait(self):
+                return
+
+        async def fake_create_subprocess_shell(*args, **kwargs):
+            return DummyProcess()
+
+        monkeypatch.setattr(
+            asyncio, "create_subprocess_shell", fake_create_subprocess_shell
+        )
+
         with pytest.raises(TimeoutError):
-            # This should timeout
             await execute_command("sleep 10", timeout=1)
 
     @pytest.mark.asyncio

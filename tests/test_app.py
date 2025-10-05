@@ -188,39 +188,42 @@ class TestADHApp:
         assert app.theme == "adh-light"
 
     @patch("adh_cli.app.PolicyAwareLlmAgent")
-    def test_load_config_with_orchestrator_agent(self, mock_agent_class, app):
+    def test_load_config_with_orchestrator_agent(self, mock_agent_class, app, monkeypatch):
         """Test loading config with orchestrator_agent setting."""
         import json
 
         # Create a temporary config file with orchestrator_agent
-        config_file = ConfigPaths.get_config_file()
-        config_file.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Redirect config base dir to temporary location to avoid writing to user home
+            monkeypatch.setattr(ConfigPaths, "BASE_DIR", Path(tmpdir))
+            config_file = ConfigPaths.get_config_file()
+            config_file.parent.mkdir(parents=True, exist_ok=True)
 
-        config_data = {
-            "api_key": "test_key",
-            "model": "gemini-flash-latest",
-            "orchestrator_agent": "custom_agent",
-            "temperature": 0.5,
-            "max_tokens": 1024,
-        }
+            config_data = {
+                "api_key": "test_key",
+                "model": "gemini-flash-latest",
+                "orchestrator_agent": "custom_agent",
+                "temperature": 0.5,
+                "max_tokens": 1024,
+            }
 
-        with open(config_file, "w") as f:
-            json.dump(config_data, f)
+            with open(config_file, "w") as f:
+                json.dump(config_data, f)
 
-        app.api_key = "test_key"
-        mock_agent = Mock()
-        mock_agent_class.return_value = mock_agent
+            app.api_key = "test_key"
+            mock_agent = Mock()
+            mock_agent_class.return_value = mock_agent
 
-        app._initialize_agent()
+            app._initialize_agent()
 
-        # Check that agent was created with custom agent name
-        call_kwargs = mock_agent_class.call_args[1]
-        assert call_kwargs["agent_name"] == "custom_agent"
-        assert call_kwargs["temperature"] == 0.5
-        assert call_kwargs["max_tokens"] == 1024
+            # Check that agent was created with custom agent name
+            call_kwargs = mock_agent_class.call_args[1]
+            assert call_kwargs["agent_name"] == "custom_agent"
+            assert call_kwargs["temperature"] == 0.5
+            assert call_kwargs["max_tokens"] == 1024
 
-        # Clean up
-        config_file.unlink(missing_ok=True)
+            # Clean up
+            config_file.unlink(missing_ok=True)
 
     def test_load_config_defaults(self, app):
         """Test loading config with missing file defaults to orchestrator."""
