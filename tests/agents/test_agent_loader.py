@@ -1,8 +1,6 @@
 """Tests for the agent loader."""
 
 import pytest
-from pathlib import Path
-import tempfile
 from adh_cli.agents.agent_loader import Agent, AgentLoader, load_agent
 
 
@@ -11,10 +9,7 @@ class TestAgent:
 
     def test_init_defaults(self):
         """Test agent initialization with defaults."""
-        agent = Agent(
-            name="test_agent",
-            description="Test agent"
-        )
+        agent = Agent(name="test_agent", description="Test agent")
 
         assert agent.name == "test_agent"
         assert agent.description == "Test agent"
@@ -33,7 +28,7 @@ class TestAgent:
             temperature=0.3,
             max_tokens=4096,
             tools=["shell", "web"],
-            variables={"var1", "var2"}
+            variables={"var1", "var2"},
         )
 
         assert agent.model == "gemini-pro"
@@ -47,7 +42,7 @@ class TestAgent:
         agent = Agent(
             name="test",
             description="Test",
-            system_prompt="You are a {{role}} assistant."
+            system_prompt="You are a {{role}} assistant.",
         )
 
         result = agent.render_system_prompt({"role": "helpful"})
@@ -58,7 +53,7 @@ class TestAgent:
         agent = Agent(
             name="test",
             description="Test",
-            system_prompt="You are an assistant.\n\nTools:\n{{tool_descriptions}}"
+            system_prompt="You are an assistant.\n\nTools:\n{{tool_descriptions}}",
         )
 
         result = agent.render_system_prompt({}, "Tool 1\nTool 2")
@@ -69,13 +64,10 @@ class TestAgent:
         agent = Agent(
             name="test",
             description="Test",
-            user_prompt_template="Please {{action}} the {{target}}."
+            user_prompt_template="Please {{action}} the {{target}}.",
         )
 
-        result = agent.render_user_prompt({
-            "action": "review",
-            "target": "code"
-        })
+        result = agent.render_user_prompt({"action": "review", "target": "code"})
         assert result == "Please review the code."
 
 

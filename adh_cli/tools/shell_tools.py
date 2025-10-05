@@ -3,9 +3,8 @@
 import asyncio
 import os
 import subprocess
-import json
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 
 
 async def read_file(file_path: str, max_lines: Optional[int] = None) -> str:
@@ -32,24 +31,25 @@ async def read_file(file_path: str, max_lines: Optional[int] = None) -> str:
         raise ValueError(f"Not a file: {file_path}")
 
     try:
-        with open(path, 'r', encoding='utf-8') as f:
+        with open(path, "r", encoding="utf-8") as f:
             if max_lines:
                 lines = []
                 for i, line in enumerate(f):
                     if i >= max_lines:
                         break
                     lines.append(line)
-                return ''.join(lines)
+                return "".join(lines)
             else:
                 return f.read()
     except UnicodeDecodeError:
         raise UnicodeDecodeError(
-            'utf-8', b'', 0, 1,
-            f"Cannot read binary file as text: {file_path}"
+            "utf-8", b"", 0, 1, f"Cannot read binary file as text: {file_path}"
         )
 
 
-async def write_file(file_path: str, content: str, create_dirs: bool = True) -> Dict[str, Any]:
+async def write_file(
+    file_path: str, content: str, create_dirs: bool = True
+) -> Dict[str, Any]:
     """Write content to a file.
 
     Args:
@@ -74,7 +74,7 @@ async def write_file(file_path: str, content: str, create_dirs: bool = True) -> 
     old_size = path.stat().st_size if existed else 0
 
     # Write the file
-    with open(path, 'w', encoding='utf-8') as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write(content)
 
     new_size = path.stat().st_size
@@ -89,7 +89,9 @@ async def write_file(file_path: str, content: str, create_dirs: bool = True) -> 
     }
 
 
-async def list_directory(directory: str = ".", show_hidden: bool = False) -> Dict[str, Any]:
+async def list_directory(
+    directory: str = ".", show_hidden: bool = False
+) -> Dict[str, Any]:
     """List contents of a directory.
 
     Args:
@@ -114,7 +116,7 @@ async def list_directory(directory: str = ".", show_hidden: bool = False) -> Dic
     items = []
     for item in sorted(path.iterdir()):
         # Skip hidden files if not requested
-        if not show_hidden and item.name.startswith('.'):
+        if not show_hidden and item.name.startswith("."):
             continue
 
         item_info = {
@@ -181,6 +183,7 @@ async def execute_command(
         else:
             # Direct execution (safer but less flexible)
             import shlex
+
             cmd_parts = shlex.split(command)
             process = await asyncio.create_subprocess_exec(
                 *cmd_parts,
@@ -193,8 +196,7 @@ async def execute_command(
         # Wait for completion with timeout
         try:
             stdout, stderr = await asyncio.wait_for(
-                process.communicate(),
-                timeout=timeout
+                process.communicate(), timeout=timeout
             )
         except asyncio.TimeoutError:
             process.kill()
@@ -202,8 +204,8 @@ async def execute_command(
             raise TimeoutError(f"Command timed out after {timeout} seconds")
 
         # Decode output
-        stdout_text = stdout.decode('utf-8', errors='replace') if stdout else ""
-        stderr_text = stderr.decode('utf-8', errors='replace') if stderr else ""
+        stdout_text = stdout.decode("utf-8", errors="replace") if stdout else ""
+        stderr_text = stderr.decode("utf-8", errors="replace") if stderr else ""
 
         return {
             "success": process.returncode == 0,
@@ -219,8 +221,8 @@ async def execute_command(
             "success": False,
             "command": command,
             "return_code": e.returncode,
-            "stdout": e.stdout.decode('utf-8', errors='replace') if e.stdout else "",
-            "stderr": e.stderr.decode('utf-8', errors='replace') if e.stderr else "",
+            "stdout": e.stdout.decode("utf-8", errors="replace") if e.stdout else "",
+            "stderr": e.stderr.decode("utf-8", errors="replace") if e.stderr else "",
             "error": str(e),
         }
 
@@ -354,9 +356,9 @@ def _is_binary(file_path: Path) -> bool:
         True if file appears to be binary
     """
     try:
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             chunk = f.read(1024)
             # Check for null bytes
-            return b'\x00' in chunk
+            return b"\x00" in chunk
     except Exception:
         return False

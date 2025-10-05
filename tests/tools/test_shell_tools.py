@@ -1,10 +1,10 @@
 """Tests for async shell tools."""
 
-import pytest
 import asyncio
+
+import pytest
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, mock_open
 
 from adh_cli.tools.shell_tools import (
     read_file,
@@ -23,7 +23,7 @@ class TestReadFile:
     @pytest.mark.asyncio
     async def test_read_file_success(self):
         """Test successful file reading."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("Test content\nLine 2\nLine 3")
             temp_path = f.name
 
@@ -36,7 +36,7 @@ class TestReadFile:
     @pytest.mark.asyncio
     async def test_read_file_with_max_lines(self):
         """Test reading file with line limit."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             for i in range(10):
                 f.write(f"Line {i}\n")
             temp_path = f.name
@@ -82,7 +82,7 @@ class TestWriteFile:
     @pytest.mark.asyncio
     async def test_write_file_overwrite(self):
         """Test overwriting an existing file."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("Old content")
             temp_path = f.name
 
@@ -194,10 +194,33 @@ class TestExecuteCommand:
         assert result["return_code"] == 1
 
     @pytest.mark.asyncio
-    async def test_execute_with_timeout(self):
-        """Test command timeout."""
+    async def test_execute_with_timeout(self, monkeypatch):
+        """Test command timeout without sending OS signals."""
+
+        class DummyProcess:
+            def __init__(self):
+                self.returncode = None
+
+            async def communicate(self):
+                # Simulate a long-running process so wait_for times out
+                await asyncio.sleep(5)
+                return b"", b""
+
+            def kill(self):
+                # No-op kill to avoid OS signal in restricted environments
+                self.returncode = -9
+
+            async def wait(self):
+                return
+
+        async def fake_create_subprocess_shell(*args, **kwargs):
+            return DummyProcess()
+
+        monkeypatch.setattr(
+            asyncio, "create_subprocess_shell", fake_create_subprocess_shell
+        )
+
         with pytest.raises(TimeoutError):
-            # This should timeout
             await execute_command("sleep 10", timeout=1)
 
     @pytest.mark.asyncio
@@ -296,7 +319,7 @@ class TestGetFileInfo:
     @pytest.mark.asyncio
     async def test_get_file_info(self):
         """Test getting file information."""
-        with tempfile.NamedTemporaryFile(suffix='.txt') as f:
+        with tempfile.NamedTemporaryFile(suffix=".txt") as f:
             f.write(b"test content")
             f.flush()
 
@@ -325,9 +348,9 @@ class TestGetFileInfo:
     @pytest.mark.asyncio
     async def test_get_binary_file_info(self):
         """Test detecting binary file."""
-        with tempfile.NamedTemporaryFile(suffix='.bin') as f:
+        with tempfile.NamedTemporaryFile(suffix=".bin") as f:
             # Write binary data with null bytes
-            f.write(b'\x00\x01\x02\x03')
+            f.write(b"\x00\x01\x02\x03")
             f.flush()
 
             info = await get_file_info(f.name)

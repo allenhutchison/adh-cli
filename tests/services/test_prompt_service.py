@@ -2,7 +2,6 @@
 
 import pytest
 from pathlib import Path
-import tempfile
 from adh_cli.services.prompt_service import PromptTemplate, PromptService
 
 
@@ -42,12 +41,12 @@ class TestPromptTemplate:
 
     def test_render_multiple_variables(self):
         """Test rendering with multiple variables."""
-        template = PromptTemplate.from_string("{{greeting}} {{name}}, welcome to {{place}}!")
-        result = template.render({
-            "greeting": "Hello",
-            "name": "Alice",
-            "place": "Wonderland"
-        })
+        template = PromptTemplate.from_string(
+            "{{greeting}} {{name}}, welcome to {{place}}!"
+        )
+        result = template.render(
+            {"greeting": "Hello", "name": "Alice", "place": "Wonderland"}
+        )
 
         assert result == "Hello Alice, welcome to Wonderland!"
 
@@ -224,9 +223,8 @@ class TestPromptService:
         prompt_file.write_text("Hello {{name}}, welcome to {{place}}!")
 
         # Render the prompt
-        result = service.render_prompt("greeting", {
-            "name": "Alice",
-            "place": "Wonderland"
-        })
+        result = service.render_prompt(
+            "greeting", {"name": "Alice", "place": "Wonderland"}
+        )
 
         assert result == "Hello Alice, welcome to Wonderland!"

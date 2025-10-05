@@ -1,8 +1,6 @@
 """End-to-end integration tests for tool execution UI tracking."""
 
 import pytest
-from pathlib import Path
-from unittest.mock import AsyncMock
 
 from adh_cli.core.policy_aware_llm_agent import PolicyAwareLlmAgent
 from adh_cli.ui.tool_execution import ToolExecutionState
@@ -249,7 +247,9 @@ async def test_multiple_tool_executions_tracked_separately(tmp_path):
 
     # Verify unique IDs
     execution_ids = [info.id for info in start_calls]
-    assert len(execution_ids) == len(set(execution_ids)), "Execution IDs should be unique"
+    assert len(execution_ids) == len(set(execution_ids)), (
+        "Execution IDs should be unique"
+    )
 
     # Verify parameters tracked correctly
     assert start_calls[0].parameters == {"value": "first"}

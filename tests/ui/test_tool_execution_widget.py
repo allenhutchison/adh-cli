@@ -8,7 +8,12 @@ from textual.widgets import Static
 
 from adh_cli.ui.tool_execution_widget import ToolExecutionWidget
 from adh_cli.ui.tool_execution import ToolExecutionInfo, ToolExecutionState
-from adh_cli.policies.policy_types import PolicyDecision, SupervisionLevel, RiskLevel, SafetyCheck
+from adh_cli.policies.policy_types import (
+    PolicyDecision,
+    SupervisionLevel,
+    RiskLevel,
+    SafetyCheck,
+)
 from adh_cli.ui.theme import get_themes
 
 
@@ -37,7 +42,7 @@ class TestToolExecutionWidget:
             id="test-1",
             tool_name="read_file",
             parameters={"file_path": "test.txt"},
-            state=ToolExecutionState.EXECUTING
+            state=ToolExecutionState.EXECUTING,
         )
 
         widget = ToolExecutionWidget(execution_info=info)
@@ -52,7 +57,7 @@ class TestToolExecutionWidget:
             id="test-1",
             tool_name="read_file",
             parameters={"file_path": "test.txt"},
-            state=ToolExecutionState.EXECUTING
+            state=ToolExecutionState.EXECUTING,
         )
 
         widget = ToolExecutionWidget(execution_info=info)
@@ -76,7 +81,7 @@ class TestToolExecutionWidget:
             tool_name="read_file",
             state=ToolExecutionState.SUCCESS,
             started_at=datetime(2024, 1, 1, 12, 0, 0),
-            completed_at=datetime(2024, 1, 1, 12, 0, 1)
+            completed_at=datetime(2024, 1, 1, 12, 0, 1),
         )
 
         widget = ToolExecutionWidget(execution_info=info)
@@ -96,7 +101,7 @@ class TestToolExecutionWidget:
             id="test-1",
             tool_name="read_file",
             state=ToolExecutionState.FAILED,
-            error="File not found"
+            error="File not found",
         )
 
         widget = ToolExecutionWidget(execution_info=info)
@@ -116,7 +121,7 @@ class TestToolExecutionWidget:
             id="test-1",
             tool_name="read_file",
             state=ToolExecutionState.EXECUTING,
-            requires_confirmation=False
+            requires_confirmation=False,
         )
 
         widget = ToolExecutionWidget(execution_info=info)
@@ -142,8 +147,8 @@ class TestToolExecutionWidget:
             policy_decision=PolicyDecision(
                 allowed=True,
                 supervision_level=SupervisionLevel.CONFIRM,
-                risk_level=RiskLevel.MEDIUM
-            )
+                risk_level=RiskLevel.MEDIUM,
+            ),
         )
 
         widget = ToolExecutionWidget(execution_info=info)
@@ -168,8 +173,8 @@ class TestToolExecutionWidget:
             policy_decision=PolicyDecision(
                 allowed=True,
                 supervision_level=SupervisionLevel.CONFIRM,
-                risk_level=RiskLevel.MEDIUM
-            )
+                risk_level=RiskLevel.MEDIUM,
+            ),
         )
 
         on_confirm = AsyncMock()
@@ -200,8 +205,8 @@ class TestToolExecutionWidget:
             policy_decision=PolicyDecision(
                 allowed=True,
                 supervision_level=SupervisionLevel.CONFIRM,
-                risk_level=RiskLevel.MEDIUM
-            )
+                risk_level=RiskLevel.MEDIUM,
+            ),
         )
 
         on_cancel = AsyncMock()
@@ -231,8 +236,8 @@ class TestToolExecutionWidget:
             policy_decision=PolicyDecision(
                 allowed=True,
                 supervision_level=SupervisionLevel.CONFIRM,
-                risk_level=RiskLevel.MEDIUM
-            )
+                risk_level=RiskLevel.MEDIUM,
+            ),
         )
 
         on_details = AsyncMock()
@@ -266,7 +271,7 @@ class TestToolExecutionWidget:
             id="test-1",
             tool_name="read_file",
             parameters={"file_path": "test.txt", "max_lines": 100},
-            state=ToolExecutionState.EXECUTING
+            state=ToolExecutionState.EXECUTING,
         )
 
         widget = ToolExecutionWidget(execution_info=info)
@@ -295,7 +300,7 @@ class TestToolExecutionWidget:
             parameters={
                 "file_path": "test.txt",
                 "content": "hello world",
-                "create_dirs": True
+                "create_dirs": True,
             },
             state=ToolExecutionState.CONFIRMING,
             requires_confirmation=True,
@@ -303,8 +308,10 @@ class TestToolExecutionWidget:
                 allowed=True,
                 supervision_level=SupervisionLevel.CONFIRM,
                 risk_level=RiskLevel.MEDIUM,
-                safety_checks=[SafetyCheck(name="BackupChecker", checker_class="BackupChecker")]
-            )
+                safety_checks=[
+                    SafetyCheck(name="BackupChecker", checker_class="BackupChecker")
+                ],
+            ),
         )
 
         widget = ToolExecutionWidget(execution_info=info)
@@ -329,9 +336,7 @@ class TestToolExecutionWidget:
     async def test_update_info_method(self):
         """Test update_info method changes the display."""
         initial_info = ToolExecutionInfo(
-            id="test-1",
-            tool_name="read_file",
-            state=ToolExecutionState.EXECUTING
+            id="test-1", tool_name="read_file", state=ToolExecutionState.EXECUTING
         )
 
         widget = ToolExecutionWidget(execution_info=initial_info)
@@ -346,9 +351,7 @@ class TestToolExecutionWidget:
 
             # Update to success state
             updated_info = ToolExecutionInfo(
-                id="test-1",
-                tool_name="read_file",
-                state=ToolExecutionState.SUCCESS
+                id="test-1", tool_name="read_file", state=ToolExecutionState.SUCCESS
             )
             widget.update_info(updated_info)
 
@@ -364,7 +367,7 @@ class TestToolExecutionWidget:
             tool_name="write_file",
             state=ToolExecutionState.CONFIRMING,
             requires_confirmation=True,
-            parameters={"file_path": "test.txt"}
+            parameters={"file_path": "test.txt"},
         )
 
         widget = ToolExecutionWidget(execution_info=info)

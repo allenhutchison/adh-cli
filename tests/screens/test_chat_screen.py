@@ -1,8 +1,7 @@
 """Tests for the chat screen."""
 
 import pytest
-from unittest.mock import Mock, AsyncMock, patch, MagicMock, PropertyMock
-from pathlib import Path
+from unittest.mock import Mock, AsyncMock, patch, PropertyMock
 
 from textual import events
 
@@ -18,11 +17,13 @@ class TestChatScreen:
         """Create a test screen instance."""
         # Create mock app before creating screen
         mock_app = Mock()
-        mock_app.api_key = 'test_key'
+        mock_app.api_key = "test_key"
         mock_app.agent = Mock()  # App now provides the agent
 
         # Patch the app property
-        with patch.object(ChatScreen, 'app', new_callable=PropertyMock) as mock_app_prop:
+        with patch.object(
+            ChatScreen, "app", new_callable=PropertyMock
+        ) as mock_app_prop:
             mock_app_prop.return_value = mock_app
             screen = ChatScreen()
 
@@ -92,9 +93,9 @@ class TestChatScreen:
         mock_log = Mock()
 
         def query_side_effect(selector, widget_type):
-            if widget_type.__name__ == 'ChatTextArea':
+            if widget_type.__name__ == "ChatTextArea":
                 return mock_input
-            elif widget_type.__name__ == 'RichLog':
+            elif widget_type.__name__ == "RichLog":
                 return mock_log
             return Mock()
 
@@ -104,6 +105,7 @@ class TestChatScreen:
 
         # Mock run_worker to capture the coroutine without running it
         async_task = None
+
         def capture_worker(coro, **kwargs):
             nonlocal async_task
             async_task = coro
@@ -141,8 +143,7 @@ class TestChatScreen:
 
         # Check agent was called
         screen.agent.chat.assert_called_once_with(
-            message="User message",
-            context=screen.context
+            message="User message", context=screen.context
         )
 
         # Check response was displayed
@@ -173,14 +174,11 @@ class TestChatScreen:
 
         tool_call = ToolCall(tool_name="test", parameters={})
         decision = PolicyDecision(
-            allowed=True,
-            supervision_level="confirm",
-            risk_level="medium"
+            allowed=True, supervision_level="confirm", risk_level="medium"
         )
 
         result = await screen.handle_confirmation(
-            tool_call=tool_call,
-            decision=decision
+            tool_call=tool_call, decision=decision
         )
 
         assert result is True
@@ -219,7 +217,9 @@ class TestChatScreen:
         mock_log.write.assert_called()
 
         # Check that the message content was written
-        all_calls = [str(call[0][0]) for call in mock_log.write.call_args_list if call[0]]
+        all_calls = [
+            str(call[0][0]) for call in mock_log.write.call_args_list if call[0]
+        ]
         combined_text = " ".join(all_calls)
 
         # User messages should contain the speaker and message

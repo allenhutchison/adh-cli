@@ -1,20 +1,18 @@
 """ADK-based agent with policy enforcement."""
 
-import asyncio
 import json
 from typing import Any, Callable, Dict, List, Optional
 from pathlib import Path
 from datetime import datetime
 
 from google.adk.agents import LlmAgent
-from google.adk.runners import Runner, Event
+from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
 from adh_cli.core.policy_aware_function_tool import PolicyAwareFunctionTool
 from adh_cli.core.tool_executor import ExecutionContext, ExecutionResult
 from adh_cli.policies.policy_engine import PolicyEngine
-from adh_cli.policies.policy_types import SupervisionLevel
 from adh_cli.safety.pipeline import SafetyPipeline
 from adh_cli.ui.tool_execution_manager import ToolExecutionManager
 from adh_cli.agents.agent_loader import AgentLoader
@@ -76,7 +74,7 @@ class PolicyAwareLlmAgent:
             self.model_name = self.agent_definition.model
             self.temperature = self.agent_definition.temperature
             self.max_tokens = self.agent_definition.max_tokens
-        except (FileNotFoundError, ValueError) as e:
+        except (FileNotFoundError, ValueError):
             # Fallback to defaults if agent loading fails
             self.agent_definition = None
             self.model_name = model_name
@@ -137,7 +135,7 @@ class PolicyAwareLlmAgent:
         self.runner = Runner(
             agent=self.llm_agent,
             app_name="adh_cli",
-            session_service=self.session_service
+            session_service=self.session_service,
         )
 
         # Initialize session asynchronously
@@ -152,8 +150,7 @@ class PolicyAwareLlmAgent:
 
             # Render the system prompt with variables
             return self.agent_definition.render_system_prompt(
-                variables={},
-                tool_descriptions=tool_descriptions
+                variables={}, tool_descriptions=tool_descriptions
             )
 
         # Fallback to default prompt if no agent definition
@@ -193,13 +190,13 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
         descriptions = []
         for tool in self.tools:
             # Get the tool's name and description
-            tool_name = tool.tool_name if hasattr(tool, 'tool_name') else "unknown"
+            tool_name = tool.tool_name if hasattr(tool, "tool_name") else "unknown"
 
             # Try to get description from the function's docstring
             description = ""
-            if hasattr(tool, 'func') and tool.func.__doc__:
+            if hasattr(tool, "func") and tool.func.__doc__:
                 # Get first line of docstring
-                description = tool.func.__doc__.strip().split('\n')[0]
+                description = tool.func.__doc__.strip().split("\n")[0]
 
             descriptions.append(f"- **{tool_name}**: {description}")
 
@@ -213,41 +210,34 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
         # Check if session already exists to avoid recreating it
         try:
             existing_session = await self.session_service.get_session(
-                app_name="adh_cli",
-                user_id=self.user_id,
-                session_id=self.session_id
+                app_name="adh_cli", user_id=self.user_id, session_id=self.session_id
             )
 
             # Only create session if it doesn't exist
             if not existing_session:
                 await self.session_service.create_session(
-                    app_name="adh_cli",
-                    user_id=self.user_id,
-                    session_id=self.session_id
+                    app_name="adh_cli", user_id=self.user_id, session_id=self.session_id
                 )
-        except Exception as e:
+        except Exception:
             # If get_session fails, try to create
             try:
                 await self.session_service.create_session(
-                    app_name="adh_cli",
-                    user_id=self.user_id,
-                    session_id=self.session_id
+                    app_name="adh_cli", user_id=self.user_id, session_id=self.session_id
                 )
             except Exception:
                 # Session may already exist or other error
                 pass
 
-    def _create_audit_logger(self, audit_log_path: Optional[Path]) -> Optional[Callable]:
+    def _create_audit_logger(
+        self, audit_log_path: Optional[Path]
+    ) -> Optional[Callable]:
         """Create audit logger if path provided."""
         if not audit_log_path:
             return None
 
         async def log_audit(**kwargs):
             """Log tool execution to audit file."""
-            entry = {
-                "timestamp": datetime.now().isoformat(),
-                **kwargs
-            }
+            entry = {"timestamp": datetime.now().isoformat(), **kwargs}
 
             try:
                 with open(audit_log_path, "a") as f:
@@ -320,7 +310,7 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
         self.runner = Runner(
             agent=self.llm_agent,
             app_name="adh_cli",
-            session_service=self.session_service
+            session_service=self.session_service,
         )
 
     async def chat(
@@ -353,19 +343,14 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
         session_id = context.session_id or self.session_id
 
         # Create user message
-        user_content = types.Content(
-            role='user',
-            parts=[types.Part(text=message)]
-        )
+        user_content = types.Content(role="user", parts=[types.Part(text=message)])
 
         response_text = ""
 
         # Stream events from runner
         try:
             async for event in self.runner.run_async(
-                user_id=user_id,
-                session_id=session_id,
-                new_message=user_content
+                user_id=user_id, session_id=session_id, new_message=user_content
             ):
                 # Note: Tool execution is now tracked via ToolExecutionManager
                 # and displayed in the UI notification area, so we don't need
@@ -374,7 +359,7 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
                 # Collect final response
                 if event.is_final_response() and event.content:
                     for part in event.content.parts:
-                        if hasattr(part, 'text') and part.text:
+                        if hasattr(part, "text") and part.text:
                             response_text += part.text
 
             return response_text or "Task completed."
@@ -401,7 +386,7 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
                 "name": name,
                 "handler": handler,
                 "description": "",  # We don't store this
-                "parameters": {},   # We don't store this
+                "parameters": {},  # We don't store this
             }
             for name, handler in self.tool_handlers.items()
         ]
@@ -429,18 +414,22 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
 
         Returns a mock object that provides execute method.
         """
+
         # Create a simple wrapper for compatibility
         class ToolExecutorWrapper:
             def __init__(self, agent):
                 self.agent = agent
 
-            async def execute(self, tool_name: str, parameters: Dict[str, Any],
-                            context: Optional[ExecutionContext] = None):
+            async def execute(
+                self,
+                tool_name: str,
+                parameters: Dict[str, Any],
+                context: Optional[ExecutionContext] = None,
+            ):
                 """Execute a tool directly (for testing/compatibility)."""
                 if tool_name not in self.agent.tool_handlers:
                     return ExecutionResult(
-                        success=False,
-                        error=f"Tool '{tool_name}' not found"
+                        success=False, error=f"Tool '{tool_name}' not found"
                     )
 
                 try:

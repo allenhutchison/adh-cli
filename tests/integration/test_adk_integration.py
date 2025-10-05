@@ -11,7 +11,6 @@ from unittest.mock import Mock, AsyncMock, patch
 
 from adh_cli.core.policy_aware_llm_agent import PolicyAwareLlmAgent
 from adh_cli.core.tool_executor import ExecutionContext
-from adh_cli.policies.policy_types import PolicyDecision, SupervisionLevel, RiskLevel
 
 
 class TestADKIntegration:
@@ -26,10 +25,13 @@ class TestADKIntegration:
     @pytest.fixture
     def mock_adk_agent(self, temp_dir):
         """Create agent with mocked ADK components."""
-        with patch('adh_cli.core.policy_aware_llm_agent.LlmAgent') as mock_llm, \
-             patch('adh_cli.core.policy_aware_llm_agent.Runner') as mock_runner, \
-             patch('adh_cli.core.policy_aware_llm_agent.InMemorySessionService') as mock_session:
-
+        with (
+            patch("adh_cli.core.policy_aware_llm_agent.LlmAgent") as mock_llm,
+            patch("adh_cli.core.policy_aware_llm_agent.Runner") as mock_runner,
+            patch(
+                "adh_cli.core.policy_aware_llm_agent.InMemorySessionService"
+            ) as mock_session,
+        ):
             # Configure mocks
             mock_llm_instance = Mock()
             mock_llm.return_value = mock_llm_instance
@@ -76,6 +78,7 @@ class TestADKIntegration:
 
         # Verify tool is wrapped with policy
         from adh_cli.core.policy_aware_function_tool import PolicyAwareFunctionTool
+
         assert isinstance(agent.tools[0], PolicyAwareFunctionTool)
 
     @pytest.mark.asyncio
@@ -282,10 +285,11 @@ class TestADKIntegration:
         """Test audit logging is performed."""
         audit_path = temp_dir / "audit.log"
 
-        with patch('adh_cli.core.policy_aware_llm_agent.LlmAgent'), \
-             patch('adh_cli.core.policy_aware_llm_agent.Runner'), \
-             patch('adh_cli.core.policy_aware_llm_agent.InMemorySessionService'):
-
+        with (
+            patch("adh_cli.core.policy_aware_llm_agent.LlmAgent"),
+            patch("adh_cli.core.policy_aware_llm_agent.Runner"),
+            patch("adh_cli.core.policy_aware_llm_agent.InMemorySessionService"),
+        ):
             agent = PolicyAwareLlmAgent(
                 api_key="test_key",
                 policy_dir=temp_dir,
@@ -297,11 +301,7 @@ class TestADKIntegration:
 
             # Trigger audit log
             if agent.audit_logger:
-                await agent.audit_logger(
-                    tool_name="test",
-                    parameters={},
-                    success=True
-                )
+                await agent.audit_logger(tool_name="test", parameters={}, success=True)
 
             # Check file exists
             assert audit_path.exists()
@@ -392,7 +392,7 @@ class TestADKIntegration:
 
         executor = agent.tool_executor
         assert executor is not None
-        assert hasattr(executor, 'execute')
+        assert hasattr(executor, "execute")
 
     @pytest.mark.asyncio
     async def test_tool_executor_execute_method(self, mock_adk_agent):
@@ -411,8 +411,7 @@ class TestADKIntegration:
 
         executor = agent.tool_executor
         result = await executor.execute(
-            tool_name="test_tool",
-            parameters={"param": "value"}
+            tool_name="test_tool", parameters={"param": "value"}
         )
 
         assert result.success is True

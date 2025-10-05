@@ -16,7 +16,9 @@ class PromptTemplate:
     metadata: Dict[str, Any]
 
     @classmethod
-    def from_string(cls, content: str, metadata: Optional[Dict[str, Any]] = None) -> "PromptTemplate":
+    def from_string(
+        cls, content: str, metadata: Optional[Dict[str, Any]] = None
+    ) -> "PromptTemplate":
         """Create a prompt template from a string.
 
         Args:
@@ -76,7 +78,7 @@ class PromptTemplate:
             Set of variable names found in the template
         """
         # Find all {{variable_name}} patterns
-        pattern = r'\{\{(\w+)\}\}'
+        pattern = r"\{\{(\w+)\}\}"
         matches = re.findall(pattern, content)
         return set(matches)
 

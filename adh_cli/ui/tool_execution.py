@@ -119,7 +119,7 @@ def truncate_value(value: Any, max_length: int = 50) -> tuple[str, int]:
         original_length = len(value)
         if original_length <= max_length:
             return f'"{value}"', original_length
-        return f'"{value[:max_length-4]}..."', original_length
+        return f'"{value[: max_length - 4]}..."', original_length
 
     # Handle bytes/binary
     if isinstance(value, bytes):
@@ -146,7 +146,7 @@ def truncate_value(value: Any, max_length: int = 50) -> tuple[str, int]:
         first_item = str(value[0])
         if len(first_item) > 20:
             first_item = first_item[:20] + "..."
-        return f"[{first_item}, ... {original_length-1} more]", original_length
+        return f"[{first_item}, ... {original_length - 1} more]", original_length
 
     # Handle dicts
     if isinstance(value, dict):
@@ -164,7 +164,7 @@ def truncate_value(value: Any, max_length: int = 50) -> tuple[str, int]:
         pair_str = f"{first_key}: {first_val}"
         if len(pair_str) > 30:
             pair_str = pair_str[:30] + "..."
-        return f"{{{pair_str}, ... {original_length-1} more}}", original_length
+        return f"{{{pair_str}, ... {original_length - 1} more}}", original_length
 
     # Handle booleans
     if isinstance(value, bool):
@@ -180,13 +180,11 @@ def truncate_value(value: Any, max_length: int = 50) -> tuple[str, int]:
     original_length = len(str_val)
     if original_length <= max_length:
         return str_val, original_length
-    return str_val[:max_length-3] + "...", original_length
+    return str_val[: max_length - 3] + "...", original_length
 
 
 def format_parameters_inline(
-    parameters: Dict[str, Any],
-    max_params: int = 3,
-    max_value_length: int = 50
+    parameters: Dict[str, Any], max_params: int = 3, max_value_length: int = 50
 ) -> str:
     """Format parameters for inline display.
 
@@ -220,8 +218,7 @@ def format_parameters_inline(
 
 
 def format_parameters_expanded(
-    parameters: Dict[str, Any],
-    max_value_length: int = 200
+    parameters: Dict[str, Any], max_value_length: int = 200
 ) -> List[tuple[str, str, int]]:
     """Format parameters for expanded display.
 

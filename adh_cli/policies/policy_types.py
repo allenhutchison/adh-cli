@@ -9,31 +9,31 @@ from datetime import datetime
 class SupervisionLevel(Enum):
     """Level of supervision required for tool execution."""
 
-    AUTOMATIC = "automatic"      # No supervision needed, execute immediately
-    NOTIFY = "notify"            # Notify user but proceed without waiting
-    CONFIRM = "confirm"          # Require user confirmation before execution
-    MANUAL = "manual"            # Full manual review and modification allowed
-    DENY = "deny"                # Never allow execution
+    AUTOMATIC = "automatic"  # No supervision needed, execute immediately
+    NOTIFY = "notify"  # Notify user but proceed without waiting
+    CONFIRM = "confirm"  # Require user confirmation before execution
+    MANUAL = "manual"  # Full manual review and modification allowed
+    DENY = "deny"  # Never allow execution
 
 
 class RiskLevel(Enum):
     """Risk assessment level for operations."""
 
-    NONE = "none"          # No risk
-    LOW = "low"            # Minimal risk
-    MEDIUM = "medium"      # Moderate risk, reversible
-    HIGH = "high"          # High risk, potentially destructive
+    NONE = "none"  # No risk
+    LOW = "low"  # Minimal risk
+    MEDIUM = "medium"  # Moderate risk, reversible
+    HIGH = "high"  # High risk, potentially destructive
     CRITICAL = "critical"  # Critical risk, system-level changes
 
 
 class RestrictionType(Enum):
     """Types of restrictions that can be applied."""
 
-    PATH_PATTERN = "path_pattern"      # File path patterns to allow/deny
-    SIZE_LIMIT = "size_limit"          # Maximum size limits
-    RATE_LIMIT = "rate_limit"          # Rate limiting for operations
-    TIME_WINDOW = "time_window"        # Time-based restrictions
-    SCOPE_LIMIT = "scope_limit"        # Limit scope of operations
+    PATH_PATTERN = "path_pattern"  # File path patterns to allow/deny
+    SIZE_LIMIT = "size_limit"  # Maximum size limits
+    RATE_LIMIT = "rate_limit"  # Rate limiting for operations
+    TIME_WINDOW = "time_window"  # Time-based restrictions
+    SCOPE_LIMIT = "scope_limit"  # Limit scope of operations
     PARAMETER_FILTER = "parameter_filter"  # Filter/modify parameters
 
 
@@ -45,7 +45,7 @@ class Restriction:
     config: Dict[str, Any]
     reason: Optional[str] = None
 
-    def applies_to(self, tool_call: 'ToolCall') -> bool:
+    def applies_to(self, tool_call: "ToolCall") -> bool:
         """Check if this restriction applies to the given tool call."""
         # Implementation depends on restriction type
         return True
@@ -102,7 +102,7 @@ class PolicyDecision:
         """Check if this decision requires user interaction."""
         return self.supervision_level in [
             SupervisionLevel.CONFIRM,
-            SupervisionLevel.MANUAL
+            SupervisionLevel.MANUAL,
         ]
 
     @property
@@ -136,6 +136,7 @@ class PolicyRule:
     def matches(self, tool_name: str) -> bool:
         """Check if this rule matches the given tool name."""
         import fnmatch
+
         return fnmatch.fnmatch(tool_name.lower(), self.pattern.lower())
 
 

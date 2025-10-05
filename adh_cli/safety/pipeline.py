@@ -1,7 +1,7 @@
 """Safety check pipeline for running multiple safety checks."""
 
 import asyncio
-from typing import Dict, List, Optional, Type
+from typing import Dict, List, Type
 from dataclasses import dataclass
 
 from .base_checker import SafetyChecker, SafetyResult, SafetyStatus
@@ -89,9 +89,7 @@ class SafetyPipeline:
                 checker = checker_class(check.config)
                 # Run check with timeout
                 task = asyncio.create_task(
-                    self._run_check_with_timeout(
-                        checker, tool_call, check.timeout
-                    )
+                    self._run_check_with_timeout(checker, tool_call, check.timeout)
                 )
                 tasks.append(task)
 
@@ -116,9 +114,7 @@ class SafetyPipeline:
             SafetyResult or error result if timeout/exception
         """
         try:
-            return await asyncio.wait_for(
-                checker.check(tool_call), timeout=timeout
-            )
+            return await asyncio.wait_for(checker.check(tool_call), timeout=timeout)
         except asyncio.TimeoutError:
             return SafetyResult(
                 checker_name=checker.name,
@@ -134,9 +130,7 @@ class SafetyPipeline:
                 risk_level=RiskLevel.MEDIUM,
             )
 
-    def _aggregate_results(
-        self, results: List[SafetyResult]
-    ) -> PipelineResult:
+    def _aggregate_results(self, results: List[SafetyResult]) -> PipelineResult:
         """Aggregate individual check results.
 
         Args:

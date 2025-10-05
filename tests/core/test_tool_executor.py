@@ -2,9 +2,7 @@
 
 import pytest
 import asyncio
-from pathlib import Path
-from unittest.mock import Mock, AsyncMock, MagicMock, patch
-from datetime import datetime
+from unittest.mock import Mock, AsyncMock, patch
 
 from adh_cli.core.tool_executor import (
     ToolExecutor,
@@ -13,7 +11,6 @@ from adh_cli.core.tool_executor import (
 )
 from adh_cli.policies.policy_engine import PolicyEngine
 from adh_cli.policies.policy_types import (
-    ToolCall,
     PolicyDecision,
     SupervisionLevel,
     RiskLevel,
@@ -82,6 +79,7 @@ class TestToolExecutor:
     @pytest.mark.asyncio
     async def test_execute_allowed_tool(self, tool_executor):
         """Test executing a tool that is allowed by policy."""
+
         # Register a test tool
         async def test_tool(param1: str):
             return f"Result: {param1}"
@@ -297,6 +295,7 @@ class TestToolExecutor:
     @pytest.mark.asyncio
     async def test_execute_with_exception(self, tool_executor):
         """Test executing a tool that raises an exception."""
+
         # Register a failing tool
         async def failing_tool():
             raise ValueError("Test error")
@@ -365,7 +364,9 @@ class TestToolExecutor:
         assert result.success is True
 
         # Verify audit logger was called
-        assert tool_executor.audit_logger.call_count >= 2  # policy_evaluated and tool_executed
+        assert (
+            tool_executor.audit_logger.call_count >= 2
+        )  # policy_evaluated and tool_executed
 
     @pytest.mark.asyncio
     async def test_parameter_modifications(self, tool_executor):
@@ -434,7 +435,9 @@ class TestToolExecutor:
         # Patch the getattr to return a mock TestChecker class
         mock_checker_class = Mock()
 
-        with patch('adh_cli.core.tool_executor.getattr', return_value=mock_checker_class) as mock_getattr:
+        with patch(
+            "adh_cli.core.tool_executor.getattr", return_value=mock_checker_class
+        ):
             # Execute the tool
             result = await tool_executor.execute(
                 tool_name="checked_tool",
@@ -444,7 +447,9 @@ class TestToolExecutor:
             assert result.success is True
 
             # Verify safety pipeline was configured and run
-            tool_executor.safety_pipeline.register_checker.assert_called_with("TestChecker", mock_checker_class)
+            tool_executor.safety_pipeline.register_checker.assert_called_with(
+                "TestChecker", mock_checker_class
+            )
             tool_executor.safety_pipeline.run_checks.assert_called_once()
 
 

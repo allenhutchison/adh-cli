@@ -1,7 +1,7 @@
 """Tests for PolicyAwareFunctionTool."""
 
 import pytest
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import Mock, AsyncMock
 from adh_cli.core.policy_aware_function_tool import PolicyAwareFunctionTool, SafetyError
 from adh_cli.policies.policy_engine import PolicyEngine
 from adh_cli.policies.policy_types import (
@@ -123,6 +123,7 @@ class TestPolicyAwareFunctionTool:
 
         # Create manager to track confirmations
         from adh_cli.ui.tool_execution_manager import ToolExecutionManager
+
         execution_manager = ToolExecutionManager()
 
         tool = PolicyAwareFunctionTool(
@@ -137,12 +138,14 @@ class TestPolicyAwareFunctionTool:
         # Simulate user confirming in background
         async def simulate_user_confirm():
             import asyncio
+
             await asyncio.sleep(0.1)
             active_executions = execution_manager.get_active_executions()
             if active_executions:
                 execution_manager.confirm_execution(active_executions[0].id)
 
         import asyncio
+
         confirm_task = asyncio.create_task(simulate_user_confirm())
 
         # Execute the tool - it should wait for confirmation
@@ -168,6 +171,7 @@ class TestPolicyAwareFunctionTool:
             return "Result"
 
         from adh_cli.ui.tool_execution_manager import ToolExecutionManager
+
         execution_manager = ToolExecutionManager()
 
         tool = PolicyAwareFunctionTool(
@@ -186,18 +190,14 @@ class TestPolicyAwareFunctionTool:
         assert len(execution_manager._pending_confirmations) == 0
 
     @pytest.mark.asyncio
-    async def test_safety_check_failure(
-        self, mock_policy_engine, mock_safety_pipeline
-    ):
+    async def test_safety_check_failure(self, mock_policy_engine, mock_safety_pipeline):
         """Test that failed safety checks block execution."""
         # Configure policy with safety checks
         mock_policy_engine.evaluate_tool_call.return_value = PolicyDecision(
             allowed=True,
             supervision_level=SupervisionLevel.AUTOMATIC,
             risk_level=RiskLevel.MEDIUM,
-            safety_checks=[
-                SafetyCheck(name="test_check", checker_class="TestChecker")
-            ],
+            safety_checks=[SafetyCheck(name="test_check", checker_class="TestChecker")],
         )
 
         # Configure safety pipeline to fail
@@ -238,9 +238,7 @@ class TestPolicyAwareFunctionTool:
             allowed=True,
             supervision_level=SupervisionLevel.AUTOMATIC,
             risk_level=RiskLevel.LOW,
-            safety_checks=[
-                SafetyCheck(name="test_check", checker_class="TestChecker")
-            ],
+            safety_checks=[SafetyCheck(name="test_check", checker_class="TestChecker")],
         )
 
         # Configure safety check to modify parameters
@@ -252,9 +250,7 @@ class TestPolicyAwareFunctionTool:
         )
         mock_result.parameter_modifications = {"backup_created": True}
 
-        mock_safety_pipeline.run_checks.return_value = Mock(
-            results=[mock_result]
-        )
+        mock_safety_pipeline.run_checks.return_value = Mock(results=[mock_result])
 
         received_params = {}
 
@@ -352,9 +348,7 @@ class TestPolicyAwareFunctionTool:
         assert "Test error" in error_call["error"]
 
     @pytest.mark.asyncio
-    async def test_no_audit_logger(
-        self, mock_policy_engine, mock_safety_pipeline
-    ):
+    async def test_no_audit_logger(self, mock_policy_engine, mock_safety_pipeline):
         """Test tool works without audit logger."""
 
         async def test_func():

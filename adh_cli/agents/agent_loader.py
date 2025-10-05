@@ -1,10 +1,11 @@
 """Agent loader for markdown-driven agents."""
 
-import yaml
-from pathlib import Path
-from typing import Dict, Any, List, Optional, Set
+import re
 from dataclasses import dataclass, field
-from ..services.prompt_service import PromptTemplate
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set
+
+import yaml
 
 
 @dataclass
@@ -24,7 +25,9 @@ class Agent:
     user_prompt_template: str = ""
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-    def render_system_prompt(self, variables: Dict[str, Any], tool_descriptions: str = "") -> str:
+    def render_system_prompt(
+        self, variables: Dict[str, Any], tool_descriptions: str = ""
+    ) -> str:
         """Render the system prompt with variables.
 
         Args:
@@ -133,12 +136,14 @@ class AgentLoader:
 
         # Extract prompts from sections
         system_prompt = sections.get("system prompt", "")
-        user_prompt_template = sections.get("user prompt template", sections.get("user prompt", ""))
+        user_prompt_template = sections.get(
+            "user prompt template", sections.get("user prompt", "")
+        )
 
         # Extract variables from prompts
         all_text = f"{system_prompt}\n{user_prompt_template}"
-        import re
-        variable_pattern = r'\{\{(\w+)\}\}'
+
+        variable_pattern = r"\{\{(\w+)\}\}"
         found_variables = set(re.findall(variable_pattern, all_text))
 
         # Remove special variables that are provided by the system
@@ -164,13 +169,17 @@ class AgentLoader:
             variables=agent_variables,
             system_prompt=system_prompt,
             user_prompt_template=user_prompt_template,
-            metadata=metadata
+            metadata=metadata,
         )
 
         return agent
 
 
-def load_agent(name: str, variables: Optional[Dict[str, Any]] = None, agents_dir: Optional[Path] = None) -> Agent:
+def load_agent(
+    name: str,
+    variables: Optional[Dict[str, Any]] = None,
+    agents_dir: Optional[Path] = None,
+) -> Agent:
     """Convenience function to load an agent.
 
     Args:

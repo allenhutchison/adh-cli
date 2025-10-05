@@ -4,7 +4,7 @@ from textual import on
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, Vertical
 from textual.screen import Screen
-from textual.widgets import Button, Static, Label, Welcome
+from textual.widgets import Button, Static
 
 
 class MainScreen(Screen):
@@ -59,14 +59,11 @@ class MainScreen(Screen):
     def compose(self) -> ComposeResult:
         """Create child widgets for the main screen."""
         with Container(classes="container"):
-            yield Static(
-                "[bold]Welcome to ADH CLI[/bold]",
-                id="welcome-text"
-            )
+            yield Static("[bold]Welcome to ADH CLI[/bold]", id="welcome-text")
 
             yield Static(
                 "A Policy-Aware Terminal Interface for AI-Assisted Development",
-                id="welcome-subtitle"
+                id="welcome-subtitle",
             )
 
             with Vertical():
@@ -77,7 +74,7 @@ class MainScreen(Screen):
 
                 yield Static(
                     "Press 'c' for Chat, 's' for Settings, or 'q' to quit",
-                    id="help-text"
+                    id="help-text",
                 )
 
     @on(Button.Pressed, "#btn-chat")
@@ -94,4 +91,5 @@ class MainScreen(Screen):
     def on_models_pressed(self) -> None:
         """Handle models button press."""
         from ..widgets.model_list import ModelListDialog
+
         self.app.push_screen(ModelListDialog())

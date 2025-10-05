@@ -20,6 +20,7 @@ class AgentResponse:
         success: Whether the delegation succeeded
         error: Error message if delegation failed
     """
+
     agent_name: str
     task_type: str
     result: str
@@ -57,10 +58,7 @@ class AgentDelegator:
         self._agent_cache: Dict[str, PolicyAwareLlmAgent] = {}
 
     async def delegate(
-        self,
-        agent_name: str,
-        task: str,
-        context: Optional[Dict[str, Any]] = None
+        self, agent_name: str, task: str, context: Optional[Dict[str, Any]] = None
     ) -> AgentResponse:
         """Delegate a task to a specialist agent.
 
@@ -81,12 +79,18 @@ class AgentDelegator:
                 on_execution_complete = None
                 on_confirmation_required = None
 
-                if self.parent_agent and hasattr(self.parent_agent, 'execution_manager'):
+                if self.parent_agent and hasattr(
+                    self.parent_agent, "execution_manager"
+                ):
                     exec_mgr = self.parent_agent.execution_manager
-                    on_execution_start = getattr(exec_mgr, 'on_execution_start', None)
-                    on_execution_update = getattr(exec_mgr, 'on_execution_update', None)
-                    on_execution_complete = getattr(exec_mgr, 'on_execution_complete', None)
-                    on_confirmation_required = getattr(exec_mgr, 'on_confirmation_required', None)
+                    on_execution_start = getattr(exec_mgr, "on_execution_start", None)
+                    on_execution_update = getattr(exec_mgr, "on_execution_update", None)
+                    on_execution_complete = getattr(
+                        exec_mgr, "on_execution_complete", None
+                    )
+                    on_confirmation_required = getattr(
+                        exec_mgr, "on_confirmation_required", None
+                    )
 
                 agent = PolicyAwareLlmAgent(
                     agent_name=agent_name,
@@ -112,7 +116,7 @@ class AgentDelegator:
                 exec_context = ExecutionContext(
                     user_id=context.get("user_id"),
                     session_id=context.get("session_id"),
-                    metadata=context
+                    metadata=context,
                 )
 
             # Execute task
@@ -123,7 +127,7 @@ class AgentDelegator:
                 task_type=self._infer_task_type(agent_name),
                 result=result,
                 metadata=context or {},
-                success=True
+                success=True,
             )
 
         except Exception as e:
@@ -133,7 +137,7 @@ class AgentDelegator:
                 result="",
                 metadata=context or {},
                 success=False,
-                error=str(e)
+                error=str(e),
             )
 
     def _infer_task_type(self, agent_name: str) -> str:
@@ -149,7 +153,7 @@ class AgentDelegator:
             "planner": "planning",
             "code_reviewer": "code_review",
             "researcher": "research",
-            "tester": "testing"
+            "tester": "testing",
         }
         return type_mapping.get(agent_name, "general")
 
@@ -172,21 +176,21 @@ class AgentDelegator:
             name="read_file",
             description="Read contents of a text file",
             parameters={},
-            handler=shell_tools.read_file
+            handler=shell_tools.read_file,
         )
 
         agent.register_tool(
             name="list_directory",
             description="List contents of a directory",
             parameters={},
-            handler=shell_tools.list_directory
+            handler=shell_tools.list_directory,
         )
 
         agent.register_tool(
             name="get_file_info",
             description="Get metadata about a file or directory",
             parameters={},
-            handler=shell_tools.get_file_info
+            handler=shell_tools.get_file_info,
         )
 
         # Planning agent only gets read tools (defined in agent.md)

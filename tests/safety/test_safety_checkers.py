@@ -1,10 +1,9 @@
 """Tests for safety checkers."""
 
 import pytest
-import asyncio
 import tempfile
 from pathlib import Path
-from adh_cli.safety.base_checker import SafetyChecker, SafetyResult, SafetyStatus
+from adh_cli.safety.base_checker import SafetyStatus
 from adh_cli.safety.checkers import (
     BackupChecker,
     DiskSpaceChecker,
@@ -35,13 +34,19 @@ class TestBackupChecker:
         assert result.risk_level == RiskLevel.NONE
 
     @pytest.mark.asyncio
-    async def test_backup_created_for_write(self):
+    async def test_backup_created_for_write(self, monkeypatch):
         """Test that backup is created for write operations."""
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
             tmp.write(b"test content")
             tmp_path = tmp.name
 
         try:
+            # Redirect backups dir to a temporary location to avoid writing outside workspace
+            with tempfile.TemporaryDirectory() as tmpdir:
+                from adh_cli.core.config_paths import ConfigPaths
+
+                monkeypatch.setattr(ConfigPaths, "BASE_DIR", Path(tmpdir))
+
             checker = BackupChecker()
             tool_call = ToolCall(
                 tool_name="write_file",

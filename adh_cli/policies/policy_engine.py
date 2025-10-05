@@ -4,7 +4,6 @@ import yaml
 import fnmatch
 from pathlib import Path
 from typing import Dict, List, Optional, Any
-from dataclasses import dataclass
 
 from .policy_types import (
     PolicyDecision,
@@ -88,7 +87,7 @@ class PolicyEngine:
         # Set confirmation requirements
         decision.requires_confirmation = decision.supervision_level in [
             SupervisionLevel.CONFIRM,
-            SupervisionLevel.MANUAL
+            SupervisionLevel.MANUAL,
         ]
 
         if decision.requires_confirmation:
@@ -112,7 +111,7 @@ class PolicyEngine:
         """Apply a policy rule to the decision."""
         # For the first matching rule (highest priority), use its values directly
         # For subsequent rules, use more restrictive values
-        if not hasattr(decision, '_rule_applied'):
+        if not hasattr(decision, "_rule_applied"):
             # First rule - use its values
             decision.supervision_level = rule.supervision
             decision.risk_level = rule.risk_level
@@ -201,14 +200,10 @@ class PolicyEngine:
             risk_level=RiskLevel.MEDIUM,
         )
 
-    def _apply_user_preferences(
-        self, tool_call: ToolCall, decision: PolicyDecision
-    ):
+    def _apply_user_preferences(self, tool_call: ToolCall, decision: PolicyDecision):
         """Apply user preferences to the decision."""
         # Check if user has specific preferences for this tool
-        tool_prefs = self.user_preferences.get("tools", {}).get(
-            tool_call.tool_name, {}
-        )
+        tool_prefs = self.user_preferences.get("tools", {}).get(tool_call.tool_name, {})
 
         if "supervision" in tool_prefs:
             user_supervision = SupervisionLevel(tool_prefs["supervision"])
@@ -341,9 +336,7 @@ class PolicyEngine:
         with open(self.policy_dir / "commands.yaml", "w") as f:
             yaml.dump(command_policy, f)
 
-    def _create_restriction(
-        self, config: Dict[str, Any]
-    ) -> Optional[Restriction]:
+    def _create_restriction(self, config: Dict[str, Any]) -> Optional[Restriction]:
         """Create a restriction from configuration."""
         try:
             return Restriction(
@@ -436,14 +429,10 @@ class PolicyEngine:
 
     def get_supervision_level(self, tool_name: str) -> SupervisionLevel:
         """Get the supervision level for a specific tool."""
-        decision = self.evaluate_tool_call(
-            ToolCall(tool_name=tool_name, parameters={})
-        )
+        decision = self.evaluate_tool_call(ToolCall(tool_name=tool_name, parameters={}))
         return decision.supervision_level
 
-    def requires_confirmation(
-        self, tool_name: str, parameters: Dict[str, Any]
-    ) -> bool:
+    def requires_confirmation(self, tool_name: str, parameters: Dict[str, Any]) -> bool:
         """Check if a tool call requires user confirmation."""
         decision = self.evaluate_tool_call(
             ToolCall(tool_name=tool_name, parameters=parameters)
