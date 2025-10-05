@@ -113,7 +113,7 @@ class ModelRegistry:
         if not model_id:
             return None
 
-        clean_id = model_id.replace("models/", "")
+        clean_id = model_id.removeprefix("models/")
         models = cls._indexed_models()
         model = models.get(clean_id)
         if model:
