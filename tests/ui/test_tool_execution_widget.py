@@ -12,7 +12,7 @@ from adh_cli.policies.policy_types import PolicyDecision, SupervisionLevel, Risk
 from adh_cli.ui.theme import get_themes
 
 
-class TestApp(App):
+class ToolExecutionTestApp(App):
     """Test app with ADH themes registered."""
 
     def __init__(self, *args, **kwargs):
@@ -58,7 +58,7 @@ class TestToolExecutionWidget:
         widget = ToolExecutionWidget(execution_info=info)
 
         # Mount widget in test app
-        class _TestApp(TestApp):
+        class _TestApp(ToolExecutionTestApp):
             def compose(self):
                 yield widget
 
@@ -81,7 +81,7 @@ class TestToolExecutionWidget:
 
         widget = ToolExecutionWidget(execution_info=info)
 
-        class _TestApp(TestApp):
+        class _TestApp(ToolExecutionTestApp):
             def compose(self):
                 yield widget
 
@@ -101,7 +101,7 @@ class TestToolExecutionWidget:
 
         widget = ToolExecutionWidget(execution_info=info)
 
-        class _TestApp(TestApp):
+        class _TestApp(ToolExecutionTestApp):
             def compose(self):
                 yield widget
 
@@ -121,7 +121,7 @@ class TestToolExecutionWidget:
 
         widget = ToolExecutionWidget(execution_info=info)
 
-        class _TestApp(TestApp):
+        class _TestApp(ToolExecutionTestApp):
             def compose(self):
                 yield widget
 
@@ -148,7 +148,7 @@ class TestToolExecutionWidget:
 
         widget = ToolExecutionWidget(execution_info=info)
 
-        class _TestApp(TestApp):
+        class _TestApp(ToolExecutionTestApp):
             def compose(self):
                 yield widget
 
@@ -175,7 +175,7 @@ class TestToolExecutionWidget:
         on_confirm = AsyncMock()
         widget = ToolExecutionWidget(execution_info=info, on_confirm=on_confirm)
 
-        class _TestApp(TestApp):
+        class _TestApp(ToolExecutionTestApp):
             def compose(self):
                 yield widget
 
@@ -207,7 +207,7 @@ class TestToolExecutionWidget:
         on_cancel = AsyncMock()
         widget = ToolExecutionWidget(execution_info=info, on_cancel=on_cancel)
 
-        class _TestApp(TestApp):
+        class _TestApp(ToolExecutionTestApp):
             def compose(self):
                 yield widget
 
@@ -238,7 +238,7 @@ class TestToolExecutionWidget:
         on_details = AsyncMock()
         widget = ToolExecutionWidget(execution_info=info, on_details=on_details)
 
-        class _TestApp(TestApp):
+        class _TestApp(ToolExecutionTestApp):
             def compose(self):
                 yield widget
 
@@ -271,7 +271,7 @@ class TestToolExecutionWidget:
 
         widget = ToolExecutionWidget(execution_info=info)
 
-        class _TestApp(TestApp):
+        class _TestApp(ToolExecutionTestApp):
             def compose(self):
                 yield widget
 
@@ -310,7 +310,7 @@ class TestToolExecutionWidget:
         widget = ToolExecutionWidget(execution_info=info)
         widget.expanded = True
 
-        class _TestApp(TestApp):
+        class _TestApp(ToolExecutionTestApp):
             def compose(self):
                 yield widget
 
@@ -336,7 +336,7 @@ class TestToolExecutionWidget:
 
         widget = ToolExecutionWidget(execution_info=initial_info)
 
-        class _TestApp(TestApp):
+        class _TestApp(ToolExecutionTestApp):
             def compose(self):
                 yield widget
 
@@ -369,7 +369,7 @@ class TestToolExecutionWidget:
 
         widget = ToolExecutionWidget(execution_info=info)
 
-        class _TestApp(TestApp):
+        class _TestApp(ToolExecutionTestApp):
             def compose(self):
                 yield widget
 
