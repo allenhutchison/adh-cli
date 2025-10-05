@@ -2,8 +2,10 @@
 
 import pytest
 
-from adh_cli.tools.base import ToolSpec, registry
+from google.adk.tools.google_search_tool import GoogleSearchTool
+
 from adh_cli.tools import specs
+from adh_cli.tools.base import ToolSpec, registry
 from adh_cli.tools.google_tools import create_google_search_tool
 
 
@@ -40,7 +42,6 @@ class TestToolSpecValidation:
         )
 
         tool = spec.create_adk_tool()
-        from google.adk.tools.google_search_tool import GoogleSearchTool
 
         assert isinstance(tool, GoogleSearchTool)
 
@@ -68,7 +69,6 @@ class TestRegisterDefaultSpecs:
         assert search_spec.adk_tool_factory is not None
 
         tool_instance = search_spec.create_adk_tool()
-        from google.adk.tools.google_search_tool import GoogleSearchTool
 
         assert isinstance(tool_instance, GoogleSearchTool)
 

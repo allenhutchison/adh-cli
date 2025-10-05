@@ -48,9 +48,7 @@ class PolicyAwareNativeTool(BaseTool):
         self.execution_manager = execution_manager
         self.agent_name = agent_name
 
-    async def process_llm_request(
-        self, *, tool_context, llm_request
-    ) -> None:  # type: ignore[override]
+    async def process_llm_request(self, *, tool_context, llm_request) -> None:  # type: ignore[override]
         tool_call = ToolCall(tool_name=self.tool_name, parameters={}, context={})
         decision = self.policy_engine.evaluate_tool_call(tool_call)
 
@@ -104,7 +102,9 @@ class PolicyAwareNativeTool(BaseTool):
             await self.audit_logger(
                 tool_name=self.tool_name,
                 parameters={},
-                decision=decision.dict() if hasattr(decision, "dict") else str(decision),
+                decision=decision.dict()
+                if hasattr(decision, "dict")
+                else str(decision),
                 phase="pre_execution",
             )
 
