@@ -127,13 +127,15 @@ Use `delegate_to_agent` with `agent="planner"` for:
 Use `delegate_to_agent` with `agent="search"` whenever the user asks for
 current events, market intelligence, or anything that requires up-to-date
 information from the public web. The search agent has exclusive access to the
-`google_search` tool and will return concise summaries with links.
+`google_search` tool (for discovering sources) and `google_url_context` (for
+grounding answers in specific URLs) and will return concise summaries with
+links.
 
 Provide clear search goals in the task description, for example:
 ```
 results = delegate_to_agent(
     agent="search",
-    task="Find the latest AI safety announcements from major labs in the last week"
+    task="Find the latest AI safety announcements from major labs in the last week. Include analyses from these URLs if relevant: https://..."
 )
 ```
 

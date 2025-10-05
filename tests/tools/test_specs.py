@@ -6,7 +6,10 @@ from google.adk.tools.google_search_tool import GoogleSearchTool
 
 from adh_cli.tools import specs
 from adh_cli.tools.base import ToolSpec, registry
-from adh_cli.tools.google_tools import create_google_search_tool
+from adh_cli.tools.google_tools import (
+    UrlContextTool,
+    create_google_search_tool,
+)
 
 
 class TestToolSpecValidation:
@@ -60,18 +63,22 @@ def registry_snapshot():
 
 
 class TestRegisterDefaultSpecs:
-    def test_registers_google_search(self, registry_snapshot):
+    def test_registers_google_tools(self, registry_snapshot):
         specs.register_default_specs()
 
         search_spec = registry.get("google_search")
         assert search_spec is not None
         assert search_spec.handler is None
         assert search_spec.adk_tool_factory is not None
+        assert isinstance(search_spec.create_adk_tool(), GoogleSearchTool)
 
-        tool_instance = search_spec.create_adk_tool()
-
-        assert isinstance(tool_instance, GoogleSearchTool)
+        url_spec = registry.get("google_url_context")
+        assert url_spec is not None
+        assert url_spec.handler is None
+        assert url_spec.adk_tool_factory is not None
+        assert isinstance(url_spec.create_adk_tool(), UrlContextTool)
 
         # Registry remains idempotent
         specs.register_default_specs()
         assert registry.get("google_search") is search_spec
+        assert registry.get("google_url_context") is url_spec

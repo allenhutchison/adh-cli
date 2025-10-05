@@ -176,15 +176,17 @@ class AgentDelegator:
         # All agents get read-only tools for exploration
         if agent_name == "search":
             register_default_specs()
-            search_spec = registry.get("google_search")
-            if search_spec is None or search_spec.adk_tool_factory is None:
-                raise ValueError("Google search tool specification not registered")
-            agent.register_native_tool(
-                name=search_spec.name,
-                description=search_spec.description,
-                parameters=search_spec.parameters,
-                factory=search_spec.adk_tool_factory,
-            )
+
+            for tool_name in ("google_search", "google_url_context"):
+                spec = registry.get(tool_name)
+                if spec is None or spec.adk_tool_factory is None:
+                    raise ValueError(f"{tool_name} specification not registered")
+                agent.register_native_tool(
+                    name=spec.name,
+                    description=spec.description,
+                    parameters=spec.parameters,
+                    factory=spec.adk_tool_factory,
+                )
             return
 
         # Default agents get read-only tools for exploration

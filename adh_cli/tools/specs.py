@@ -223,6 +223,23 @@ def register_default_specs() -> None:
         )
     )
 
+    add(
+        ToolSpec(
+            name="google_url_context",
+            description="Fetch and ground responses in the content of provided URLs via Gemini's built-in tool.",
+            parameters={
+                "urls": {
+                    "type": "array",
+                    "description": "List of URLs to provide as context",
+                    "items": {"type": "string"},
+                },
+            },
+            adk_tool_factory=google_tools.create_url_context_tool,
+            tags=["network", "web", "context"],
+            effects=["network_read", "external_content"],
+        )
+    )
+
 
 def get_registered_specs():
     """Helper for callers that need the current spec list."""

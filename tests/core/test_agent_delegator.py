@@ -211,7 +211,9 @@ class TestAgentDelegator:
 
             await delegator.delegate(agent_name="search", task="Find AI news")
 
-            mock_agent.register_native_tool.assert_called_once()
+            assert mock_agent.register_native_tool.call_count == 2
+            names = [call.kwargs["name"] for call in mock_agent.register_native_tool.call_args_list]
+            assert {"google_search", "google_url_context"} == set(names)
             assert mock_agent.register_tool.call_count == 0
 
     def test_clear_cache(self, delegator):
