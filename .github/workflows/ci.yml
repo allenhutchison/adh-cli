@@ -20,7 +20,7 @@ jobs:
           python-version: '3.12'
       - uses: astral-sh/setup-uv@v3
       - name: Install deps
-        run: uv pip install -e '.[dev]'
+        run: uv pip install --system -e '.[dev]'
       - name: Ruff lint
         run: ruff check adh_cli tests
       - name: Ruff format check
@@ -38,7 +38,6 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - uses: astral-sh/setup-uv@v3
       - name: Install deps
-        run: uv pip install -e '.[dev]'
+        run: uv pip install --system -e '.[dev]'
       - name: Run tests
         run: pytest -q
-
