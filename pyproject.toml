@@ -3,7 +3,7 @@ name = "adh-cli"
 version = "0.1.0"
 description = "A TUI application using Textual and Google ADK"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "textual>=6.2.0",
     "google-genai>=1.39.1",

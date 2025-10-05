@@ -197,6 +197,23 @@ class TestAgentDelegator:
             assert "list_directory" in tool_names
             assert "get_file_info" in tool_names
 
+    @pytest.mark.asyncio
+    async def test_search_agent_registers_native_tool(self, delegator):
+        """Search agent should register only the native Google Search tool."""
+        with patch(
+            "adh_cli.core.agent_delegator.PolicyAwareLlmAgent"
+        ) as mock_agent_class:
+            mock_agent = Mock()
+            mock_agent.chat = AsyncMock(return_value="Search results")
+            mock_agent.register_tool = Mock()
+            mock_agent.register_native_tool = Mock()
+            mock_agent_class.return_value = mock_agent
+
+            await delegator.delegate(agent_name="search", task="Find AI news")
+
+            mock_agent.register_native_tool.assert_called_once()
+            assert mock_agent.register_tool.call_count == 0
+
     def test_clear_cache(self, delegator):
         """Test clearing the agent cache."""
         delegator._agent_cache = {"planner": Mock(), "reviewer": Mock()}

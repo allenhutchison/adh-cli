@@ -1,12 +1,14 @@
 """Tests for PolicyAwareLlmAgent."""
 
-import pytest
-from unittest.mock import Mock, AsyncMock, patch
-from pathlib import Path
 import tempfile
+from pathlib import Path
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
 
 from adh_cli.core.policy_aware_llm_agent import PolicyAwareLlmAgent
 from adh_cli.core.tool_executor import ExecutionContext
+from adh_cli.tools.google_tools import create_google_search_tool
 
 
 class TestPolicyAwareLlmAgent:
@@ -122,6 +124,42 @@ class TestPolicyAwareLlmAgent:
         assert len(agent_without_api_key.tools) == 2
         assert "tool1" in agent_without_api_key.tool_handlers
         assert "tool2" in agent_without_api_key.tool_handlers
+
+    def test_register_native_tool(self, agent_without_api_key):
+        """Native built-in tools are tracked alongside function tools."""
+
+        agent_without_api_key.register_native_tool(
+            name="google_search",
+            description="Search the public web",
+            parameters={"query": {"type": "string"}},
+            factory=create_google_search_tool,
+        )
+
+        assert "google_search" in agent_without_api_key.native_tools
+        assert agent_without_api_key.tool_metadata["google_search"]["description"]
+        descriptions = agent_without_api_key._generate_tool_descriptions()
+        assert "google_search" in descriptions
+
+    def test_update_policies_preserves_native_tools(self):
+        """Native tools remain registered after policy reloads."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            agent = PolicyAwareLlmAgent(api_key=None, policy_dir=Path(tmpdir))
+            agent.register_native_tool(
+                name="google_search",
+                description="Search the public web",
+                parameters={"query": {"type": "string"}},
+                factory=create_google_search_tool,
+            )
+
+            # Policy directory swap should keep native tool
+            new_policy_dir = Path(tmpdir) / "policies"
+            new_policy_dir.mkdir(exist_ok=True)
+
+            agent.update_policies(new_policy_dir)
+
+            assert "google_search" in agent.native_tools
+            assert agent.tool_metadata["google_search"]["description"]
 
     @pytest.mark.asyncio
     async def test_chat_without_api_key(self, agent_without_api_key):
@@ -392,7 +430,7 @@ class TestPolicyAwareLlmAgent:
 
             descriptions = agent._generate_tool_descriptions()
             assert "test_tool" in descriptions
-            assert "Test tool description" in descriptions
+            assert "A test tool" in descriptions
 
     def test_system_prompt_with_agent_definition(self):
         """Test system prompt uses agent definition."""
