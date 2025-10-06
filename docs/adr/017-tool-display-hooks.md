@@ -24,16 +24,19 @@ Introduce **tool-provided display hooks** that allow each tool to emit tailored 
 
 ### New Base Tool Interface
 
-Update `adh_cli/tools/base.py` to define two optional coroutine hooks on `BaseTool`:
+Introduce `AdhCliBaseTool(BaseTool)` within `adh_cli/tools/base.py`. This project-owned subclass exposes two optional coroutine hooks while preserving the external ADK contract:
 
 - `async def get_pre_call_display(self, *, invocation: ToolInvocationContext) -> ToolDisplayPayload`: Called immediately after policy approval (and before execution) so the UI can render confirmation and "about to run" panels.
 - `async def get_post_call_display(self, *, invocation: ToolInvocationContext, result: ToolResult) -> ToolDisplayPayload`: Called after execution (success, failure, or cancellation) so the UI can present contextual outcomes.
 
+All built-in tools will inherit from `AdhCliBaseTool` (or an adapter subclass) so the new hooks are available without modifying the upstream ADK `BaseTool` directly.
+
 Key points:
 
 - Both hooks return a structured `ToolDisplayPayload` dataclass with fields such as `title`, `summary`, `details`, `content_blocks`, and `safety_highlights`. This structure extends the formatting guidance from ADR-013 and ensures widgets can render consistent layouts.
-- Default implementations in `BaseTool` fall back to the current generic formatting to maintain backward compatibility.
+- Default implementations in `AdhCliBaseTool` fall back to the current generic formatting to maintain backward compatibility for tools we have not customized yet.
 - `ToolDisplayPayload` supports lightweight rich content (markdown text, table rows, diff hunks, truncated text blobs) but intentionally avoids arbitrary Textual widgets to keep tools UI-agnostic.
+- For third-party ADK tools that cannot change their inheritance tree, we provide thin adapter subclasses of `AdhCliBaseTool` to delegate execution while supplying display hooks.
 
 ### Invocation Flow Integration
 
@@ -54,7 +57,7 @@ Key points:
 ### API Surface
 
 - Add `ToolDisplayPayload` and `ToolInvocationContext` dataclasses under `adh_cli/tools/models.py` (or similar) to encapsulate the data passed into the hooks.
-- Extend the tool spec registry (ADR-014) schema to reference these hooks so automated validation can confirm that required metadata is available for UI use.
+- Extend the `ToolSpec` schema with a nested `ToolDisplayContract` dataclass (e.g., fields `supports_pre_call_display: bool`, `supports_post_call_display: bool`, `requires_confirmation_preview: bool`). The registry asserts that an `adk_tool_factory` returns an `AdhCliBaseTool` subclass whose hooks satisfy the declared contract, enabling automated validation.
 
 ## Consequences
 
@@ -95,7 +98,7 @@ Have the policy engine enrich `PolicyDecision` objects with display data.
 
 ## Implementation Notes
 
-- Update `adh_cli/tools/base.py` with the new hook signatures and default implementations.
+- Update `adh_cli/tools/base.py` to expose `AdhCliBaseTool` with the new hook signatures and default implementations.
 - Introduce `adh_cli/tools/display_payload.py` (or similar) for shared dataclasses and helper utilities (diff formatting, truncation, ANSI stripping).
 - Modify `adh_cli/core/policy_aware_function_tool.py` to request pre/post payloads and attach them to `ToolExecutionInfo` records.
 - Ensure `ToolExecutionManager` and chat rendering components respect the new payload structure while maintaining backward compatibility.
