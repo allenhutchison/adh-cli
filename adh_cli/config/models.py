@@ -101,7 +101,6 @@ class ModelRegistry:
         return cls._ALL_MODELS
 
     @classmethod
-    @classmethod
     def _indexed_models(cls) -> Dict[str, ModelConfig]:
         """Return a mapping of model identifiers to configuration objects."""
 

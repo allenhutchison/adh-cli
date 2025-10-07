@@ -264,16 +264,22 @@ class SettingsModal(ModalScreen):
                             self.query_one(
                                 "#model-select", Select
                             ).value = model_config.id
-                        except Exception:
-                            pass
+                        except Exception as exc:
+                            self.app.log.warning(
+                                "Failed to set model select value on mount: %s",
+                                exc,
+                            )
                 if "orchestrator_agent" in settings:
                     try:
                         self.query_one("#orchestrator-select", Select).value = settings[
                             "orchestrator_agent"
                         ]
-                    except Exception:
+                    except Exception as exc:
                         # If setting the value fails (agent not found), use default
-                        pass
+                        self.app.log.warning(
+                            "Failed to set orchestrator select value on mount: %s",
+                            exc,
+                        )
                 if "temperature" in settings:
                     self.query_one("#temperature-input", Input).value = str(
                         settings["temperature"]
@@ -286,5 +292,5 @@ class SettingsModal(ModalScreen):
                     self.query_one("#top-p-input", Input).value = str(settings["top_p"])
                 if "top_k" in settings:
                     self.query_one("#top-k-input", Input).value = str(settings["top_k"])
-            except Exception:
-                pass
+            except Exception as exc:
+                self.app.log.warning("Failed to load settings on mount: %s", exc)

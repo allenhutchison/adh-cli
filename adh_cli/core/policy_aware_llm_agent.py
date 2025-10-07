@@ -215,13 +215,20 @@ class PolicyAwareLlmAgent:
         self.agent_definition = None
         try:
             loader = AgentLoader()
-            self.agent_definition = loader.load(agent_name)
-        except FileNotFoundError:
-            self.agent_definition = None
-        else:
-            agent_model_config = self.agent_definition.model_config
-            self.temperature = self.agent_definition.temperature
-            self.max_tokens = self.agent_definition.max_tokens
+            agent_definition = loader.load(agent_name)
+            self.agent_definition = agent_definition
+            agent_model_config = agent_definition.model_config
+            self.temperature = agent_definition.temperature
+            self.max_tokens = agent_definition.max_tokens
+        except (FileNotFoundError, ValueError) as exc:
+            if self.notification_handler:
+                self.notification_handler(
+                    (
+                        f"Could not load agent '{agent_name}', falling back to defaults. "
+                        f"Reason: {exc}"
+                    ),
+                    level="warning",
+                )
 
         if model_name:
             override_model = ModelRegistry.get_by_id(model_name)
