@@ -43,7 +43,7 @@ class ModelRegistry:
 
     FLASH_LATEST = ModelConfig(
         id="gemini-flash-latest",
-        full_id="models/gemini-flash-latest",
+        full_id="gemini-flash-latest",
         display_name="Gemini Flash (Latest)",
         description="Latest Flash model, currently pointing to Gemini 2.5 Flash Preview for best performance.",
         context_window=1_048_576,
@@ -57,7 +57,7 @@ class ModelRegistry:
 
     FLASH_LITE_LATEST = ModelConfig(
         id="gemini-flash-lite-latest",
-        full_id="models/gemini-flash-lite-latest",
+        full_id="gemini-flash-lite-latest",
         display_name="Gemini Flash Lite (Latest)",
         description="Second generation small workhorse model, optimized for cost efficiency and low latency.",
         context_window=1_048_576,
@@ -71,7 +71,7 @@ class ModelRegistry:
 
     PRO_25 = ModelConfig(
         id="gemini-2.5-pro",
-        full_id="models/gemini-2.5-pro",
+        full_id="gemini-2.5-pro",
         display_name="Gemini 2.5 Pro",
         description="State-of-the-art thinking model, capable of reasoning over complex problems in code, math, and STEM.",
         context_window=1_048_576,
