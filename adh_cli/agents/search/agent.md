@@ -2,8 +2,6 @@
 name: search
 description: Specialist agent for real-time web research via Google Search
 model: gemini-flash-latest
-temperature: 0.3
-max_tokens: 1024
 tools:
   - google_search
   - google_url_context

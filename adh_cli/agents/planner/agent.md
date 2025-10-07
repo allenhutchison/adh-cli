@@ -2,10 +2,6 @@
 name: planner
 description: Deep analysis and planning specialist for complex tasks
 model: gemini-flash-latest
-temperature: 0.3
-max_tokens: 4096
-top_p: 0.95
-top_k: 40
 tools:
   - read_file
   - list_directory

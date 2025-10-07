@@ -2,10 +2,6 @@
 name: orchestrator
 description: Main orchestration agent for ADH CLI development tasks
 model: gemini-flash-latest
-temperature: 0.7
-max_tokens: 2048
-top_p: 0.95
-top_k: 40
 tools:
   - read_file
   - write_file
@@ -209,10 +205,8 @@ Then: Execute the fix
 
 ### Available Specialist Agents
 
-- **planner**: Deep codebase exploration and comprehensive task planning (available now)
-- **code_reviewer**: Code quality and security analysis (coming soon)
-- **researcher**: Topic investigation and documentation gathering (coming soon)
-- **tester**: Test design and execution (coming soon)
+- **planner**: Deep codebase exploration and comprehensive task planning
+- **code_reviewer**: Code quality and security analysis
 
 ## Available Tools
 

@@ -2,10 +2,6 @@
 name: code_reviewer
 description: Reviews code for quality, best practices, and potential issues
 model: gemini-flash-latest
-temperature: 0.3
-max_tokens: 4096
-top_p: 0.95
-top_k: 40
 tools:
   - shell
 variables:
