@@ -10,6 +10,7 @@ from textual.widgets import Button, Input, Label, Select, Static, Switch
 from textual.binding import Binding
 
 from ..core.config_paths import ConfigPaths
+from ..config.models import ModelRegistry
 
 
 class SettingsModal(ModalScreen):
@@ -143,13 +144,10 @@ class SettingsModal(ModalScreen):
                 )
 
                 yield Label("\nModel Selection:")
-                yield Select.from_values(
-                    [
-                        "Gemini Flash Latest",
-                        "Gemini Flash Lite Latest",
-                        "Gemini 2.5 Pro",
-                    ],
+                yield Select(
+                    options=ModelRegistry.ui_options(),
                     id="model-select",
+                    value=ModelRegistry.DEFAULT.id,
                 )
 
                 yield Label("\nOrchestrator Agent:")
@@ -195,14 +193,11 @@ class SettingsModal(ModalScreen):
     def on_save_pressed(self) -> None:
         """Save settings."""
         api_key = self.query_one("#api-key-input", Input).value
-        selected_option = self.query_one("#model-select", Select).value
-        # Map display text to actual model string
-        model_map = {
-            "Gemini Flash Latest": "gemini-flash-latest",
-            "Gemini Flash Lite Latest": "gemini-flash-lite-latest",
-            "Gemini 2.5 Pro": "gemini-2.5-pro",
-        }
-        model = model_map.get(selected_option, "gemini-flash-latest")
+        model = self.query_one("#model-select", Select).value
+        valid, error = ModelRegistry.validate_model_id(model)
+        if not valid:
+            self.notify(error or "Invalid model selected", severity="error")
+            return
         orchestrator_agent = self.query_one("#orchestrator-select", Select).value
         temperature = self.query_one("#temperature-input", Input).value
         max_tokens = self.query_one("#max-tokens-input", Input).value
@@ -233,7 +228,7 @@ class SettingsModal(ModalScreen):
     def on_reset_pressed(self) -> None:
         """Reset settings to defaults."""
         self.query_one("#api-key-input", Input).value = ""
-        self.query_one("#model-select", Select).value = "Gemini Flash Latest"
+        self.query_one("#model-select", Select).value = ModelRegistry.DEFAULT.id
         self.query_one("#orchestrator-select", Select).value = "orchestrator"
         self.query_one("#temperature-input", Input).value = "0.7"
         self.query_one("#max-tokens-input", Input).value = "2048"
@@ -262,29 +257,29 @@ class SettingsModal(ModalScreen):
                 if "api_key" in settings:
                     self.query_one("#api-key-input", Input).value = settings["api_key"]
                 if "model" in settings:
-                    # Find the display text for the saved model value
                     model_value = settings["model"]
-                    reverse_map = {
-                        "gemini-flash-latest": "Gemini Flash Latest",
-                        "gemini-flash-lite-latest": "Gemini Flash Lite Latest",
-                        "gemini-2.5-pro": "Gemini 2.5 Pro",
-                    }
-                    if model_value in reverse_map:
+                    model_config = ModelRegistry.get_by_id(model_value)
+                    if model_config:
                         try:
-                            self.query_one("#model-select", Select).value = reverse_map[
-                                model_value
-                            ]
-                        except Exception:
-                            # If setting the value fails, just skip it
-                            pass
+                            self.query_one(
+                                "#model-select", Select
+                            ).value = model_config.id
+                        except Exception as exc:
+                            self.app.log.warning(
+                                "Failed to set model select value on mount: %s",
+                                exc,
+                            )
                 if "orchestrator_agent" in settings:
                     try:
                         self.query_one("#orchestrator-select", Select).value = settings[
                             "orchestrator_agent"
                         ]
-                    except Exception:
+                    except Exception as exc:
                         # If setting the value fails (agent not found), use default
-                        pass
+                        self.app.log.warning(
+                            "Failed to set orchestrator select value on mount: %s",
+                            exc,
+                        )
                 if "temperature" in settings:
                     self.query_one("#temperature-input", Input).value = str(
                         settings["temperature"]
@@ -297,5 +292,5 @@ class SettingsModal(ModalScreen):
                     self.query_one("#top-p-input", Input).value = str(settings["top_p"])
                 if "top_k" in settings:
                     self.query_one("#top-k-input", Input).value = str(settings["top_k"])
-            except Exception:
-                pass
+            except Exception as exc:
+                self.app.log.warning("Failed to load settings on mount: %s", exc)

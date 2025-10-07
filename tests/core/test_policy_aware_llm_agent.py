@@ -10,6 +10,7 @@ import pytest
 from google.genai import types as genai_types
 
 from adh_cli.core.policy_aware_llm_agent import PolicyAwareLlmAgent
+from adh_cli.config.models import ModelRegistry
 from adh_cli.core.tool_executor import ExecutionContext
 from adh_cli.tools.google_tools import create_google_search_tool
 
@@ -385,8 +386,9 @@ class TestPolicyAwareLlmAgent:
             # Should load orchestrator agent definition
             assert agent.agent_definition is not None
             assert agent.agent_definition.name == "orchestrator"
-            assert agent.agent_definition.model == "gemini-flash-latest"
-            assert agent.model_name == "gemini-flash-latest"
+            assert agent.agent_definition.model == ModelRegistry.DEFAULT.id
+            assert agent.model_id == ModelRegistry.DEFAULT.id
+            assert agent.model_name == ModelRegistry.DEFAULT.full_id
 
     def test_agent_loading_nonexistent_agent(self):
         """Test loading non-existent agent falls back to defaults."""
@@ -402,7 +404,8 @@ class TestPolicyAwareLlmAgent:
 
             # Should fallback to passed parameters
             assert agent.agent_definition is None
-            assert agent.model_name == "gemini-pro"
+            assert agent.model_id == ModelRegistry.PRO_25.id
+            assert agent.model_name == ModelRegistry.PRO_25.full_id
             assert agent.temperature == 0.5
             assert agent.max_tokens == 1024
 

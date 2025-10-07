@@ -13,6 +13,7 @@ from .screens.chat_screen import ChatScreen
 from .core.policy_aware_llm_agent import PolicyAwareLlmAgent
 from .core.config_paths import ConfigPaths
 from .ui.theme import get_themes
+from .config.models import ModelRegistry
 
 
 def get_adh_commands_provider():
@@ -136,8 +137,16 @@ class ADHApp(App):
             # Use ADK-based agent with automatic tool orchestration
             # Note: Execution manager callbacks will be registered by ChatScreen on mount
             # Note: Model settings from config are overridden by agent definition
+            configured_model = config.get("model")
+            if configured_model and not ModelRegistry.get_by_id(configured_model):
+                self.notify(
+                    f"Unknown model '{configured_model}' in configuration. Using default instead.",
+                    severity="warning",
+                )
+                configured_model = None
+
             self.agent = PolicyAwareLlmAgent(
-                model_name=config.get("model", "gemini-flash-latest"),
+                model_name=configured_model,
                 api_key=self.api_key,
                 policy_dir=self.policy_dir,
                 confirmation_handler=self.handle_confirmation,
