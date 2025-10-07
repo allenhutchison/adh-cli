@@ -188,11 +188,6 @@ class PolicyEngine:
             if isinstance(value, str) and value:
                 paths.append(value)
 
-        if not paths:
-            for value in parameters.values():
-                if isinstance(value, str) and value:
-                    paths.append(value)
-
         return paths
 
     def _apply_rule(
@@ -215,14 +210,12 @@ class PolicyEngine:
                 rule.supervision, decision.supervision_level
             ):
                 decision.supervision_level = rule.supervision
-                decision.metadata["current_priority"] = rule.priority
 
             # Update risk level (use highest)
             if rule.priority >= current_priority and self._risk_priority(
                 rule.risk_level
             ) > self._risk_priority(decision.risk_level):
                 decision.risk_level = rule.risk_level
-                decision.metadata["current_priority"] = rule.priority
 
         # Add restrictions
         for restriction_config in rule.restrictions:
