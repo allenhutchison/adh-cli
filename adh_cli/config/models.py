@@ -178,7 +178,9 @@ def _load_model_from_config() -> Optional[ModelConfig]:
             return None
         data = json.loads(content)
     except (OSError, json.JSONDecodeError):
-        LOGGER.debug("Failed to load configuration file for model selection", exc_info=True)
+        LOGGER.debug(
+            "Failed to load configuration file for model selection", exc_info=True
+        )
         return None
 
     model_id = data.get("model")

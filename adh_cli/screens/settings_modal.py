@@ -261,7 +261,9 @@ class SettingsModal(ModalScreen):
                     model_config = ModelRegistry.get_by_id(model_value)
                     if model_config:
                         try:
-                            self.query_one("#model-select", Select).value = model_config.id
+                            self.query_one(
+                                "#model-select", Select
+                            ).value = model_config.id
                         except Exception:
                             pass
                 if "orchestrator_agent" in settings:
