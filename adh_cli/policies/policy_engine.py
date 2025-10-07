@@ -131,20 +131,24 @@ class PolicyEngine:
         if not condition:
             return True
 
-        if "command_matches" in condition or "command_starts_with" in condition:
-            command = str(tool_call.parameters.get("command", "")).strip()
+        command = str(tool_call.parameters.get("command", "")).strip()
+        if "command_matches" in condition:
             if not command:
                 return False
-
             patterns = condition.get("command_matches", [])
-            if patterns:
-                if not any(fnmatch.fnmatch(command, pattern) for pattern in patterns):
-                    return False
+            if not patterns or not any(
+                fnmatch.fnmatch(command, pattern) for pattern in patterns
+            ):
+                return False
 
+        if "command_starts_with" in condition:
+            if not command:
+                return False
             prefixes = condition.get("command_starts_with", [])
-            if prefixes:
-                if not any(command.startswith(prefix) for prefix in prefixes):
-                    return False
+            if not prefixes or not any(
+                command.startswith(prefix) for prefix in prefixes
+            ):
+                return False
 
         if "path_matches" in condition:
             paths = self._collect_path_values(tool_call.parameters)
@@ -213,15 +217,13 @@ class PolicyEngine:
                 return
 
             # Subsequent rules - use most restrictive
-            if rule.priority >= current_priority and self._is_more_restrictive(
-                rule.supervision, decision.supervision_level
-            ):
+            if self._is_more_restrictive(rule.supervision, decision.supervision_level):
                 decision.supervision_level = rule.supervision
 
             # Update risk level (use highest)
-            if rule.priority >= current_priority and self._risk_priority(
-                rule.risk_level
-            ) > self._risk_priority(decision.risk_level):
+            if self._risk_priority(rule.risk_level) > self._risk_priority(
+                decision.risk_level
+            ):
                 decision.risk_level = rule.risk_level
 
         # Add restrictions
