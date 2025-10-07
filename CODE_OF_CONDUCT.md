@@ -25,4 +25,3 @@ Unacceptable behavior includes:
 Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by opening an issue or contacting the maintainer. All complaints will be reviewed and investigated and will result in a response that is deemed necessary and appropriate to the circumstances.
 
 This Code of Conduct is adapted from the Contributor Covenant, version 2.1.
-

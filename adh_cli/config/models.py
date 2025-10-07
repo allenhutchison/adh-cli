@@ -25,8 +25,8 @@ class ModelConfig:
     max_output_tokens: int
     supports_function_calling: bool
     supports_streaming: bool
-    cost_per_1k_input: float
-    cost_per_1k_output: float
+    cost_per_1m_input: float
+    cost_per_1m_output: float
     recommended_for: Tuple[str, ...]
     deprecated: bool = False
     replacement: Optional[str] = None
@@ -45,13 +45,13 @@ class ModelRegistry:
         id="gemini-flash-latest",
         full_id="models/gemini-flash-latest",
         display_name="Gemini Flash (Latest)",
-        description="Fast, general-purpose model suitable for most tasks.",
-        context_window=1_000_000,
-        max_output_tokens=8_192,
+        description="Latest Flash model, currently pointing to Gemini 2.5 Flash Preview for best performance.",
+        context_window=1_048_576,
+        max_output_tokens=65_536,
         supports_function_calling=True,
         supports_streaming=True,
-        cost_per_1k_input=0.0,
-        cost_per_1k_output=0.0,
+        cost_per_1m_input=0.30,
+        cost_per_1m_output=2.50,
         recommended_for=("chat", "analysis", "code", "general"),
     )
 
@@ -59,13 +59,13 @@ class ModelRegistry:
         id="gemini-flash-lite-latest",
         full_id="models/gemini-flash-lite-latest",
         display_name="Gemini Flash Lite (Latest)",
-        description="Ultra-fast, low-cost model for lightweight interactions.",
-        context_window=1_000_000,
+        description="Second generation small workhorse model, optimized for cost efficiency and low latency.",
+        context_window=1_048_576,
         max_output_tokens=8_192,
         supports_function_calling=True,
         supports_streaming=True,
-        cost_per_1k_input=0.0,
-        cost_per_1k_output=0.0,
+        cost_per_1m_input=0.10,
+        cost_per_1m_output=0.40,
         recommended_for=("chat", "simple-tasks"),
     )
 
@@ -73,13 +73,13 @@ class ModelRegistry:
         id="gemini-2.5-pro",
         full_id="models/gemini-2.5-pro",
         display_name="Gemini 2.5 Pro",
-        description="Latest Pro model providing the highest quality outputs.",
-        context_window=2_000_000,
-        max_output_tokens=8_192,
+        description="State-of-the-art thinking model, capable of reasoning over complex problems in code, math, and STEM.",
+        context_window=1_048_576,
+        max_output_tokens=65_536,
         supports_function_calling=True,
         supports_streaming=True,
-        cost_per_1k_input=0.00125,
-        cost_per_1k_output=0.005,
+        cost_per_1m_input=1.25,  # ≤200k tokens; $2.50 for >200k tokens
+        cost_per_1m_output=10.0,  # ≤200k tokens; $15.00 for >200k tokens
         recommended_for=("complex-reasoning", "code-generation", "analysis"),
     )
 
@@ -92,6 +92,9 @@ class ModelRegistry:
     DEFAULT = FLASH_LATEST
     _ALIASES: Dict[str, str] = {
         "gemini-pro": PRO_25.id,
+        "gemini-2.5-flash": FLASH_LATEST.id,
+        "gemini-flash": FLASH_LATEST.id,
+        "gemini-flash-latest": FLASH_LITE_LATEST.id,
     }
 
     @classmethod

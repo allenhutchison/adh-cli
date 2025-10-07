@@ -15,4 +15,3 @@ If applicable, include before/after screenshots.
 ## Notes
 
 Add any additional context, breaking changes, or follow‑ups.
-

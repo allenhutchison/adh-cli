@@ -22,7 +22,9 @@ def format_param_table(params: dict) -> str:
             default = "true"
         elif default is False:
             default = "false"
-        lines.append(f"| `{name}` | `{ptype}` | {default} | {spec.get('description','')} |")
+        lines.append(
+            f"| `{name}` | `{ptype}` | {default} | {spec.get('description', '')} |"
+        )
     return "\n".join(lines) + "\n"
 
 
@@ -64,4 +66,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
