@@ -7,7 +7,6 @@ tags, and effects. Uses the same registry ADHApp uses.
 """
 
 from pathlib import Path
-from textwrap import indent
 
 
 def format_param_table(params: dict) -> str:
