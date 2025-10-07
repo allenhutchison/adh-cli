@@ -181,6 +181,8 @@ class PolicyEngine:
             "destination",
             "target",
         ]
+        # NOTE: Tools with additional path parameters must update this list
+        # or provide richer metadata so policies can reason about them.
         paths: List[str] = []
 
         for key in candidate_keys:
@@ -204,6 +206,11 @@ class PolicyEngine:
             decision.metadata["current_priority"] = rule.priority
         else:
             current_priority = decision.metadata.get("current_priority", rule.priority)
+
+            # Once we encounter a lower-priority rule, skip it entirely to
+            # avoid mixing restrictions/safety between precedence levels.
+            if rule.priority < current_priority:
+                return
 
             # Subsequent rules - use most restrictive
             if rule.priority >= current_priority and self._is_more_restrictive(
