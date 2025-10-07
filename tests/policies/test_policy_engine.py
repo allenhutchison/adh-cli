@@ -199,6 +199,54 @@ class TestPolicyEngine:
             == SupervisionLevel.DENY
         )
 
+    def test_git_diff_is_automatic(self, temp_policy_dir):
+        """Git read-style commands should execute automatically."""
+
+        engine = PolicyEngine(policy_dir=temp_policy_dir)
+
+        tool_call = ToolCall(
+            tool_name="execute_command",
+            parameters={"command": "git diff"},
+        )
+
+        decision = engine.evaluate_tool_call(tool_call)
+
+        assert decision.allowed is True
+        assert decision.supervision_level == SupervisionLevel.AUTOMATIC
+        assert decision.requires_confirmation is False
+
+    def test_git_add_requires_confirmation(self, temp_policy_dir):
+        """Git write commands should still require confirmation."""
+
+        engine = PolicyEngine(policy_dir=temp_policy_dir)
+
+        tool_call = ToolCall(
+            tool_name="execute_command",
+            parameters={"command": "git add ."},
+        )
+
+        decision = engine.evaluate_tool_call(tool_call)
+
+        assert decision.allowed is True
+        assert decision.supervision_level == SupervisionLevel.CONFIRM
+        assert decision.requires_confirmation is True
+
+    def test_system_path_denied(self, temp_policy_dir):
+        """Writing to system paths should be denied by default policies."""
+
+        engine = PolicyEngine(policy_dir=temp_policy_dir)
+
+        tool_call = ToolCall(
+            tool_name="write_file",
+            parameters={"file_path": "/etc/hosts", "content": "127.0.0.1 localhost"},
+        )
+
+        decision = engine.evaluate_tool_call(tool_call)
+
+        assert decision.allowed is False
+        assert decision.supervision_level == SupervisionLevel.DENY
+        assert decision.risk_level == RiskLevel.CRITICAL
+
     def test_requires_confirmation(self, engine_with_policies):
         """Test checking if confirmation is required."""
         assert not engine_with_policies.requires_confirmation("read_file", {})

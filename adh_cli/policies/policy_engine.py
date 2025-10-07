@@ -1,9 +1,10 @@
 """Core policy engine for evaluating tool execution policies."""
 
-import yaml
 import fnmatch
 from pathlib import Path
 from typing import Dict, List, Optional, Any
+
+import yaml
 
 from .policy_types import (
     PolicyDecision,
@@ -30,8 +31,9 @@ class PolicyEngine:
                        Built-in policies are always loaded first, then user policies
                        can override them if provided.
         """
-        # Built-in policy directory
+        # Built-in policy directories
         self.builtin_policy_dir = Path(__file__).parent / "definitions"
+        self.default_policy_dir = Path(__file__).parent / "defaults"
 
         # User policy directory (optional)
         self.user_policy_dir = policy_dir
@@ -62,7 +64,7 @@ class PolicyEngine:
         )
 
         # Find matching rules
-        matching_rules = self._find_matching_rules(tool_call.tool_name)
+        matching_rules = self._find_matching_rules(tool_call)
 
         if not matching_rules:
             # No specific rules, use defaults
@@ -97,13 +99,102 @@ class PolicyEngine:
 
         return decision
 
-    def _find_matching_rules(self, tool_name: str) -> List[PolicyRule]:
+    def _find_matching_rules(self, tool_call: ToolCall) -> List[PolicyRule]:
         """Find all rules that match the given tool name."""
         matching = []
         for rule in self.rules:
-            if rule.enabled and rule.matches(tool_name):
+            if (
+                rule.enabled
+                and rule.matches(tool_call.tool_name)
+                and self._conditions_match(rule, tool_call)
+            ):
                 matching.append(rule)
         return matching
+
+    def _conditions_match(self, rule: PolicyRule, tool_call: ToolCall) -> bool:
+        """Evaluate optional rule conditions against the tool call."""
+
+        if not rule.conditions:
+            return True
+
+        for condition in rule.conditions:
+            if not self._condition_matches(condition, tool_call):
+                return False
+
+        return True
+
+    def _condition_matches(
+        self, condition: Dict[str, Any], tool_call: ToolCall
+    ) -> bool:
+        """Evaluate a single condition block."""
+
+        if not condition:
+            return True
+
+        command = str(tool_call.parameters.get("command", "")).strip()
+        if "command_matches" in condition:
+            if not command:
+                return False
+            patterns = condition.get("command_matches", [])
+            if not patterns or not any(
+                fnmatch.fnmatch(command, pattern) for pattern in patterns
+            ):
+                return False
+
+        if "command_starts_with" in condition:
+            if not command:
+                return False
+            prefixes = condition.get("command_starts_with", [])
+            if not prefixes or not any(
+                command.startswith(prefix) for prefix in prefixes
+            ):
+                return False
+
+        if "path_matches" in condition:
+            paths = self._collect_path_values(tool_call.parameters)
+            patterns = condition.get("path_matches", [])
+            if not paths or not patterns:
+                return False
+
+            if not any(
+                fnmatch.fnmatch(path, pattern) for path in paths for pattern in patterns
+            ):
+                return False
+
+        # Extend with additional condition types as needed; treat unknown keys as non-matching
+        recognised_keys = {
+            "command_matches",
+            "command_starts_with",
+            "path_matches",
+        }
+        unknown_keys = set(condition.keys()) - recognised_keys
+        if unknown_keys:
+            return False
+
+        return True
+
+    @staticmethod
+    def _collect_path_values(parameters: Dict[str, Any]) -> List[str]:
+        """Collect relevant path-like parameter values."""
+
+        candidate_keys = [
+            "file_path",
+            "path",
+            "directory",
+            "source",
+            "destination",
+            "target",
+        ]
+        # NOTE: Tools with additional path parameters must update this list
+        # or provide richer metadata so policies can reason about them.
+        paths: List[str] = []
+
+        for key in candidate_keys:
+            value = parameters.get(key)
+            if isinstance(value, str) and value:
+                paths.append(value)
+
+        return paths
 
     def _apply_rule(
         self, rule: PolicyRule, tool_call: ToolCall, decision: PolicyDecision
@@ -116,7 +207,15 @@ class PolicyEngine:
             decision.supervision_level = rule.supervision
             decision.risk_level = rule.risk_level
             decision._rule_applied = True
+            decision.metadata["current_priority"] = rule.priority
         else:
+            current_priority = decision.metadata.get("current_priority", rule.priority)
+
+            # Once we encounter a lower-priority rule, skip it entirely to
+            # avoid mixing restrictions/safety between precedence levels.
+            if rule.priority < current_priority:
+                return
+
             # Subsequent rules - use most restrictive
             if self._is_more_restrictive(rule.supervision, decision.supervision_level):
                 decision.supervision_level = rule.supervision
@@ -232,25 +331,27 @@ class PolicyEngine:
 
         Loads built-in policies first, then user policies which can override them.
         """
-        # Load built-in policies (always available)
-        if self.builtin_policy_dir.exists():
-            for policy_file in self.builtin_policy_dir.glob("*.yaml"):
+
+        # Helper to load policy files from a directory
+        def load_directory(directory: Path, source: str) -> None:
+            if not directory.exists():
+                return
+            for policy_file in directory.glob("*.yaml"):
                 try:
-                    with open(policy_file, "r") as f:
+                    with open(policy_file, "r", encoding="utf-8") as f:
                         data = yaml.safe_load(f)
-                        self._parse_policy_file(data)
+                        if data:
+                            self._parse_policy_file(data)
                 except Exception as e:
-                    print(f"Error loading built-in policy file {policy_file}: {e}")
+                    print(f"Error loading {source} policy file {policy_file}: {e}")
+
+        # Load built-in definitions and defaults (always available)
+        load_directory(self.builtin_policy_dir, "built-in")
+        load_directory(self.default_policy_dir, "default")
 
         # Load user policies (can override built-in policies)
         if self.user_policy_dir and self.user_policy_dir.exists():
-            for policy_file in self.user_policy_dir.glob("*.yaml"):
-                try:
-                    with open(policy_file, "r") as f:
-                        data = yaml.safe_load(f)
-                        self._parse_policy_file(data)
-                except Exception as e:
-                    print(f"Error loading user policy file {policy_file}: {e}")
+            load_directory(self.user_policy_dir, "user")
 
     def _load_user_preferences(self):
         """Load user-specific policy preferences."""

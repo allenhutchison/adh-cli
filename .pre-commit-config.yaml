@@ -9,7 +9,7 @@ repos:
         args: ["--maxkb=1000"]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.8
+    rev: v0.13.3
     hooks:
       - id: ruff
         args: ["--exit-non-zero-on-fix"]
