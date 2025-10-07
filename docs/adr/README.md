@@ -42,6 +42,10 @@ Each ADR follows a consistent template (see `000-template.md`):
 | [011](011-command-palette-integration.md) | Command Palette Integration | Accepted | 2025-10-02 |
 | [012](012-ui-based-tool-confirmation.md) | UI-Based Tool Confirmation | Accepted | 2025-10-02 |
 | [013](013-ui-design-system.md) | UI Design System | Accepted | 2025-10-02 |
+| [014](014-tool-spec-registry.md) | Tool Spec Registry and Separation of Concerns | Accepted | 2025-10-02 |
+| [015](015-chat-integrated-tool-execution.md) | Chat-Integrated Tool Execution with Modal Confirmations | Accepted | 2025-10-03 |
+| [016](016-multi-agent-orchestration.md) | Multi-Agent Orchestration | Proposed | 2025-10-03 |
+| [018](018-initialization-agent-and-environment-probing.md) | Initialization Agent and Environment Probing Workflow | Proposed | 2025-10-05 |
 
 ## When to Create an ADR
 
