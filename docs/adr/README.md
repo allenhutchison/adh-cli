@@ -45,7 +45,9 @@ Each ADR follows a consistent template (see `000-template.md`):
 | [014](014-tool-spec-registry.md) | Tool Spec Registry and Separation of Concerns | Accepted | 2025-10-02 |
 | [015](015-chat-integrated-tool-execution.md) | Chat-Integrated Tool Execution with Modal Confirmations | Accepted | 2025-10-03 |
 | [016](016-multi-agent-orchestration.md) | Multi-Agent Orchestration | Proposed | 2025-10-03 |
+| [017](017-tool-display-hooks.md) | Tool-Provided Display Hooks for Execution Updates | Proposed | 2025-10-05 |
 | [018](018-initialization-agent-and-environment-probing.md) | Initialization Agent and Environment Probing Workflow | Proposed | 2025-10-05 |
+| [019](019-adopt-textuals-built-in-footer.md) | Adopt Textual's Built-in Footer Widget | Accepted | 2025-10-08 |
 
 ## When to Create an ADR
 
