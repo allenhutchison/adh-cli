@@ -219,6 +219,61 @@ class TestAgentDelegator:
             mock_agent.register_native_tool.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_tester_gets_execute_command(self, delegator):
+        """Tester agent should receive execute_command in addition to read-only tools."""
+        with patch(
+            "adh_cli.core.agent_delegator.PolicyAwareLlmAgent"
+        ) as mock_agent_class:
+            mock_agent = Mock()
+            mock_agent.chat = AsyncMock(return_value="Test results")
+            mock_agent.register_tool = Mock()
+            mock_agent_class.return_value = mock_agent
+
+            await delegator.delegate(agent_name="tester", task="Run checks")
+
+            assert mock_agent.register_tool.call_count == 4
+            tool_names = {
+                call.kwargs["name"] for call in mock_agent.register_tool.call_args_list
+            }
+            assert tool_names == {
+                "read_file",
+                "list_directory",
+                "get_file_info",
+                "execute_command",
+            }
+
+    @pytest.mark.asyncio
+    async def test_researcher_gets_execute_command(self, delegator):
+        """Researcher agent should have execute_command for deep file searches."""
+        with patch(
+            "adh_cli.core.agent_delegator.PolicyAwareLlmAgent"
+        ) as mock_agent_class:
+            mock_agent = Mock()
+            mock_agent.chat = AsyncMock(return_value="Research summary")
+            mock_agent.register_tool = Mock()
+            mock_agent.register_native_tool = Mock()
+            mock_agent_class.return_value = mock_agent
+
+            await delegator.delegate(agent_name="researcher", task="Investigate")
+
+            assert mock_agent.register_tool.call_count == 4
+            tool_names = {
+                call.kwargs["name"] for call in mock_agent.register_tool.call_args_list
+            }
+            assert tool_names == {
+                "read_file",
+                "list_directory",
+                "get_file_info",
+                "execute_command",
+            }
+            assert mock_agent.register_native_tool.call_count == 2
+            native_names = {
+                call.kwargs["name"]
+                for call in mock_agent.register_native_tool.call_args_list
+            }
+            assert native_names == {"google_search", "google_url_context"}
+
+    @pytest.mark.asyncio
     async def test_search_agent_registers_native_tool(self, delegator):
         """Search agent should register only the native Google Search tool."""
         with patch(

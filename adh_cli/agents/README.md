@@ -12,8 +12,12 @@ adh_cli/agents/
 │   └── agent.md          # Main orchestration agent
 ├── code_reviewer/
 │   └── agent.md         # Code review specialist
-└── researcher/
-    └── agent.md         # Research specialist
+├── planner/
+│   └── agent.md         # Planning specialist
+├── researcher/
+│   └── agent.md         # Deep research specialist
+└── tester/
+    └── agent.md         # Build and test validation specialist
 ```
 
 ## Agent Definition Structure
