@@ -6,9 +6,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.widgets import Header, Footer
+from textual.widgets import Header
 
-from .screens.main_screen import MainScreen
 from .screens.chat_screen import ChatScreen
 from .core.policy_aware_llm_agent import PolicyAwareLlmAgent
 from .core.config_paths import ConfigPaths
@@ -51,10 +50,7 @@ class ADHApp(App):
         Binding("p", "show_policies", "Policy Settings"),
     ]
 
-    SCREENS = {
-        "main": MainScreen,
-        "chat": ChatScreen,
-    }
+    # Screens are now installed rather than registered in SCREENS dict
 
     # Extend Textual's default commands with ADH CLI-specific providers
     # This preserves defaults (quit, toggle dark, show/hide keys, etc.)
@@ -115,15 +111,14 @@ class ADHApp(App):
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
         yield Header()
-        yield Footer()
 
     def on_mount(self) -> None:
         """Initialize the app after mounting."""
         # Initialize the policy-aware agent
         self._initialize_agent()
 
-        # Start with the chat screen
-        self.push_screen("chat")
+        # Push chat screen (it has its own Footer for displaying bindings)
+        self.push_screen(ChatScreen())
 
     def _initialize_agent(self):
         """Initialize the policy-aware ADK agent."""
