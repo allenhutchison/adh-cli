@@ -7,6 +7,8 @@ tools:
   - list_directory
   - get_file_info
   - execute_command
+  - google_search
+  - google_url_context
 variables:
   - topic
   - research_depth
