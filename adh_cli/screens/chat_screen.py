@@ -116,6 +116,7 @@ class ChatScreen(Screen):
         self.notifications = []
         self.safety_enabled = True
         self.context = ExecutionContext()
+        self._processing_requests = 0  # Counter for concurrent AI requests
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the chat screen."""
@@ -233,8 +234,9 @@ class ChatScreen(Screen):
 
     async def get_ai_response(self, message: str) -> None:
         """Get response from AI with policy enforcement."""
-        # Show processing indicator
-        self._update_chat_title(processing=True)
+        # Increment processing counter and update title
+        self._processing_requests += 1
+        self._update_chat_title()
 
         try:
             # Get response from policy-aware agent
@@ -249,8 +251,9 @@ class ChatScreen(Screen):
         except Exception as e:
             self.chat_log.write(f"[red]Error: {str(e)}[/red]")
         finally:
-            # Clear processing indicator
-            self._update_chat_title(processing=False)
+            # Decrement counter and update title
+            self._processing_requests -= 1
+            self._update_chat_title()
 
     async def handle_confirmation(
         self, tool_call=None, decision=None, message=None, **kwargs
@@ -293,12 +296,8 @@ class ChatScreen(Screen):
         # Auto-remove after 5 seconds
         self.set_timer(5.0, lambda: notification.remove())
 
-    def _update_chat_title(self, processing: bool = False) -> None:
-        """Update the chat log border title with status information.
-
-        Args:
-            processing: Whether to show processing indicator
-        """
+    def _update_chat_title(self) -> None:
+        """Update the chat log border title with status information."""
         safety_status = "ON" if self.safety_enabled else "OFF"
 
         title_parts = [
@@ -306,7 +305,7 @@ class ChatScreen(Screen):
             f"Safety: {safety_status}",
         ]
 
-        if processing:
+        if self._processing_requests > 0:
             title_parts.append("⏳ Processing...")
 
         self.chat_log.border_title = " • ".join(title_parts)

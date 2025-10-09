@@ -89,7 +89,6 @@ The `adh_cli/core/policy_aware_llm_agent.py` provides ADK-based AI interactions:
 
 ### Screen Architecture
 Each screen inherits from `textual.screen.Screen`:
-- **MainScreen**: Welcome screen with navigation options
 - **ChatScreen**: Policy-aware chat with confirmation dialogs and safety checks
 - **SettingsScreen**: Model configuration and API key management
 
