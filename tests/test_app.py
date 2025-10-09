@@ -269,12 +269,21 @@ class TestPolicyIntegration:
             assert call_kwargs["policy_dir"] == temp_policy_dir
             assert call_kwargs["api_key"] == "test_key"
 
-    def test_app_screens_defined(self):
-        """Test that all required screens are defined."""
-        app = ADHApp()
+    def test_app_pushes_chat_screen_on_mount(self):
+        """Test that ChatScreen is pushed when the app mounts."""
+        from adh_cli.screens.chat_screen import ChatScreen
 
-        assert "main" in app.SCREENS
-        assert "chat" in app.SCREENS
+        with (
+            patch("adh_cli.app.PolicyAwareLlmAgent"),
+            patch("adh_cli.app.ADHApp.push_screen") as mock_push_screen,
+        ):
+            app = ADHApp()
+            # Manually trigger on_mount to test its behavior in isolation
+            app.on_mount()
+
+            # Check that push_screen was called with a ChatScreen instance
+            mock_push_screen.assert_called_once()
+            assert isinstance(mock_push_screen.call_args.args[0], ChatScreen)
 
     def test_app_bindings_defined(self):
         """Test that all keybindings are defined."""

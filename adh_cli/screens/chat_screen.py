@@ -5,7 +5,7 @@ from textual import on, events
 from textual.app import ComposeResult
 from textual.containers import Container
 from textual.screen import Screen
-from textual.widgets import RichLog, Static, TextArea
+from textual.widgets import RichLog, TextArea, Footer
 from textual.binding import Binding
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -62,6 +62,9 @@ class ChatTextArea(TextArea):
 class ChatScreen(Screen):
     """Chat screen with policy enforcement."""
 
+    # Base title for the chat log border
+    BASE_TITLE = "Policy-Aware ADH Chat"
+
     CSS = """
     ChatScreen {
         layout: vertical;
@@ -96,27 +99,6 @@ class ChatScreen(Screen):
     #chat-input:focus {
         border: solid $border-focus;
     }
-
-    #status-line {
-        dock: bottom;
-        height: 1;
-        background: $panel;
-        color: $text-primary;
-        padding: 0 1;
-        /* Align with chat/input gutters */
-        margin: 0 2;
-        width: auto;
-    }
-
-    #status-line.thinking {
-        background: $warning;
-        color: $text-on-warning;
-    }
-
-    #status-line.policy-check {
-        background: $primary;
-        color: $text-on-primary;
-    }
     """
 
     BINDINGS = [
@@ -134,18 +116,16 @@ class ChatScreen(Screen):
         self.notifications = []
         self.safety_enabled = True
         self.context = ExecutionContext()
+        self._processing_requests = 0  # Counter for concurrent AI requests
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the chat screen."""
-        # Status line
-        yield Static("Policy-Aware Chat - Safety: ON", id="status-line")
-
         # Main chat container
         with Container(id="chat-container"):
             log = RichLog(
                 id="chat-log", wrap=True, highlight=True, markup=True, auto_scroll=True
             )
-            log.border_title = "Policy-Aware ADH Chat"
+            # Border title will be set dynamically by _update_chat_title()
             log.can_focus = True
             yield log
 
@@ -157,9 +137,15 @@ class ChatScreen(Screen):
         )
         yield text_area
 
+        # Footer to display key bindings
+        yield Footer()
+
     def on_mount(self) -> None:
         """Initialize services when screen is mounted."""
         self.chat_log = self.query_one("#chat-log", RichLog)
+
+        # Set initial border title with safety status
+        self._update_chat_title()
 
         try:
             # Get agent from app (already initialized with tools)
@@ -248,11 +234,9 @@ class ChatScreen(Screen):
 
     async def get_ai_response(self, message: str) -> None:
         """Get response from AI with policy enforcement."""
-        status_line = self.query_one("#status-line", Static)
-
-        # Update status
-        status_line.add_class("thinking")
-        status_line.update("⏳ Processing with policy checks...")
+        # Increment processing counter and update title
+        self._processing_requests += 1
+        self._update_chat_title()
 
         try:
             # Get response from policy-aware agent
@@ -267,12 +251,9 @@ class ChatScreen(Screen):
         except Exception as e:
             self.chat_log.write(f"[red]Error: {str(e)}[/red]")
         finally:
-            # Restore status
-            status_line.remove_class("thinking")
-            status_text = (
-                f"Policy-Aware Chat - Safety: {'ON' if self.safety_enabled else 'OFF'}"
-            )
-            status_line.update(status_text)
+            # Decrement counter and update title
+            self._processing_requests -= 1
+            self._update_chat_title()
 
     async def handle_confirmation(
         self, tool_call=None, decision=None, message=None, **kwargs
@@ -314,6 +295,20 @@ class ChatScreen(Screen):
 
         # Auto-remove after 5 seconds
         self.set_timer(5.0, lambda: notification.remove())
+
+    def _update_chat_title(self) -> None:
+        """Update the chat log border title with status information."""
+        safety_status = "ON" if self.safety_enabled else "OFF"
+
+        title_parts = [
+            self.BASE_TITLE,
+            f"Safety: {safety_status}",
+        ]
+
+        if self._processing_requests > 0:
+            title_parts.append("⏳ Processing...")
+
+        self.chat_log.border_title = " • ".join(title_parts)
 
     def _add_message(self, speaker: str, message: str, is_user: bool = False) -> None:
         """Add a message to the chat log.
@@ -440,6 +435,8 @@ class ChatScreen(Screen):
         """Clear the chat log."""
         self.chat_log.clear()
         self.chat_log.write("[dim]Chat cleared.[/dim]")
+        # Reset title to normal state (no processing indicator)
+        self._update_chat_title()
 
     def action_show_policies(self) -> None:
         """Show active policies."""
@@ -465,11 +462,8 @@ class ChatScreen(Screen):
         """Toggle safety checks on/off."""
         self.safety_enabled = not self.safety_enabled
 
-        status_line = self.query_one("#status-line", Static)
-        status_text = (
-            f"Policy-Aware Chat - Safety: {'ON' if self.safety_enabled else 'OFF'}"
-        )
-        status_line.update(status_text)
+        # Update chat title to reflect safety status
+        self._update_chat_title()
 
         # Update agent preferences
         if self.agent:
