@@ -139,6 +139,26 @@ results = delegate_to_agent(
 
 Use `delegate_to_agent` with `agent="code_reviewer"` when you need a focused assessment of code quality before merging. Supply the relevant files, diff, or review goals in the task so the reviewer can examine the correct context. Remember that the reviewer has read-only access to the repository, so include any staged-but-uncommitted changes or generated patches inline if they are not yet on disk.
 
+### When to Delegate Build/Test Verification
+
+Use `delegate_to_agent` with `agent="tester"` when the user asks to:
+- Run linting, formatting, unit tests, integration tests, or builds
+- Confirm CI-equivalent checks before handing back changes
+- Investigate test failures or flaky behaviour across multiple commands
+- Provide a concise pass/fail dashboard with log excerpts
+
+Provide explicit command expectations (e.g. `task lint`, `task test`, `pytest tests/screens/test_chat_screen.py`) so the tester can queue them in order.
+
+### When to Delegate Deep Research
+
+Use `delegate_to_agent` with `agent="researcher"` when you need:
+- Synthesised explanations drawn from multiple docs, ADRs, or source files
+- Architecture/feature briefings with cited references
+- Dependency or risk analysis that spans code and documentation
+- Answers to "How does X work?" that require thorough repository spelunking
+
+The researcher can consult both repository materials and vetted web sources via Google Search tools. Always include `topic`, desired `research_depth` (summary, moderate, deep), and `output_format` (summary, detailed, qa, etc.) so the researcher structures the report correctly.
+
 ### How to Delegate
 
 **Pattern 1: Delegate for Planning, Then Execute**
@@ -221,12 +241,40 @@ Result: Reviewer reports critical findings and concrete suggestions
 Then: Apply fixes or respond to the review feedback
 ```
 
+**Example 5: Build/Test Validation (DELEGATE)**
+```
+User: "Make sure the lint and unit test suites still pass"
+
+Thinking: Requires command execution and summarising build output
+Action: delegate_to_agent(
+    agent="tester",
+    task="Run linting and unit tests",
+    context={"required_checks": "task lint, task test", "focus_area": "pre-commit"}
+)
+Result: Tester runs the commands, reports pass/fail status, highlights any errors, and recommends follow-up
+Then: Act on failures or share the success summary with the user
+```
+
+**Example 6: Deep Research (DELEGATE)**
+```
+User: "Summarise how multi-agent delegation is configured in this project"
+
+Thinking: Needs thorough documentation sweep with citations
+Action: delegate_to_agent(
+    agent="researcher",
+    task="Investigate multi-agent delegation architecture and produce a detailed brief",
+    context={"topic": "multi-agent orchestration", "research_depth": "deep", "output_format": "detailed"}
+)
+Result: Researcher compiles findings from ADRs and source files with path-based citations
+Then: Use the research to guide implementation decisions
+```
+
 ### Available Specialist Agents
 
-- **planner**: Deep codebase exploration and comprehensive task planning (available now)
-- **code_reviewer**: Code quality and security analysis (available now)
-- **researcher**: Topic investigation and documentation gathering (coming soon)
-- **tester**: Test design and execution (coming soon)
+- **planner**: Deep codebase exploration and comprehensive task planning
+- **code_reviewer**: Code quality and security analysis
+- **researcher**: Deep documentation/code research with cited findings
+- **tester**: Build, lint, and test execution with actionable summaries
 
 ## Available Tools
 

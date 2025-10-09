@@ -211,15 +211,85 @@ class AgentDelegator:
             handler=shell_tools.get_file_info,
         )
 
-        # Planning and code review agents are intentionally limited to read-only tools
-        # so they can inspect repository state without modifying it. Extend here if
-        # future agents require additional capabilities.
+        # Planning and code review agents stay read-only to avoid accidental writes.
         if agent_name == "code_reviewer":
-            # Ready for future code-analysis tools that keep read-only guarantees
-            pass
-        elif agent_name == "tester":
-            # Could add test execution tools here
-            pass
+            return
+
+        if agent_name == "tester":
+            # Allow build/test agent to execute repository commands.
+            agent.register_tool(
+                name="execute_command",
+                description=(
+                    "Run a shell command inside the repository. Prefer `task` shortcuts "
+                    "for builds, linting, and tests."
+                ),
+                parameters={
+                    "command": {
+                        "type": "string",
+                        "description": "Command to execute (e.g. `task test`)",
+                    },
+                    "cwd": {
+                        "type": "string",
+                        "description": "Working directory for the command",
+                        "nullable": True,
+                    },
+                    "timeout": {
+                        "type": "integer",
+                        "description": "Timeout in seconds",
+                        "default": 300,
+                    },
+                    "shell": {
+                        "type": "boolean",
+                        "description": "Use shell execution",
+                        "default": True,
+                    },
+                },
+                handler=shell_tools.execute_command,
+            )
+            return
+
+        if agent_name == "researcher":
+            # Researcher needs repo exploration, shell access for search helpers, and web search tools.
+            agent.register_tool(
+                name="execute_command",
+                description=(
+                    "Run read-only commands (e.g. `rg`, `task list`) while researching topics."
+                ),
+                parameters={
+                    "command": {
+                        "type": "string",
+                        "description": 'Command to execute (e.g. `rg "keyword" docs`)',
+                    },
+                    "cwd": {
+                        "type": "string",
+                        "description": "Working directory for the command",
+                        "nullable": True,
+                    },
+                    "timeout": {
+                        "type": "integer",
+                        "description": "Timeout in seconds",
+                        "default": 300,
+                    },
+                    "shell": {
+                        "type": "boolean",
+                        "description": "Use shell execution",
+                        "default": True,
+                    },
+                },
+                handler=shell_tools.execute_command,
+            )
+
+            register_default_specs()
+            for tool_name in ("google_search", "google_url_context"):
+                spec = registry.get(tool_name)
+                if spec is None or spec.adk_tool_factory is None:
+                    raise ValueError(f"{tool_name} specification not registered")
+                agent.register_native_tool(
+                    name=spec.name,
+                    description=spec.description,
+                    parameters=spec.parameters,
+                    factory=spec.adk_tool_factory,
+                )
 
     def clear_cache(self):
         """Clear the agent cache.

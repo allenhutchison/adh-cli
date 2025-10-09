@@ -34,8 +34,8 @@ def create_delegate_tool(delegator: AgentDelegator):
             agent: Name of specialist agent to use:
                    - "planner": Creates detailed implementation plans for complex tasks
                    - "code_reviewer": Reviews code for quality and issues using read-only tools
-                   - "researcher": Investigates topics and gathers information (future)
-                   - "tester": Designs and executes tests (future)
+                   - "researcher": Conducts deep project and web research with repository context
+                   - "tester": Runs builds, lint, and test commands to validate changes
             task: Clear description of what you want the agent to do
             context: Optional context dict with:
                      - working_dir: Current working directory
