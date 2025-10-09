@@ -62,6 +62,9 @@ class ChatTextArea(TextArea):
 class ChatScreen(Screen):
     """Chat screen with policy enforcement."""
 
+    # Base title for the chat log border
+    BASE_TITLE = "Policy-Aware ADH Chat"
+
     CSS = """
     ChatScreen {
         layout: vertical;
@@ -297,12 +300,16 @@ class ChatScreen(Screen):
             processing: Whether to show processing indicator
         """
         safety_status = "ON" if self.safety_enabled else "OFF"
-        title = f"Policy-Aware ADH Chat • Safety: {safety_status}"
+
+        title_parts = [
+            self.BASE_TITLE,
+            f"Safety: {safety_status}",
+        ]
 
         if processing:
-            title += " • ⏳ Processing..."
+            title_parts.append("⏳ Processing...")
 
-        self.chat_log.border_title = title
+        self.chat_log.border_title = " • ".join(title_parts)
 
     def _add_message(self, speaker: str, message: str, is_user: bool = False) -> None:
         """Add a message to the chat log.
