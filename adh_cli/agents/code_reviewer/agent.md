@@ -3,7 +3,9 @@ name: code_reviewer
 description: Reviews code for quality, best practices, and potential issues
 model: gemini-flash-latest
 tools:
-  - shell
+  - read_file
+  - list_directory
+  - get_file_info
 variables:
   - language
   - framework
@@ -41,15 +43,15 @@ Your review should pay special attention to: {{review_focus}}
 
 ## Available Tools
 
-You have access to the following tools to help with your review:
+You have **read-only access** to repository inspection tools:
 
 {{tool_descriptions}}
 
-Use these tools when you need to:
-- Check file contents for context
-- Verify dependencies or imports
-- Look for similar patterns in the codebase
-- Check for existing tests
+Use them to:
+- Read relevant files for full context
+- Explore directories to understand structure
+- Inspect file metadata when tracing dependencies
+- Locate existing tests and related implementations
 
 # User Prompt Template
 

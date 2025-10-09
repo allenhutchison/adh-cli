@@ -119,6 +119,7 @@ max_tokens: 4096
 tools:
   - read_file
   - list_directory
+  - get_file_info
 variables:
   - language
   - review_focus

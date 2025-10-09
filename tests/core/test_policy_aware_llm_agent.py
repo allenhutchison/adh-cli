@@ -199,6 +199,83 @@ class TestPolicyAwareLlmAgent:
         assert "help" in result
 
     @pytest.mark.asyncio
+    async def test_chat_updates_instruction_with_agent_variables(self):
+        """Delegated agents render prompts with context variables before chatting."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with (
+                patch("adh_cli.core.policy_aware_llm_agent.LlmAgent") as mock_llm_agent,
+                patch("adh_cli.core.policy_aware_llm_agent.Runner") as mock_runner,
+                patch(
+                    "adh_cli.core.policy_aware_llm_agent.InMemorySessionService"
+                ) as mock_session,
+            ):
+
+                def _llm_agent_factory(*args, **kwargs):  # noqa: D401 - simple factory
+                    instance = Mock()
+                    return instance
+
+                mock_llm_agent.side_effect = _llm_agent_factory
+
+                mock_runner_instance = Mock()
+
+                async def _event_stream(*args, **kwargs):
+                    event = Mock()
+                    event.is_final_response.return_value = True
+                    part = Mock()
+                    part.text = "Review complete"
+                    content = Mock()
+                    content.parts = [part]
+                    event.content = content
+                    event.custom_metadata = {}
+                    event.grounding_metadata = None
+                    yield event
+
+                mock_runner_instance.run_async = _event_stream
+                mock_runner.return_value = mock_runner_instance
+
+                mock_session_instance = Mock()
+                mock_session_instance.get_session = AsyncMock(return_value=None)
+                mock_session_instance.create_session = AsyncMock()
+                mock_session.return_value = mock_session_instance
+
+                agent = PolicyAwareLlmAgent(
+                    api_key="test-key",
+                    policy_dir=Path(tmpdir),
+                    agent_name="code_reviewer",
+                )
+
+                context = ExecutionContext(
+                    metadata={
+                        "language": "Python",
+                        "review_focus": "race conditions",
+                    }
+                )
+
+                result = await agent.chat(
+                    "Perform a comprehensive code review", context=context
+                )
+
+                assert "Review complete" in result
+                assert agent.agent_variables == {
+                    "language": "Python",
+                    "review_focus": "race conditions",
+                    "framework": "",
+                    "code_content": "",
+                }
+
+                instruction = mock_llm_agent.call_args_list[-1].kwargs["instruction"]
+                assert "Python" in instruction
+                assert "race conditions" in instruction
+
+                # Framework omitted from context should render as empty string
+                assert "{{framework}}" not in instruction
+
+                # Ensure the runner used the updated instance
+                mock_runner.assert_called()
+                assert agent.runner is mock_runner_instance
+
+    @pytest.mark.asyncio
     async def test_chat_with_function_calls(self, agent_with_mock_adk):
         """Test chat handles function calls in event stream."""
         # Mock event stream with function calls

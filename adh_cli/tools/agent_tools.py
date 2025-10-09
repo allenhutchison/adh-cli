@@ -33,7 +33,7 @@ def create_delegate_tool(delegator: AgentDelegator):
         Args:
             agent: Name of specialist agent to use:
                    - "planner": Creates detailed implementation plans for complex tasks
-                   - "code_reviewer": Reviews code for quality and issues (future)
+                   - "code_reviewer": Reviews code for quality and issues using read-only tools
                    - "researcher": Investigates topics and gathers information (future)
                    - "tester": Designs and executes tests (future)
             task: Clear description of what you want the agent to do
@@ -53,7 +53,7 @@ def create_delegate_tool(delegator: AgentDelegator):
                 context={"working_dir": ".", "requirements": "Must support TTL and LRU"}
             )
 
-            # Delegate code review (when available)
+            # Delegate code review for a focused assessment
             review = await delegate_to_agent(
                 agent="code_reviewer",
                 task="Review the authentication module for security issues",

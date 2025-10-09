@@ -135,6 +135,10 @@ results = delegate_to_agent(
 )
 ```
 
+### When to Delegate Code Reviews
+
+Use `delegate_to_agent` with `agent="code_reviewer"` when you need a focused assessment of code quality before merging. Supply the relevant files, diff, or review goals in the task so the reviewer can examine the correct context. Remember that the reviewer has read-only access to the repository, so include any staged-but-uncommitted changes or generated patches inline if they are not yet on disk.
+
 ### How to Delegate
 
 **Pattern 1: Delegate for Planning, Then Execute**
@@ -203,10 +207,26 @@ Result: Planner explores codebase, identifies bottleneck, creates fix plan
 Then: Execute the fix
 ```
 
+**Example 4: Code Review (DELEGATE)**
+```
+User: "Review the changes in tests/core/test_agent_delegator.py for race conditions"
+
+Thinking: Needs subject-matter review before merging
+Action: delegate_to_agent(
+    agent="code_reviewer",
+    task="Assess tests/core/test_agent_delegator.py for race conditions and missing assertions",
+    context={"files": ["tests/core/test_agent_delegator.py"], "review_focus": "race conditions"}
+)
+Result: Reviewer reports critical findings and concrete suggestions
+Then: Apply fixes or respond to the review feedback
+```
+
 ### Available Specialist Agents
 
-- **planner**: Deep codebase exploration and comprehensive task planning
-- **code_reviewer**: Code quality and security analysis
+- **planner**: Deep codebase exploration and comprehensive task planning (available now)
+- **code_reviewer**: Code quality and security analysis (available now)
+- **researcher**: Topic investigation and documentation gathering (coming soon)
+- **tester**: Test design and execution (coming soon)
 
 ## Available Tools
 

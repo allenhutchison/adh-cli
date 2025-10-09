@@ -198,6 +198,27 @@ class TestAgentDelegator:
             assert "get_file_info" in tool_names
 
     @pytest.mark.asyncio
+    async def test_code_reviewer_is_read_only(self, delegator):
+        """Code reviewer should only receive read-only inspection tools."""
+        with patch(
+            "adh_cli.core.agent_delegator.PolicyAwareLlmAgent"
+        ) as mock_agent_class:
+            mock_agent = Mock()
+            mock_agent.chat = AsyncMock(return_value="Review")
+            mock_agent.register_tool = Mock()
+            mock_agent.register_native_tool = Mock()
+            mock_agent_class.return_value = mock_agent
+
+            await delegator.delegate(agent_name="code_reviewer", task="Review code")
+
+            assert mock_agent.register_tool.call_count == 3
+            tool_names = {
+                call.kwargs["name"] for call in mock_agent.register_tool.call_args_list
+            }
+            assert tool_names == {"read_file", "list_directory", "get_file_info"}
+            mock_agent.register_native_tool.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_search_agent_registers_native_tool(self, delegator):
         """Search agent should register only the native Google Search tool."""
         with patch(

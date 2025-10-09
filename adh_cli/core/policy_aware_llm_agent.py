@@ -230,6 +230,9 @@ class PolicyAwareLlmAgent:
                     level="warning",
                 )
 
+        # Track agent-level prompt variables (language, focus, etc.)
+        self.agent_variables: Dict[str, Any] = {}
+
         if model_name:
             override_model = ModelRegistry.get_by_id(model_name)
             if not override_model:
@@ -314,7 +317,8 @@ class PolicyAwareLlmAgent:
 
             # Render the system prompt with variables
             return self.agent_definition.render_system_prompt(
-                variables={}, tool_descriptions=tool_descriptions
+                variables=self.agent_variables,
+                tool_descriptions=tool_descriptions,
             )
 
         # Fallback to default prompt if no agent definition
@@ -547,6 +551,9 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
 
         context = context or ExecutionContext()
 
+        # Update agent prompt variables from context metadata before chatting
+        self._update_agent_variables_from_context(context)
+
         # Ensure session is initialized
         await self._ensure_session_initialized()
 
@@ -595,6 +602,35 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
         except Exception as e:
             # Other errors
             return f"❌ Error: {str(e)}"
+
+    def _update_agent_variables_from_context(self, context: ExecutionContext) -> None:
+        """Update agent prompt variables based on execution context metadata."""
+
+        if not self.agent_definition or not self.agent_definition.variables:
+            return
+
+        metadata = context.metadata or {}
+
+        candidate_sources: Dict[str, Any] = {}
+        if isinstance(metadata, dict):
+            candidate_sources.update(metadata)
+            nested = metadata.get("agent_variables")
+            if isinstance(nested, dict):
+                candidate_sources.update(nested)
+
+        new_variables: Dict[str, Any] = {}
+        for var_name in self.agent_definition.variables:
+            value = candidate_sources.get(var_name)
+            if value is None:
+                value = ""
+            new_variables[var_name] = value
+
+        if new_variables != self.agent_variables:
+            self.agent_variables = new_variables
+
+            # Rebuild agent instruction with updated variables when API is active
+            if self.api_key:
+                self._update_agent_tools()
 
     async def _maybe_run_url_context_fallback(
         self,

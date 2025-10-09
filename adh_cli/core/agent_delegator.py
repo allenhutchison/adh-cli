@@ -163,7 +163,7 @@ class AgentDelegator:
 
         Different agents get different tool sets based on their role:
         - Planner: Read-only tools (read_file, list_directory, get_file_info)
-        - Code reviewer: Analysis tools
+        - Code reviewer: Read-only inspection tools for code analysis
         - etc.
 
         Args:
@@ -211,10 +211,11 @@ class AgentDelegator:
             handler=shell_tools.get_file_info,
         )
 
-        # Planning agent only gets read tools (defined in agent.md)
-        # Other agents might get additional tools based on their role
+        # Planning and code review agents are intentionally limited to read-only tools
+        # so they can inspect repository state without modifying it. Extend here if
+        # future agents require additional capabilities.
         if agent_name == "code_reviewer":
-            # Could add code analysis tools here
+            # Ready for future code-analysis tools that keep read-only guarantees
             pass
         elif agent_name == "tester":
             # Could add test execution tools here
