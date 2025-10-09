@@ -158,6 +158,65 @@ class AgentDelegator:
         }
         return type_mapping.get(agent_name, "general")
 
+    def _register_execute_command_tool(
+        self, agent: PolicyAwareLlmAgent, description: str, command_example: str
+    ):
+        """Helper to register the 'execute_command' tool with a specific description.
+
+        Args:
+            agent: The agent to register the tool for
+            description: Custom description for the execute_command tool
+            command_example: Example command for the description
+        """
+        from ..tools import shell_tools
+
+        agent.register_tool(
+            name="execute_command",
+            description=description,
+            parameters={
+                "command": {
+                    "type": "string",
+                    "description": f"Command to execute (e.g. `{command_example}`)",
+                },
+                "cwd": {
+                    "type": "string",
+                    "description": "Working directory for the command",
+                    "nullable": True,
+                },
+                "timeout": {
+                    "type": "integer",
+                    "description": "Timeout in seconds",
+                    "default": 300,
+                },
+                "shell": {
+                    "type": "boolean",
+                    "description": "Use shell execution",
+                    "default": True,
+                },
+            },
+            handler=shell_tools.execute_command,
+        )
+
+    def _register_google_search_tools(self, agent: PolicyAwareLlmAgent):
+        """Helper to register Google search and URL context tools.
+
+        Args:
+            agent: The agent to register the tools for
+        """
+        from ..tools.specs import register_default_specs
+
+        register_default_specs()
+        for tool_name in ("google_search", "google_url_context"):
+            spec = registry.get(tool_name)
+            if spec is None or spec.adk_tool_factory is None:
+                raise ValueError(f"{tool_name} specification not registered")
+            agent.register_native_tool(
+                name=spec.name,
+                description=spec.description,
+                parameters=spec.parameters,
+                factory=spec.adk_tool_factory,
+            )
+
     def _register_agent_tools(self, agent: PolicyAwareLlmAgent, agent_name: str):
         """Register tools appropriate for this agent.
 
@@ -171,22 +230,10 @@ class AgentDelegator:
             agent_name: Name of the agent
         """
         from ..tools import shell_tools
-        from ..tools.specs import register_default_specs
 
         # All agents get read-only tools for exploration
         if agent_name == "search":
-            register_default_specs()
-
-            for tool_name in ("google_search", "google_url_context"):
-                spec = registry.get(tool_name)
-                if spec is None or spec.adk_tool_factory is None:
-                    raise ValueError(f"{tool_name} specification not registered")
-                agent.register_native_tool(
-                    name=spec.name,
-                    description=spec.description,
-                    parameters=spec.parameters,
-                    factory=spec.adk_tool_factory,
-                )
+            self._register_google_search_tools(agent)
             return
 
         # Default agents get read-only tools for exploration
@@ -217,79 +264,26 @@ class AgentDelegator:
 
         if agent_name == "tester":
             # Allow build/test agent to execute repository commands.
-            agent.register_tool(
-                name="execute_command",
+            self._register_execute_command_tool(
+                agent,
                 description=(
                     "Run a shell command inside the repository. Prefer `task` shortcuts "
                     "for builds, linting, and tests."
                 ),
-                parameters={
-                    "command": {
-                        "type": "string",
-                        "description": "Command to execute (e.g. `task test`)",
-                    },
-                    "cwd": {
-                        "type": "string",
-                        "description": "Working directory for the command",
-                        "nullable": True,
-                    },
-                    "timeout": {
-                        "type": "integer",
-                        "description": "Timeout in seconds",
-                        "default": 300,
-                    },
-                    "shell": {
-                        "type": "boolean",
-                        "description": "Use shell execution",
-                        "default": True,
-                    },
-                },
-                handler=shell_tools.execute_command,
+                command_example="task test",
             )
             return
 
         if agent_name == "researcher":
             # Researcher needs repo exploration, shell access for search helpers, and web search tools.
-            agent.register_tool(
-                name="execute_command",
+            self._register_execute_command_tool(
+                agent,
                 description=(
                     "Run read-only commands (e.g. `rg`, `task list`) while researching topics."
                 ),
-                parameters={
-                    "command": {
-                        "type": "string",
-                        "description": 'Command to execute (e.g. `rg "keyword" docs`)',
-                    },
-                    "cwd": {
-                        "type": "string",
-                        "description": "Working directory for the command",
-                        "nullable": True,
-                    },
-                    "timeout": {
-                        "type": "integer",
-                        "description": "Timeout in seconds",
-                        "default": 300,
-                    },
-                    "shell": {
-                        "type": "boolean",
-                        "description": "Use shell execution",
-                        "default": True,
-                    },
-                },
-                handler=shell_tools.execute_command,
+                command_example='rg "keyword" docs',
             )
-
-            register_default_specs()
-            for tool_name in ("google_search", "google_url_context"):
-                spec = registry.get(tool_name)
-                if spec is None or spec.adk_tool_factory is None:
-                    raise ValueError(f"{tool_name} specification not registered")
-                agent.register_native_tool(
-                    name=spec.name,
-                    description=spec.description,
-                    parameters=spec.parameters,
-                    factory=spec.adk_tool_factory,
-                )
+            self._register_google_search_tools(agent)
 
     def clear_cache(self):
         """Clear the agent cache.
