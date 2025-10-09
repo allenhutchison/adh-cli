@@ -284,6 +284,7 @@ class AgentDelegator:
                 command_example='rg "keyword" docs',
             )
             self._register_google_search_tools(agent)
+            return
 
     def clear_cache(self):
         """Clear the agent cache.
