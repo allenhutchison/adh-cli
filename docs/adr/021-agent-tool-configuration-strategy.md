@@ -668,4 +668,4 @@ def test_registry_has_all_tools():
 |------|--------|--------|
 | 2025-10-09 | Initial proposal (pure YAML-driven approach) | Allen Hutchison |
 | 2025-10-09 | Added Option C (prompt-based customization) as recommended approach | Allen Hutchison |
-| 2025-10-11 | Improved idempotency pattern for register_default_specs(); consolidated testing sections | Allen Hutchison |
+| 2025-10-11 | Improved idempotency pattern for register_default_specs(), consolidated testing sections | Allen Hutchison |
