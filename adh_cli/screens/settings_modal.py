@@ -155,24 +155,6 @@ class SettingsModal(ModalScreen):
                 available_agents = self._discover_agents()
                 yield Select.from_values(available_agents, id="orchestrator-select")
 
-                yield Label("\nGeneration Parameters")
-
-                with Horizontal():
-                    yield Label("Temperature (0.0-1.0):")
-                    yield Input(value="0.7", id="temperature-input")
-
-                with Horizontal():
-                    yield Label("Max Tokens:")
-                    yield Input(value="2048", id="max-tokens-input")
-
-                with Horizontal():
-                    yield Label("Top P:")
-                    yield Input(value="0.95", id="top-p-input")
-
-                with Horizontal():
-                    yield Label("Top K:")
-                    yield Input(value="40", id="top-k-input")
-
                 yield Label("\nInterface Settings")
 
                 with Horizontal():
@@ -199,19 +181,11 @@ class SettingsModal(ModalScreen):
             self.notify(error or "Invalid model selected", severity="error")
             return
         orchestrator_agent = self.query_one("#orchestrator-select", Select).value
-        temperature = self.query_one("#temperature-input", Input).value
-        max_tokens = self.query_one("#max-tokens-input", Input).value
-        top_p = self.query_one("#top-p-input", Input).value
-        top_k = self.query_one("#top-k-input", Input).value
 
         settings = {
             "api_key": api_key,
             "model": model,
             "orchestrator_agent": orchestrator_agent,
-            "temperature": float(temperature) if temperature else 0.7,
-            "max_tokens": int(max_tokens) if max_tokens else 2048,
-            "top_p": float(top_p) if top_p else 0.95,
-            "top_k": int(top_k) if top_k else 40,
         }
 
         config_file = ConfigPaths.get_config_file()
@@ -230,10 +204,6 @@ class SettingsModal(ModalScreen):
         self.query_one("#api-key-input", Input).value = ""
         self.query_one("#model-select", Select).value = ModelRegistry.DEFAULT.id
         self.query_one("#orchestrator-select", Select).value = "orchestrator"
-        self.query_one("#temperature-input", Input).value = "0.7"
-        self.query_one("#max-tokens-input", Input).value = "2048"
-        self.query_one("#top-p-input", Input).value = "0.95"
-        self.query_one("#top-k-input", Input).value = "40"
         self.notify("Settings reset to defaults", severity="warning")
 
     @on(Button.Pressed, "#btn-close")
@@ -280,17 +250,5 @@ class SettingsModal(ModalScreen):
                             "Failed to set orchestrator select value on mount: %s",
                             exc,
                         )
-                if "temperature" in settings:
-                    self.query_one("#temperature-input", Input).value = str(
-                        settings["temperature"]
-                    )
-                if "max_tokens" in settings:
-                    self.query_one("#max-tokens-input", Input).value = str(
-                        settings["max_tokens"]
-                    )
-                if "top_p" in settings:
-                    self.query_one("#top-p-input", Input).value = str(settings["top_p"])
-                if "top_k" in settings:
-                    self.query_one("#top-k-input", Input).value = str(settings["top_k"])
             except Exception as exc:
                 self.app.log.warning("Failed to load settings on mount: %s", exc)

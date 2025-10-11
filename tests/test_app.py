@@ -58,8 +58,6 @@ class TestADHApp:
             confirmation_handler=app.handle_confirmation,
             notification_handler=app.show_notification,
             audit_log_path=ConfigPaths.get_audit_log(),
-            temperature=0.7,
-            max_tokens=2048,
             agent_name="orchestrator",
         )
         assert app.agent == mock_agent
@@ -206,8 +204,6 @@ class TestADHApp:
                 "api_key": "test_key",
                 "model": ModelRegistry.DEFAULT.id,
                 "orchestrator_agent": "custom_agent",
-                "temperature": 0.5,
-                "max_tokens": 1024,
             }
 
             with open(config_file, "w") as f:
@@ -222,8 +218,6 @@ class TestADHApp:
             # Check that agent was created with custom agent name
             call_kwargs = mock_agent_class.call_args[1]
             assert call_kwargs["agent_name"] == "custom_agent"
-            assert call_kwargs["temperature"] == 0.5
-            assert call_kwargs["max_tokens"] == 1024
 
             # Clean up
             config_file.unlink(missing_ok=True)

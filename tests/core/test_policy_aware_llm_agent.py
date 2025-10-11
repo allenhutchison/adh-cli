@@ -475,16 +475,12 @@ class TestPolicyAwareLlmAgent:
                 policy_dir=Path(tmpdir),
                 agent_name="nonexistent_agent",
                 model_name="gemini-pro",
-                temperature=0.5,
-                max_tokens=1024,
             )
 
-            # Should fallback to passed parameters
+            # Should fallback to passed model
             assert agent.agent_definition is None
             assert agent.model_id == ModelRegistry.PRO_25.id
             assert agent.model_name == ModelRegistry.PRO_25.full_id
-            assert agent.temperature == 0.5
-            assert agent.max_tokens == 1024
 
     def test_generate_tool_descriptions_empty(self):
         """Test generating tool descriptions with no tools."""

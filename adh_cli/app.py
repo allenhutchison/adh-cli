@@ -131,7 +131,6 @@ class ADHApp(App):
 
             # Use ADK-based agent with automatic tool orchestration
             # Note: Execution manager callbacks will be registered by ChatScreen on mount
-            # Note: Model settings from config are overridden by agent definition
             configured_model = config.get("model")
             if configured_model and not ModelRegistry.get_by_id(configured_model):
                 self.notify(
@@ -147,8 +146,6 @@ class ADHApp(App):
                 confirmation_handler=self.handle_confirmation,
                 notification_handler=self.show_notification,
                 audit_log_path=ConfigPaths.get_audit_log(),
-                temperature=config.get("temperature", 0.7),
-                max_tokens=config.get("max_tokens", 2048),
                 agent_name=agent_name,
             )
 
