@@ -262,4 +262,3 @@ Model aliases are implemented through:
 4. **PolicyAwareLlmAgent**: Automatically registers the config tool when using aliases
 
 See `docs/adr/` for detailed architecture decisions.
-

@@ -244,7 +244,7 @@ class ModelRegistry:
     )
 
     DEFAULT = FLASH_LATEST
-    
+
     # Note: Aliases are now loaded from configuration files (not hardcoded)
     # See adh_cli/config/defaults/model_aliases.json for built-in defaults
     # Users can override at ~/.config/adh-cli/model_aliases.json
