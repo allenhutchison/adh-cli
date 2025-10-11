@@ -7,7 +7,7 @@ import logging
 import os
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple, TypedDict, Any
-from pathlib import Path # Added Path import
+from pathlib import Path  # Added Path import
 
 from adh_cli.core.config_paths import ConfigPaths
 
@@ -21,16 +21,21 @@ GenerationParamsDict = Dict[str, Any]
 # --- NEW CONFIGURATION STRUCTURES ---
 class GenerationParams(TypedDict, total=False):
     """Parameters for the Gemini GenerateContentConfig."""
+
     temperature: Optional[float]
     max_output_tokens: Optional[int]
     top_p: Optional[float]
     top_k: Optional[int]
 
+
 @dataclass(frozen=True)
 class ModelAliasConfig:
     """User-defined alias mapping to an underlying model and custom generation config."""
+
     model_id: str
     parameters: GenerationParams
+
+
 # --- END NEW CONFIGURATION STRUCTURES ---
 
 
@@ -143,7 +148,7 @@ class ModelRegistry:
     @classmethod
     def _load_rich_aliases(cls) -> Dict[str, ModelAliasConfig]:
         """Load model aliases from default and user config files.
-        
+
         Loads built-in default aliases first, then user-defined aliases which can override them.
         This follows the same pattern as the policy engine.
         """
@@ -153,16 +158,22 @@ class ModelRegistry:
         all_aliases: Dict[str, ModelAliasConfig] = {}
 
         # Helper function to parse aliases from a data dict
-        def parse_aliases(data: Dict[str, Any], source: str) -> Dict[str, ModelAliasConfig]:
+        def parse_aliases(
+            data: Dict[str, Any], source: str
+        ) -> Dict[str, ModelAliasConfig]:
             aliases: Dict[str, ModelAliasConfig] = {}
             for alias_name, alias_data in data.get("model_aliases", {}).items():
                 if not isinstance(alias_data, dict) or "model_id" not in alias_data:
-                    LOGGER.warning("Invalid model alias structure for '%s' in %s", alias_name, source)
+                    LOGGER.warning(
+                        "Invalid model alias structure for '%s' in %s",
+                        alias_name,
+                        source,
+                    )
                     continue
-                
+
                 # Extract underlying model ID
                 model_id = alias_data["model_id"]
-                
+
                 # Extract and filter generation parameters
                 params: GenerationParams = {}
                 raw_params = alias_data.get("parameters", {})
@@ -175,7 +186,12 @@ class ModelRegistry:
                             elif key in ("max_output_tokens", "top_k"):
                                 params[key] = int(raw_params[key])
                         except (ValueError, TypeError):
-                            LOGGER.warning("Invalid type for parameter '%s' in alias '%s' (%s)", key, alias_name, source)
+                            LOGGER.warning(
+                                "Invalid type for parameter '%s' in alias '%s' (%s)",
+                                key,
+                                alias_name,
+                                source,
+                            )
 
                 aliases[alias_name] = ModelAliasConfig(
                     model_id=model_id,
@@ -196,12 +212,14 @@ class ModelRegistry:
         if user_data:
             user_aliases = parse_aliases(user_data, "user")
             all_aliases.update(user_aliases)  # User aliases override defaults
-        
+
         cls._cached_rich_aliases = all_aliases
         return all_aliases
 
     @classmethod
-    def get_model_and_config(cls, model_id: Optional[str]) -> Tuple[Optional[ModelConfig], GenerationParams]:
+    def get_model_and_config(
+        cls, model_id: Optional[str]
+    ) -> Tuple[Optional[ModelConfig], GenerationParams]:
         """Return ModelConfig and any custom GenerationParams for the given model_id/alias.
 
         Returns:
@@ -221,14 +239,18 @@ class ModelRegistry:
         # 2. Check for an alias match
         rich_aliases = cls._load_rich_aliases()
         alias_config = rich_aliases.get(clean_id)
-        
+
         if alias_config:
             # Recursively check the underlying model ID
             target_model = models.get(alias_config.model_id)
             if target_model:
                 return target_model, alias_config.parameters
             else:
-                LOGGER.warning("Alias '%s' points to unknown model: %s", clean_id, alias_config.model_id)
+                LOGGER.warning(
+                    "Alias '%s' points to unknown model: %s",
+                    clean_id,
+                    alias_config.model_id,
+                )
                 return None, {}
 
         return None, {}
@@ -236,7 +258,7 @@ class ModelRegistry:
     @classmethod
     def get_by_id(cls, model_id: Optional[str]) -> Optional[ModelConfig]:
         """Return configuration for ``model_id`` if available."""
-        
+
         # Now uses the combined resolver
         model, _ = cls.get_model_and_config(model_id)
         return model
@@ -245,7 +267,7 @@ class ModelRegistry:
     def get_display_name(cls, model_id: Optional[str]) -> str:
         """Return the display name for ``model_id`` or the id itself."""
 
-        # Note: This logic implicitly uses the underlying model's display name, 
+        # Note: This logic implicitly uses the underlying model's display name,
         # which is correct for aliases.
         model = cls.get_by_id(model_id)
         return model.display_name if model else (model_id or "")
@@ -253,11 +275,11 @@ class ModelRegistry:
     @classmethod
     def ui_options(cls) -> List[Tuple[str, str]]:
         """Return options suitable for Textual ``Select`` widgets.
-        
+
         Includes built-in models and user-defined aliases.
         """
         options = []
-        
+
         # 1. Built-in models
         for model in cls.all_models():
             if not model.deprecated:
@@ -271,7 +293,12 @@ class ModelRegistry:
                 # Only add if it's a true alias and resolves to a known model
                 target_model = cls.get_by_id(alias_config.model_id)
                 if target_model:
-                    options.append((f"{alias_id} (Alias for {target_model.display_name})", alias_id))
+                    options.append(
+                        (
+                            f"{alias_id} (Alias for {target_model.display_name})",
+                            alias_id,
+                        )
+                    )
 
         # Deduplicate by id, prioritize the first appearance (built-in models)
         unique_options: List[Tuple[str, str]] = []
@@ -280,9 +307,8 @@ class ModelRegistry:
             if model_id not in seen_ids:
                 unique_options.append((display_name, model_id))
                 seen_ids.add(model_id)
-        
-        return unique_options
 
+        return unique_options
 
     @classmethod
     def validate_model_id(cls, model_id: Optional[str]) -> Tuple[bool, Optional[str]]:
@@ -299,8 +325,11 @@ class ModelRegistry:
             rich_aliases = cls._load_rich_aliases()
             alias_config = rich_aliases.get(clean_id)
             if alias_config:
-                return False, f"Alias '{model_id}' points to unknown base model: {alias_config.model_id}"
-            
+                return (
+                    False,
+                    f"Alias '{model_id}' points to unknown base model: {alias_config.model_id}",
+                )
+
             return False, f"Unknown model or alias: {model_id}"
 
         if model.deprecated:
@@ -316,8 +345,8 @@ def _load_model_from_config() -> Optional[ModelConfig]:
     """Load the default model from the persisted configuration file."""
 
     config_file = ConfigPaths.get_config_file()
-    data = _load_json_config(config_file) # Use the new helper function
-    
+    data = _load_json_config(config_file)  # Use the new helper function
+
     model_id = data.get("model")
     return ModelRegistry.get_by_id(model_id)
 

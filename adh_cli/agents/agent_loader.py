@@ -65,10 +65,10 @@ class Agent:
 
         model = ModelRegistry.get_by_id(self.model)
         return model or ModelRegistry.DEFAULT
-    
+
     def get_model_and_params(self) -> Tuple[ModelConfig, GenerationParams]:
         """Return the resolved model configuration and generation parameters.
-        
+
         Returns:
             Tuple of (ModelConfig, GenerationParams)
         """

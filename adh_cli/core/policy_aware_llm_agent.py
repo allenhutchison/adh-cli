@@ -36,7 +36,7 @@ class GenerationConfigTool(BaseTool):
 
     def __init__(self, generation_params: GenerationParams) -> None:
         """Initialize with generation parameters.
-        
+
         Args:
             generation_params: Custom parameters for model generation
         """
@@ -48,17 +48,19 @@ class GenerationConfigTool(BaseTool):
 
     async def process_llm_request(self, *, tool_context, llm_request) -> None:  # type: ignore[override]
         """Apply generation parameters to the request.
-        
+
         This is called by the ADK before each LLM request.
         """
         # Initialize config if not present
         llm_request.config = llm_request.config or types.GenerateContentConfig()
-        
+
         # Apply custom generation parameters
         if "temperature" in self.generation_params:
             llm_request.config.temperature = self.generation_params["temperature"]
         if "max_output_tokens" in self.generation_params:
-            llm_request.config.max_output_tokens = self.generation_params["max_output_tokens"]
+            llm_request.config.max_output_tokens = self.generation_params[
+                "max_output_tokens"
+            ]
         if "top_p" in self.generation_params:
             llm_request.config.top_p = self.generation_params["top_p"]
         if "top_k" in self.generation_params:
@@ -323,14 +325,14 @@ class PolicyAwareLlmAgent:
         """Initialize ADK components (LlmAgent, Runner, SessionService)."""
         # Prepare initial tools list
         initial_tools: List[BaseTool] = []
-        
+
         # If we have custom generation parameters, add the config tool
         if self.generation_params:
             gen_config_tool = GenerationConfigTool(self.generation_params)
             initial_tools.append(gen_config_tool)
             # Track this as a system tool
             self.tools.append(gen_config_tool)
-        
+
         # Initialize LlmAgent (with generation config tool if needed)
         llm_agent_kwargs = {
             "model": self.model_name,
@@ -338,11 +340,11 @@ class PolicyAwareLlmAgent:
             "description": "AI assistant with policy enforcement",
             "instruction": self._get_system_instruction(),
         }
-        
+
         # Only add tools parameter if we have tools to add
         if initial_tools:
             llm_agent_kwargs["tools"] = initial_tools
-        
+
         self.llm_agent = LlmAgent(**llm_agent_kwargs)
 
         # Initialize session management
