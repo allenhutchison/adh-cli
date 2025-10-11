@@ -187,12 +187,18 @@ Ensure registry has entries for all tools agents might use:
 # In tools/specs.py
 
 def register_default_specs():
-    """Register all available tool specifications."""
-    if registry._initialized:
-        return  # Idempotent
+    """Register all available tool specifications.
+
+    Uses per-tool existence checking for idempotency, making it resilient
+    to partial registrations and avoiding reliance on global state.
+    """
+    def add(spec: ToolSpec):
+        """Add spec only if not already registered."""
+        if registry.get(spec.name) is None:
+            registry.register(spec)
 
     # Filesystem tools
-    registry.register(ToolSpec(
+    add(ToolSpec(
         name="read_file",
         description="Read contents of a text file",
         handler=shell_tools.read_file,
@@ -200,7 +206,7 @@ def register_default_specs():
     ))
 
     # Command execution
-    registry.register(ToolSpec(
+    add(ToolSpec(
         name="execute_command",
         description="Execute a shell command",
         handler=shell_tools.execute_command,
@@ -208,7 +214,7 @@ def register_default_specs():
     ))
 
     # Native ADK tools
-    registry.register(ToolSpec(
+    add(ToolSpec(
         name="google_search",
         description="Search the web using Google Search",
         adk_tool_factory=lambda: GoogleSearch(),  # ADK native tool
@@ -216,15 +222,13 @@ def register_default_specs():
         tags=["web", "search"],
     ))
 
-    registry.register(ToolSpec(
+    add(ToolSpec(
         name="google_url_context",
         description="Fetch and analyze web page content",
         adk_tool_factory=lambda: GoogleUrlContext(),  # ADK native tool
         parameters={...},
         tags=["web", "fetch"],
     ))
-
-    registry._initialized = True
 ```
 
 ## Consequences
@@ -529,32 +533,13 @@ Each agent should include a "Tool Usage Guidelines" section in the system prompt
 
 ### Phase 4: Update Tests
 
+Implement comprehensive testing strategy as detailed in the [Testing Strategy](#testing-strategy) section below:
 1. Remove tests validating hardcoded registration logic
-2. Add tests validating YAML-driven registration:
-   ```python
-   def test_agent_tools_from_yaml():
-       """Registered tools match frontmatter exactly."""
-       agent = load_agent("researcher")
-       expected = set(agent.agent_definition.tools)
-       actual = {tool.name for tool in agent.tools}
-       assert actual == expected
-
-   def test_invalid_tool_name_fails():
-       """Invalid tool name in YAML raises clear error."""
-       with temp_agent_file(tools=["nonexistent"]):
-           with pytest.raises(ValueError, match="not found in registry"):
-               delegator.delegate("test_agent", "task")
-   ```
-
-3. Add registry completeness test:
-   ```python
-   def test_all_agent_tools_in_registry():
-       """All tools referenced in agent definitions exist in registry."""
-       for agent_file in glob("agents/*/agent.md"):
-           agent = load_agent_from_file(agent_file)
-           for tool_name in agent.tools:
-               assert registry.get(tool_name) is not None
-   ```
+2. Add tests for YAML-driven registration
+3. Add tests for invalid tool names with clear error messages
+4. Add tests for native ADK tool registration
+5. Add tests ensuring no hidden tools
+6. Add registry completeness tests across all agents
 
 ### Phase 5: Documentation
 
@@ -683,3 +668,4 @@ def test_registry_has_all_tools():
 |------|--------|--------|
 | 2025-10-09 | Initial proposal (pure YAML-driven approach) | Allen Hutchison |
 | 2025-10-09 | Added Option C (prompt-based customization) as recommended approach | Allen Hutchison |
+| 2025-10-11 | Improved idempotency pattern for register_default_specs(); consolidated testing sections | Allen Hutchison |
