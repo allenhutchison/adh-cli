@@ -57,6 +57,7 @@ uvx --from gh:allenhutchison/adh-cli adh-cli -- --debug
 - **Persistent settings** – Stored under `~/.config/adh-cli/config.json` (model, orchestrator agent, temperature, etc.).
 - **Policies** – Defaults ship with the package (`adh_cli/policies/defaults`). User overrides live in `~/.config/adh-cli/policies/`.
 - **Audit & backups** – Audit log (`audit.log`) and tool backups live under the same XDG directory.
+- **Model aliases** – Define custom model aliases with generation parameters in `~/.config/adh-cli/model_aliases.json`. See `docs/MODEL_ALIASES.md` for examples.
 - **Docs** – See `docs/TOOLS.md` and `docs/TOOL_UI_DESIGN.md` for tool catalogues and UI notes.
 
 ## Development Workflow

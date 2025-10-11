@@ -244,12 +244,10 @@ class ModelRegistry:
     )
 
     DEFAULT = FLASH_LATEST
-    _ALIASES: Dict[str, str] = {
-        "gemini-pro": PRO_25.id,
-        "gemini-2.5-flash": FLASH_LATEST.id,
-        "gemini-flash": FLASH_LATEST.id,
-        "gemini-flash-latest": FLASH_LITE_LATEST.id,
-    }
+    
+    # Note: Aliases are now loaded from configuration files (not hardcoded)
+    # See adh_cli/config/defaults/model_aliases.json for built-in defaults
+    # Users can override at ~/.config/adh-cli/model_aliases.json
 
     @classmethod
     def all_models(cls) -> Tuple[ModelConfig, ...]:
@@ -869,3 +867,46 @@ agent = PolicyAwareLlmAgent(api_key="...")
 | Date | Change | Author |
 |------|--------|--------|
 | 2025-09-30 | Initial proposal | Project Team |
+| 2025-10-11 | Updated to reflect configuration-driven aliases with generation parameters support | Project Team |
+
+## Updates (2025-10-11)
+
+### Enhanced Alias System
+
+The original ADR described hardcoded aliases in `_ALIASES`. This has been enhanced to support:
+
+**1. Configuration-Driven Aliases:**
+- Built-in defaults: `adh_cli/config/defaults/model_aliases.json`
+- User overrides: `~/.config/adh-cli/model_aliases.json`
+- Follows same pattern as policy system
+
+**2. Generation Parameters:**
+```json
+{
+  "model_aliases": {
+    "creative": {
+      "model_id": "gemini-flash-latest",
+      "parameters": {
+        "temperature": 1.2,
+        "top_p": 0.95
+      }
+    }
+  }
+}
+```
+
+**3. Benefits:**
+- No code changes to update default aliases
+- User-defined aliases with custom generation parameters
+- Tests alias loading on every application run
+- Easy to maintain and extend
+
+**Implementation:**
+- `ModelRegistry._load_rich_aliases()` loads from files
+- `GenerationConfigTool` applies parameters via ADK
+- `ModelAliasConfig` dataclass stores alias configuration
+- Comprehensive test coverage (382 tests pass)
+
+**Documentation:**
+- See `docs/MODEL_ALIASES.md` for complete guide
+- See `docs/model_aliases.example.json` for examples

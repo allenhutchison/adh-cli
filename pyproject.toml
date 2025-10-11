@@ -43,6 +43,7 @@ adh_cli = [
     "ui/*.tcss",
     "policies/definitions/*.yaml",
     "policies/defaults/*.yaml",
+    "config/defaults/*.json",
     "agents/README.md",
     "agents/*/agent.md",
 ]
