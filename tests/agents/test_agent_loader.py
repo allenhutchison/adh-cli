@@ -16,8 +16,6 @@ class TestAgent:
         assert agent.description == "Test agent"
         assert agent.model == ModelRegistry.DEFAULT.id
         assert agent.model_config.id == ModelRegistry.DEFAULT.id
-        assert agent.temperature == 0.7
-        assert agent.max_tokens == 2048
         assert agent.tools == []
         assert agent.variables == set()
 
@@ -27,16 +25,12 @@ class TestAgent:
             name="custom",
             description="Custom agent",
             model="gemini-pro",
-            temperature=0.3,
-            max_tokens=4096,
             tools=["shell", "web"],
             variables={"var1", "var2"},
         )
 
         assert agent.model == "gemini-pro"
         assert agent.model_config.id == ModelRegistry.PRO_25.id
-        assert agent.temperature == 0.3
-        assert agent.max_tokens == 4096
         assert agent.tools == ["shell", "web"]
         assert agent.variables == {"var1", "var2"}
 
@@ -140,8 +134,8 @@ You have access to tools.
         assert agent.tools == ["shell", "web_search"]
         assert "tool_descriptions" not in agent.variables  # Special variable
 
-    def test_load_agent_with_custom_config(self, tmp_path):
-        """Test loading agent with custom configuration."""
+    def test_load_agent_with_custom_model(self, tmp_path):
+        """Test loading agent with custom model configuration."""
         agent_dir = tmp_path / "custom"
         agent_dir.mkdir()
         agent_file = agent_dir / "agent.md"
@@ -149,10 +143,6 @@ You have access to tools.
 name: custom
 description: Custom configured agent
 model: gemini-pro
-temperature: 0.3
-max_tokens: 4096
-top_p: 0.9
-top_k: 30
 ---
 
 # System Prompt
@@ -164,10 +154,6 @@ Custom agent prompt.""")
 
         assert agent.model == ModelRegistry.PRO_25.id
         assert agent.model_config.id == ModelRegistry.PRO_25.id
-        assert agent.temperature == 0.3
-        assert agent.max_tokens == 4096
-        assert agent.top_p == 0.9
-        assert agent.top_k == 30
 
     def test_load_agent_with_explicit_variables(self, tmp_path):
         """Test loading agent with explicitly declared variables."""

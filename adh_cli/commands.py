@@ -137,8 +137,6 @@ class SettingsCommandProvider(Provider):
                 "Change Orchestrator Agent",
                 "Select which agent to use for orchestration",
             ),
-            ("Adjust Temperature", "Modify AI generation temperature"),
-            ("Configure Max Tokens", "Set maximum output token limit"),
         ]
 
         for name, help_text in commands:
@@ -168,8 +166,6 @@ class SettingsCommandProvider(Provider):
                 "Change Orchestrator Agent",
                 "Select which agent to use for orchestration",
             ),
-            ("Adjust Temperature", "Modify AI generation temperature"),
-            ("Configure Max Tokens", "Set maximum output token limit"),
         ]
 
         for name, help_text in commands:

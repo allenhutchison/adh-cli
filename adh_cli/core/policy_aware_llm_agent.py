@@ -177,8 +177,6 @@ class PolicyAwareLlmAgent:
         confirmation_handler: Optional[Callable] = None,
         notification_handler: Optional[Callable] = None,
         audit_log_path: Optional[Path] = None,
-        temperature: float = 0.7,
-        max_tokens: int = 2048,
         agent_name: str = "orchestrator",
         # Tool execution manager callbacks
         on_execution_start: Optional[Callable] = None,
@@ -195,8 +193,6 @@ class PolicyAwareLlmAgent:
             confirmation_handler: Handler for user confirmations
             notification_handler: Handler for notifications
             audit_log_path: Path for audit log
-            temperature: Model temperature (overridden by agent definition)
-            max_tokens: Max output tokens (overridden by agent definition)
             agent_name: Name of the agent to load from agents/ directory
             on_execution_start: Callback when execution starts
             on_execution_update: Callback when execution state updates
@@ -208,9 +204,6 @@ class PolicyAwareLlmAgent:
         self.confirmation_handler = confirmation_handler
         self.notification_handler = notification_handler
 
-        self.temperature = temperature
-        self.max_tokens = max_tokens
-
         agent_model_config: Optional[ModelConfig] = None
         self.agent_definition = None
         try:
@@ -218,8 +211,6 @@ class PolicyAwareLlmAgent:
             agent_definition = loader.load(agent_name)
             self.agent_definition = agent_definition
             agent_model_config = agent_definition.model_config
-            self.temperature = agent_definition.temperature
-            self.max_tokens = agent_definition.max_tokens
         except (FileNotFoundError, ValueError) as exc:
             if self.notification_handler:
                 self.notification_handler(
@@ -289,10 +280,7 @@ class PolicyAwareLlmAgent:
             description="AI assistant with policy enforcement",
             instruction=self._get_system_instruction(),
             # tools will be set when tools are registered via _update_agent_tools
-            generate_content_config=types.GenerateContentConfig(
-                temperature=self.temperature,
-                max_output_tokens=self.max_tokens,
-            ),
+            # Using model defaults for generation parameters
         )
 
         # Initialize session management
@@ -506,15 +494,12 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
 
         # Recreate LlmAgent with updated tools
         # Only pass tools if we have some (don't pass empty list or None)
+        # Using model defaults for generation parameters
         llm_agent_kwargs = {
             "model": self.model_name,
             "name": "policy_aware_assistant",
             "description": "AI assistant with policy enforcement",
             "instruction": self._get_system_instruction(),
-            "generate_content_config": types.GenerateContentConfig(
-                temperature=self.temperature,
-                max_output_tokens=self.max_tokens,
-            ),
         }
 
         if self.tools:
@@ -833,10 +818,7 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
                         parts=[types.Part(text=prompt)],
                     )
                 ],
-                config=types.GenerateContentConfig(
-                    temperature=self.temperature,
-                    max_output_tokens=self.max_tokens,
-                ),
+                # Using model defaults for generation parameters
             )
 
             if response.candidates and response.candidates[0].content:

@@ -31,10 +31,6 @@ An agent definition consists of two parts:
 name: agent_name
 description: Brief description of the agent
 model: gemini-flash-latest
-temperature: 0.7
-max_tokens: 2048
-top_p: 0.95
-top_k: 40
 tools:
   - tool_name_1
   - tool_name_2
@@ -47,11 +43,7 @@ variables:
 **Fields:**
 - `name`: Agent identifier (required)
 - `description`: Human-readable description (required)
-- `model`: Gemini model to use (default: gemini-flash-latest)
-- `temperature`: Sampling temperature 0.0-1.0 (default: 0.7)
-- `max_tokens`: Maximum output tokens (default: 2048)
-- `top_p`: Nucleus sampling parameter (default: 0.95)
-- `top_k`: Top-k sampling parameter (default: 40)
+- `model`: Gemini model to use (default: gemini-flash-latest). Model parameters (temperature, max_tokens, etc.) are defined in `models.py`. To use different parameters, create a new model alias in `models.py`.
 - `tools`: List of tool names this agent should have access to (optional)
 - `variables`: Additional variables required by this agent (optional)
 
@@ -118,8 +110,6 @@ Custom variables must be provided when the agent is used.
 name: code_reviewer
 description: Expert code reviewer with focus on best practices
 model: gemini-flash-latest
-temperature: 0.3
-max_tokens: 4096
 tools:
   - read_file
   - list_directory
@@ -200,8 +190,8 @@ agent = load_agent("my_agent", variables={
 
 ### Model Configuration
 
-1. **Temperature**: Lower (0.0-0.3) for deterministic tasks, higher (0.7-1.0) for creative tasks
-2. **Max Tokens**: Set based on expected response length
+1. **Model Selection**: Choose the appropriate model from `models.py` based on your needs
+2. **Custom Parameters**: If you need specific model parameters (temperature, max_tokens, etc.), create a new model alias in `models.py` rather than configuring per-agent
 3. **Tools**: Only include tools the agent actually needs
 
 ### Testing
@@ -212,7 +202,7 @@ Always test your agent definitions:
 def test_my_agent():
     agent = load_agent("my_agent")
     assert agent.name == "my_agent"
-    assert agent.temperature == 0.7
+    assert agent.model == "gemini-flash-latest"
     # Test prompt rendering
     prompt = agent.render_system_prompt({
         "tool_descriptions": "tools here",

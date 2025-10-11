@@ -17,10 +17,6 @@ class Agent:
     name: str
     description: str
     model: str = field(default_factory=lambda: ModelRegistry.DEFAULT.id)
-    temperature: float = 0.7
-    max_tokens: int = 2048
-    top_p: float = 0.95
-    top_k: int = 40
     tools: List[str] = field(default_factory=list)
     variables: Set[str] = field(default_factory=set)
     system_prompt: str = ""
@@ -175,10 +171,6 @@ class AgentLoader:
             name=metadata.get("name", name),
             description=metadata.get("description", ""),
             model=(model_config.id if model_config else ModelRegistry.DEFAULT.id),
-            temperature=metadata.get("temperature", 0.7),
-            max_tokens=metadata.get("max_tokens", 2048),
-            top_p=metadata.get("top_p", 0.95),
-            top_k=metadata.get("top_k", 40),
             tools=metadata.get("tools", []),
             variables=agent_variables,
             system_prompt=system_prompt,

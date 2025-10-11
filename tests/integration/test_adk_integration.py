@@ -46,8 +46,6 @@ class TestADKIntegration:
             agent = PolicyAwareLlmAgent(
                 api_key="test_key",
                 policy_dir=temp_dir,
-                temperature=0.7,
-                max_tokens=2048,
             )
 
             # Set runner on agent
