@@ -882,7 +882,9 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
                         parts=[types.Part(text=prompt)],
                     )
                 ],
-                # Using model defaults for generation parameters
+                config=types.GenerateContentConfig(**self.generation_params)
+                if self.generation_params
+                else None,
             )
 
             if response.candidates and response.candidates[0].content:

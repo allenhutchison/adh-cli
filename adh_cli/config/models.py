@@ -175,16 +175,30 @@ class ModelRegistry:
                 model_id = alias_data["model_id"]
 
                 # Extract and filter generation parameters
+                # Map parameter names to their expected types for casting
+                param_types: Dict[str, type] = {
+                    "temperature": float,
+                    "top_p": float,
+                    "max_output_tokens": int,
+                    "top_k": int,
+                }
+
                 params: GenerationParams = {}
                 raw_params = alias_data.get("parameters", {})
-                for key in ["temperature", "max_output_tokens", "top_p", "top_k"]:
+
+                for key, cast_func in param_types.items():
                     if key in raw_params:
-                        # Cast value based on expected type
                         try:
-                            if key in ("temperature", "top_p"):
-                                params[key] = float(raw_params[key])
-                            elif key in ("max_output_tokens", "top_k"):
-                                params[key] = int(raw_params[key])
+                            value = cast_func(raw_params[key])
+                            # Type-safe assignment to TypedDict
+                            if key == "temperature":
+                                params["temperature"] = value  # type: ignore[typeddict-item]
+                            elif key == "top_p":
+                                params["top_p"] = value  # type: ignore[typeddict-item]
+                            elif key == "max_output_tokens":
+                                params["max_output_tokens"] = value  # type: ignore[typeddict-item]
+                            elif key == "top_k":
+                                params["top_k"] = value  # type: ignore[typeddict-item]
                         except (ValueError, TypeError):
                             LOGGER.warning(
                                 "Invalid type for parameter '%s' in alias '%s' (%s)",
@@ -241,7 +255,7 @@ class ModelRegistry:
         alias_config = rich_aliases.get(clean_id)
 
         if alias_config:
-            # Recursively check the underlying model ID
+            # Resolve the alias to its underlying base model ID
             target_model = models.get(alias_config.model_id)
             if target_model:
                 return target_model, alias_config.parameters

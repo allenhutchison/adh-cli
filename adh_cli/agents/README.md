@@ -43,7 +43,7 @@ variables:
 **Fields:**
 - `name`: Agent identifier (required)
 - `description`: Human-readable description (required)
-- `model`: Gemini model to use (default: gemini-flash-latest). Model parameters (temperature, max_tokens, etc.) are defined in `models.py`. To use different parameters, create a new model alias in `models.py`.
+- `model`: Gemini model to use (default: gemini-flash-latest). To use custom generation parameters (like temperature or max_tokens), create a model alias in `~/.config/adh-cli/model_aliases.json`. See `docs/MODEL_ALIASES.md` for details.
 - `tools`: List of tool names this agent should have access to (optional)
 - `variables`: Additional variables required by this agent (optional)
 
