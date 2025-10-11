@@ -48,6 +48,8 @@ Each ADR follows a consistent template (see `000-template.md`):
 | [017](017-tool-display-hooks.md) | Tool-Provided Display Hooks for Execution Updates | Proposed | 2025-10-05 |
 | [018](018-initialization-agent-and-environment-probing.md) | Initialization Agent and Environment Probing Workflow | Proposed | 2025-10-05 |
 | [019](019-adopt-textuals-built-in-footer.md) | Adopt Textual's Built-in Footer Widget | Accepted | 2025-10-08 |
+| [020](020-session-transcript-capture.md) | Session and Transcript Capture | Proposed | 2025-10-08 |
+| [021](021-agent-tool-configuration-strategy.md) | Agent Tool Configuration Strategy | Proposed | 2025-10-09 |
 
 ## When to Create an ADR
 
