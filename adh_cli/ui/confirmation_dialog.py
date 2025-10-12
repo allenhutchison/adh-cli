@@ -133,14 +133,17 @@ class ConfirmationDialog(ModalScreen):
                 # Custom confirmation message
                 if self.decision.confirmation_message:
                     yield Static("")
-                    yield Static(self.decision.confirmation_message)
+                    # Disable markup for user-controlled content
+                    yield Static(self.decision.confirmation_message, markup=False)
 
                 # Parameters
                 if self.parameters:
                     yield Static("")
                     yield Static("[bold]Parameters:[/bold]")
                     for key, value in self.parameters.items():
-                        yield Static(f"  • {key}: {value}")
+                        # Disable markup for parameter values to avoid parse errors
+                        # with complex object representations
+                        yield Static(f"  • {key}: {value}", markup=False)
 
                 # Safety checks
                 if self.decision.safety_checks:
