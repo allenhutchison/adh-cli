@@ -110,6 +110,22 @@ class ChatScreen(Screen):
         color: $text-muted;
         padding: 0 0 1 0;
     }
+
+    #thinking-display {
+        display: none;
+        width: 100%;
+        max-height: 8;
+        margin: 0 2 1 2;
+        padding: 1 2;
+        border: solid $border;
+        background: $panel;
+        color: $text-muted;
+        overflow-y: auto;
+    }
+
+    #thinking-display.visible {
+        display: block;
+    }
     """
 
     BINDINGS = [
@@ -131,6 +147,7 @@ class ChatScreen(Screen):
         self._processing_requests = 0  # Counter for concurrent AI requests
         self._message_history = []  # Track plain text messages for copying
         self._tool_widgets = {}  # Map execution ID -> ToolMessage widget
+        self.thinking_display: Optional[Static] = None
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the chat screen."""
@@ -140,6 +157,9 @@ class ChatScreen(Screen):
                 vs.can_focus = True
                 # Messages will be mounted here
                 pass
+
+        # Thinking display (appears above input when model is thinking)
+        yield Static("", id="thinking-display")
 
         # Input area (ChatTextArea for multi-line support)
         text_area = ChatTextArea(id="chat-input")
@@ -155,6 +175,7 @@ class ChatScreen(Screen):
     def on_mount(self) -> None:
         """Initialize services when screen is mounted."""
         self.chat_log = self.query_one("#chat-log", VerticalScroll)
+        self.thinking_display = self.query_one("#thinking-display", Static)
 
         # Set initial border title with safety status
         self._update_chat_title()
@@ -181,6 +202,10 @@ class ChatScreen(Screen):
                     self.agent.execution_manager.on_confirmation_required = (
                         self.on_confirmation_required
                     )
+
+                # Register thinking callback
+                if hasattr(self.agent, "on_thinking"):
+                    self.agent.on_thinking = self.on_thinking
 
                 # Display agent info
                 agent_name = getattr(self.agent, "agent_name", "orchestrator")
@@ -264,6 +289,8 @@ class ChatScreen(Screen):
             # Decrement counter and update title
             self._processing_requests -= 1
             self._update_chat_title()
+            # Hide thinking display
+            self.hide_thinking()
 
     async def handle_confirmation(
         self, tool_call=None, decision=None, message=None, **kwargs
@@ -319,6 +346,22 @@ class ChatScreen(Screen):
             title_parts.append("⏳ Processing...")
 
         self.chat_log.border_title = " • ".join(title_parts)
+
+    def show_thinking(self, thought_text: str) -> None:
+        """Show model thinking above the input.
+
+        Args:
+            thought_text: The thinking/reasoning text from the model
+        """
+        if self.thinking_display:
+            self.thinking_display.update(f"💭 Thinking: {thought_text}")
+            self.thinking_display.add_class("visible")
+
+    def hide_thinking(self) -> None:
+        """Hide the thinking display."""
+        if self.thinking_display:
+            self.thinking_display.remove_class("visible")
+            self.thinking_display.update("")
 
     def _mount_info_message(self, content) -> None:
         """Mount an info message to the chat log.
@@ -581,3 +624,12 @@ class ChatScreen(Screen):
         else:
             # User cancelled - notify execution manager to abort
             self.agent.execution_manager.cancel_execution(info.id)
+
+    def on_thinking(self, thought_text: str) -> None:
+        """Handle thinking events from the model.
+
+        Args:
+            thought_text: The thinking/reasoning text from the model
+        """
+        # Update the thinking display
+        self.show_thinking(thought_text)
