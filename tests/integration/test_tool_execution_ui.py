@@ -49,8 +49,8 @@ async def test_tool_execution_tracking_flow(tmp_path):
         handler=test_tool,
     )
 
-    # Get the registered tool directly
-    tool = agent.tools[0]
+    # Get the registered tool directly (index 1, since GenerationConfigTool is at 0)
+    tool = agent.tools[1]
 
     # Execute the tool through the policy wrapper
     result = await tool.func(value="test_input")
@@ -112,8 +112,8 @@ async def test_tool_execution_tracking_with_error(tmp_path):
         handler=failing_tool,
     )
 
-    # Get the registered tool directly
-    tool = agent.tools[0]
+    # Get the registered tool directly (index 1, since GenerationConfigTool is at 0)
+    tool = agent.tools[1]
 
     # Execute the tool - should raise error
     with pytest.raises(ValueError, match="Test error"):
@@ -178,8 +178,8 @@ test_tools:
         handler=test_tool,
     )
 
-    # Get the registered tool
-    tool = agent.tools[0]
+    # Get the registered tool (index 1, since GenerationConfigTool is at 0)
+    tool = agent.tools[1]
 
     # Execute the tool - should be blocked
     with pytest.raises(PermissionError, match="blocked by policy"):
@@ -228,8 +228,8 @@ async def test_multiple_tool_executions_tracked_separately(tmp_path):
         handler=test_tool,
     )
 
-    # Get the registered tool
-    tool = agent.tools[0]
+    # Get the registered tool (index 1, since GenerationConfigTool is at 0)
+    tool = agent.tools[1]
 
     # Execute the tool multiple times
     result1 = await tool.func(value="first")
