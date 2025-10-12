@@ -8,6 +8,8 @@ from textual.widgets import Button, Collapsible, Static
 from rich.markdown import Markdown
 from rich.text import Text
 
+from ..ui.tool_execution import ToolExecutionState
+
 
 class CopyableMessage(Vertical):
     """A collapsible message with a copy button."""
@@ -162,16 +164,28 @@ class AIMessage(CopyableMessage):
             Content widgets with markdown rendered
         """
         try:
-            content_widget = Static(classes="message-content", markup=False)
-            content_widget.update(Markdown(self.message_content))
-            yield content_widget
+            # Render markdown content
+            yield Static(Markdown(self.message_content), classes="message-content")
         except Exception:
-            # Fallback to plain text without markup
+            # Defensive fallback: catch any markdown parsing errors to prevent UI crash
+            # This handles malformed markdown that might come from the model
             yield Static(self.message_content, classes="message-content", markup=False)
 
 
 class ToolMessage(CopyableMessage):
     """Collapsible tool execution message with copy button."""
+
+    # Status icon mapping (class-level constant to avoid duplication)
+    # Uses ToolExecutionState enum values for type safety
+    STATUS_ICONS = {
+        ToolExecutionState.PENDING.value: "⏳",
+        ToolExecutionState.CONFIRMING.value: "❓",
+        ToolExecutionState.EXECUTING.value: "▶️",
+        ToolExecutionState.SUCCESS.value: "✅",
+        ToolExecutionState.FAILED.value: "❌",
+        ToolExecutionState.BLOCKED.value: "🚫",
+        ToolExecutionState.CANCELLED.value: "⛔",
+    }
 
     DEFAULT_CSS = """
     ToolMessage .message-content {
@@ -203,16 +217,7 @@ class ToolMessage(CopyableMessage):
             **kwargs: Additional arguments
         """
         # Create title with tool name and status
-        status_icons = {
-            "pending": "⏳",
-            "confirming": "❓",
-            "executing": "▶️",
-            "success": "✅",
-            "failed": "❌",
-            "blocked": "🚫",
-            "cancelled": "⛔",
-        }
-        icon = status_icons.get(status, "🔧")
+        icon = self.STATUS_ICONS.get(status, "🔧")
 
         # Add agent name if this was delegated to a sub-agent
         if agent_name and agent_name != "orchestrator":
@@ -246,16 +251,7 @@ class ToolMessage(CopyableMessage):
         self.message_content = str(content) if content is not None else ""
 
         # Update title with new status icon
-        status_icons = {
-            "pending": "⏳",
-            "confirming": "❓",
-            "executing": "▶️",
-            "success": "✅",
-            "failed": "❌",
-            "blocked": "🚫",
-            "cancelled": "⛔",
-        }
-        icon = status_icons.get(status, "🔧")
+        icon = self.STATUS_ICONS.get(status, "🔧")
 
         # Build new title
         if self.agent_name and self.agent_name != "orchestrator":
