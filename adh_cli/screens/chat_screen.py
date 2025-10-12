@@ -13,7 +13,7 @@ from rich.markdown import Markdown
 
 from ..core.tool_executor import ExecutionContext
 from ..ui.confirmation_dialog import ConfirmationDialog, PolicyNotification
-from ..ui.tool_execution import ToolExecutionInfo
+from ..ui.tool_execution import ToolExecutionInfo, format_parameters_inline
 from ..ui.chat_widgets import AIMessage, ToolMessage, UserMessage
 from ..policies.policy_types import PolicyDecision
 
@@ -147,6 +147,7 @@ class ChatScreen(Screen):
         self.context = ExecutionContext()
         self._processing_requests = 0  # Counter for concurrent AI requests
         self._message_history = []  # Track plain text messages for copying
+        self._message_history_ids = {}  # Map execution ID -> message history index
         self._tool_widgets = {}  # Map execution ID -> ToolMessage widget
         self.thinking_display: Optional[Static] = None
         self._current_thoughts: list[str] = []  # Accumulate thoughts during streaming
@@ -414,8 +415,6 @@ class ChatScreen(Screen):
         Returns:
             Formatted content string
         """
-        from ..ui.tool_execution import format_parameters_inline
-
         content_parts = []
 
         # Status line
@@ -448,11 +447,14 @@ class ChatScreen(Screen):
 
         return "\n".join(content_parts)
 
-    def _add_tool_message(self, info: ToolExecutionInfo) -> None:
+    def _add_tool_message(self, info: ToolExecutionInfo) -> ToolMessage:
         """Add a tool execution message to the chat log.
 
         Args:
             info: Tool execution information
+
+        Returns:
+            The created ToolMessage widget
         """
         # Build content text
         content = self._build_tool_content(info)
@@ -463,7 +465,10 @@ class ChatScreen(Screen):
             if info.agent_name and info.agent_name != "orchestrator"
             else ""
         )
+        history_index = len(self._message_history)
         self._message_history.append(f"Tool {info.tool_name}{agent_suffix}: {content}")
+        # Map execution ID to history index for robust updates
+        self._message_history_ids[info.id] = history_index
 
         # Create tool message widget
         widget = ToolMessage(
@@ -476,6 +481,7 @@ class ChatScreen(Screen):
 
         self.chat_log.mount(widget)
         self.chat_log.scroll_end(animate=False)
+
         return widget
 
     def action_clear_chat(self) -> None:
@@ -483,6 +489,7 @@ class ChatScreen(Screen):
         # Remove all child widgets
         self.chat_log.remove_children()
         self._message_history.clear()
+        self._message_history_ids.clear()
         self._tool_widgets.clear()
         self._mount_info_message("[dim]Chat cleared.[/dim]")
         # Reset title to normal state (no processing indicator)
@@ -584,23 +591,18 @@ class ChatScreen(Screen):
             # Update the widget
             widget.update_status(info.state.value, content)
 
-            # Update message history for copying
-            agent_suffix = (
-                f" (via {info.agent_name})"
-                if info.agent_name and info.agent_name != "orchestrator"
-                else ""
-            )
-            # Replace the last entry for this tool in message history
-            # Find and update the entry for this specific tool execution
-            history_entry = f"Tool {info.tool_name}{agent_suffix}: {content}"
-            # Since we're updating, we need to replace the old entry
-            # Search backwards for the matching tool entry
-            for i in range(len(self._message_history) - 1, -1, -1):
-                if self._message_history[i].startswith(
-                    f"Tool {info.tool_name}{agent_suffix}:"
-                ):
-                    self._message_history[i] = history_entry
-                    break
+            # Update message history for copying using execution ID
+            if info.id in self._message_history_ids:
+                agent_suffix = (
+                    f" (via {info.agent_name})"
+                    if info.agent_name and info.agent_name != "orchestrator"
+                    else ""
+                )
+                history_entry = f"Tool {info.tool_name}{agent_suffix}: {content}"
+                history_index = self._message_history_ids[info.id]
+                self._message_history[history_index] = history_entry
+                # Clean up the ID mapping
+                del self._message_history_ids[info.id]
 
             # Clean up the widget reference
             del self._tool_widgets[info.id]

@@ -5,7 +5,6 @@ from textual import on
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Collapsible, Static
-from textual.message import Message
 from rich.markdown import Markdown
 from rich.text import Text
 
@@ -62,13 +61,6 @@ class CopyableMessage(Vertical):
         padding: 1 2;
     }
     """
-
-    class CopyRequested(Message):
-        """Message sent when copy button is clicked."""
-
-        def __init__(self, content: str):
-            super().__init__()
-            self.content = content
 
     def __init__(
         self,

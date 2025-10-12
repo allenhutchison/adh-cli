@@ -380,6 +380,18 @@ class PolicyAwareLlmAgent:
         # Initialize session asynchronously
         # Note: This will be handled in the first chat call
 
+    @staticmethod
+    def _is_thought_part(part) -> bool:
+        """Check if a content part is a thought part.
+
+        Args:
+            part: Content part from streaming event
+
+        Returns:
+            True if this is a thought part, False otherwise
+        """
+        return hasattr(part, "thought") and part.thought
+
     def _get_system_instruction(self) -> str:
         """Get system instruction for the agent."""
         # If we have a loaded agent definition, use it
@@ -649,7 +661,7 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
                 if event.content:
                     for part in event.content.parts:
                         # Check if this is a thought part
-                        if hasattr(part, "thought") and part.thought and part.text:
+                        if self._is_thought_part(part) and part.text:
                             if self.on_thinking:
                                 self.on_thinking(part.text)
 
@@ -661,7 +673,7 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
                             # Only collect non-thought parts as response text
                             if hasattr(part, "text") and part.text:
                                 # Skip thought parts from final response
-                                if not (hasattr(part, "thought") and part.thought):
+                                if not self._is_thought_part(part):
                                     response_text += part.text
 
             if final_event:
