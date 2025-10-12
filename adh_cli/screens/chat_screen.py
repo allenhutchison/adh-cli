@@ -9,6 +9,7 @@ from textual.screen import Screen
 from textual.widgets import TextArea, Footer, Static
 from textual.binding import Binding
 from rich.text import Text
+from rich.markdown import Markdown
 
 from ..core.tool_executor import ExecutionContext
 from ..ui.confirmation_dialog import ConfirmationDialog, PolicyNotification
@@ -354,7 +355,9 @@ class ChatScreen(Screen):
             thought_text: The thinking/reasoning text from the model
         """
         if self.thinking_display:
-            self.thinking_display.update(f"💭 Thinking: {thought_text}")
+            # Render markdown for proper formatting
+            markdown_content = Markdown(f"💭 **Thinking:**\n\n{thought_text}")
+            self.thinking_display.update(markdown_content)
             self.thinking_display.add_class("visible")
 
     def hide_thinking(self) -> None:
