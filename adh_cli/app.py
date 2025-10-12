@@ -2,8 +2,6 @@
 
 import os
 import json
-import functools
-import inspect
 from pathlib import Path
 from dotenv import load_dotenv
 from textual.app import App, ComposeResult
@@ -210,18 +208,12 @@ class ADHApp(App):
             )
 
         # Register all tools - the policy engine controls access and confirmation requirements
-        raw_generation_params = getattr(self.agent, "generation_params", None)
-        generation_config = (
-            dict(raw_generation_params)
-            if isinstance(raw_generation_params, dict)
-            else None
-        )
-        agent_model = getattr(self.agent, "model_name", None)
-
         for spec in registry.all():
+            # Main orchestrator excludes google_search/google_url_context
+            # (these are registered by AgentDelegator for specialist agents only)
             if spec.name in {"google_search", "google_url_context"}:
-                # Main orchestrator keeps researcher/search-only tools out of the default set.
                 continue
+
             if spec.adk_tool_factory is not None:
                 self.agent.register_native_tool(
                     name=spec.name,
@@ -230,55 +222,11 @@ class ADHApp(App):
                     factory=spec.adk_tool_factory,
                 )
             elif spec.handler is not None:
-                handler = spec.handler
-                if spec.name in {"google_search", "google_url_context"}:
-
-                    @functools.wraps(spec.handler)
-                    async def handler(
-                        *args,
-                        __handler=spec.handler,
-                        __api_key=self.api_key,
-                        __model=agent_model,
-                        __generation_config=generation_config,
-                        **kwargs,
-                    ):
-                        kwargs = dict(kwargs)
-                        request_api_key = kwargs.pop("api_key", None)
-                        request_model = kwargs.pop("model", None)
-                        request_generation_config = kwargs.pop(
-                            "generation_config", None
-                        )
-
-                        effective_api_key = __api_key or request_api_key
-                        effective_model = __model or request_model
-                        effective_generation_config = (
-                            __generation_config or request_generation_config
-                        )
-
-                        return await __handler(
-                            *args,
-                            api_key=effective_api_key,
-                            model=effective_model,
-                            generation_config=effective_generation_config,
-                            **kwargs,
-                        )
-
-                    original_signature = inspect.signature(spec.handler)
-                    adjusted_parameters = [
-                        param.replace(default=inspect._empty)
-                        if param.default is not inspect._empty
-                        else param
-                        for param in original_signature.parameters.values()
-                    ]
-                    handler.__signature__ = original_signature.replace(  # type: ignore[attr-defined]
-                        parameters=adjusted_parameters
-                    )
-
                 self.agent.register_tool(
                     name=spec.name,
                     description=spec.description,
                     parameters=spec.parameters,
-                    handler=handler,
+                    handler=spec.handler,
                 )
 
     async def handle_confirmation(
