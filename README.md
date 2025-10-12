@@ -44,6 +44,9 @@ task run
 
 # Enable Textual dev tools
 task dev             # launches with inspector + auto-reload
+
+# Serve the TUI in a browser (Ctrl+C to stop)
+task serve-web
 ```
 
 You can also run without cloning by using `uvx`:
@@ -71,9 +74,18 @@ All development helpers are exposed through `taskipy` (invoked with `task <name>
 | `task test-cov` | Pytest with coverage reporting. |
 | `task typecheck` | Run mypy over `adh_cli`. |
 | `task dev` | Start the Textual app with the dev inspector. |
+| `task serve-web` | Serve the Textual app over HTTP using `textual serve`. |
 | `task console` | Open the Textual console alongside the TUI. |
 | `task build` | Build source and wheel distributions. |
 | `task docs-tools` | Regenerate tool documentation from the registry. |
+
+Textual's `serve` subcommand expects a shell command, not a Python import path. If you prefer to run it manually, use:
+
+```bash
+textual serve "python -m adh_cli"
+```
+
+Attempting to pass `adh_cli.app:ADHApp` directly will fail with `command not found` because the server tries to execute that string as a command.
 
 ### Running Tests Manually
 ```bash

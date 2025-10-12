@@ -86,6 +86,7 @@ lint-fix = "ruff check --fix adh_cli tests"
 typecheck = "mypy adh_cli"
 dev = "textual run --dev adh_cli.app:ADHApp"
 console = "textual console"
+serve-web = 'textual serve "python -m adh_cli"'
 build = "python -m build"
 clean = "rm -rf build dist *.egg-info .pytest_cache .coverage"
 install-dev = "uv pip install -e '.[dev]'"
