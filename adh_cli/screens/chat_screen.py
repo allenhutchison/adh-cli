@@ -127,6 +127,12 @@ class ChatScreen(Screen):
     #thinking-display.visible {
         display: block;
     }
+
+    .thinking-separator {
+        color: $text-muted;
+        text-align: center;
+        margin: 1 0;
+    }
     """
 
     BINDINGS = [
@@ -149,8 +155,7 @@ class ChatScreen(Screen):
         self._message_history = []  # Track plain text messages for copying
         self._message_history_ids = {}  # Map execution ID -> message history index
         self._tool_widgets = {}  # Map execution ID -> ToolMessage widget
-        self.thinking_display: Optional[Static] = None
-        self._current_thoughts: list[str] = []  # Accumulate thoughts during streaming
+        self.thinking_display: Optional[VerticalScroll] = None
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the chat screen."""
@@ -162,7 +167,7 @@ class ChatScreen(Screen):
                 pass
 
         # Thinking display (appears above input when model is thinking)
-        yield Static("", id="thinking-display")
+        yield VerticalScroll(id="thinking-display")
 
         # Input area (ChatTextArea for multi-line support)
         text_area = ChatTextArea(id="chat-input")
@@ -178,7 +183,7 @@ class ChatScreen(Screen):
     def on_mount(self) -> None:
         """Initialize services when screen is mounted."""
         self.chat_log = self.query_one("#chat-log", VerticalScroll)
-        self.thinking_display = self.query_one("#thinking-display", Static)
+        self.thinking_display = self.query_one("#thinking-display", VerticalScroll)
 
         # Set initial border title with safety status
         self._update_chat_title()
@@ -357,22 +362,29 @@ class ChatScreen(Screen):
             thought_text: The thinking/reasoning text from the model
         """
         if self.thinking_display:
-            # Accumulate this thought
-            self._current_thoughts.append(thought_text)
+            # If this is the first thought, add a header
+            if not self.thinking_display.children:
+                header = Static(Markdown("💭 **Thinking:**"))
+                self.thinking_display.mount(header)
 
-            # Render all accumulated thoughts as markdown
-            combined_thoughts = "\n\n---\n\n".join(self._current_thoughts)
-            markdown_content = Markdown(f"💭 **Thinking:**\n\n{combined_thoughts}")
-            self.thinking_display.update(markdown_content)
+            # Mount the new thought as a separate widget
+            # This is more efficient than re-rendering all thoughts each time
+            new_thought_widget = Static(Markdown(thought_text))
+            self.thinking_display.mount(new_thought_widget)
+
+            # Add separator between thoughts
+            separator = Static("---", classes="thinking-separator")
+            self.thinking_display.mount(separator)
+
             self.thinking_display.add_class("visible")
+            self.thinking_display.scroll_end(animate=False)
 
     def hide_thinking(self) -> None:
         """Hide the thinking display."""
         if self.thinking_display:
             self.thinking_display.remove_class("visible")
-            self.thinking_display.update("")
-            # Clear accumulated thoughts for next request
-            self._current_thoughts.clear()
+            # Clear all thought widgets for next request
+            self.thinking_display.remove_children()
 
     def _mount_info_message(self, content) -> None:
         """Mount an info message to the chat log.

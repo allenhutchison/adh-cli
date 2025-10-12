@@ -6,7 +6,6 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Collapsible, Static
 from rich.markdown import Markdown
-from rich.text import Text
 
 from ..ui.tool_execution import ToolExecutionState
 
@@ -268,12 +267,13 @@ class ToolMessage(CopyableMessage):
         content_widget.update(self.message_content)
 
 
-class UserMessage(Static):
+class UserMessage(Horizontal):
     """Simple user message display (not collapsible)."""
 
     DEFAULT_CSS = """
     UserMessage {
         width: 100%;
+        height: auto;
         padding: 1 2;
         margin: 0 0 1 0;
         background: $panel;
@@ -283,6 +283,7 @@ class UserMessage(Static):
     UserMessage .user-label {
         color: $primary;
         text-style: bold;
+        margin-right: 1;
     }
     """
 
@@ -295,13 +296,9 @@ class UserMessage(Static):
         """
         # Ensure content is a string
         self.message_content = str(content) if content is not None else ""
-        # Disable markup for user messages
-        kwargs.setdefault("markup", False)
         super().__init__(**kwargs)
 
-    def on_mount(self) -> None:
-        """Update content when mounted."""
-        message = Text()
-        message.append("You: ", style="bold blue")
-        message.append(self.message_content)
-        self.update(message)
+    def compose(self) -> ComposeResult:
+        """Compose the user message widget."""
+        yield Static("You:", classes="user-label")
+        yield Static(self.message_content, markup=False)
