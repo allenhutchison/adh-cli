@@ -149,6 +149,7 @@ class ChatScreen(Screen):
         self._message_history = []  # Track plain text messages for copying
         self._tool_widgets = {}  # Map execution ID -> ToolMessage widget
         self.thinking_display: Optional[Static] = None
+        self._current_thoughts: list[str] = []  # Accumulate thoughts during streaming
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the chat screen."""
@@ -355,8 +356,12 @@ class ChatScreen(Screen):
             thought_text: The thinking/reasoning text from the model
         """
         if self.thinking_display:
-            # Render markdown for proper formatting
-            markdown_content = Markdown(f"💭 **Thinking:**\n\n{thought_text}")
+            # Accumulate this thought
+            self._current_thoughts.append(thought_text)
+
+            # Render all accumulated thoughts as markdown
+            combined_thoughts = "\n\n---\n\n".join(self._current_thoughts)
+            markdown_content = Markdown(f"💭 **Thinking:**\n\n{combined_thoughts}")
             self.thinking_display.update(markdown_content)
             self.thinking_display.add_class("visible")
 
@@ -365,6 +370,8 @@ class ChatScreen(Screen):
         if self.thinking_display:
             self.thinking_display.remove_class("visible")
             self.thinking_display.update("")
+            # Clear accumulated thoughts for next request
+            self._current_thoughts.clear()
 
     def _mount_info_message(self, content) -> None:
         """Mount an info message to the chat log.
