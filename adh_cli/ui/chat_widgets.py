@@ -100,7 +100,17 @@ class CopyableMessage(Vertical):
 
         # Collapsible content
         with Collapsible(title="", collapsed=self.start_collapsed):
-            yield Static(self.message_content, classes="message-content", markup=False)
+            yield from self.compose_content()
+
+    def compose_content(self) -> ComposeResult:
+        """Compose the content inside the collapsible.
+
+        Subclasses can override this to customize content rendering.
+
+        Returns:
+            Content widgets
+        """
+        yield Static(self.message_content, classes="message-content", markup=False)
 
     @on(Button.Pressed, ".copy-button")
     def copy_message(self, event: Button.Pressed) -> None:
@@ -145,24 +155,19 @@ class AIMessage(CopyableMessage):
             **kwargs,
         )
 
-    def compose(self) -> ComposeResult:
-        """Compose the AI message with markdown rendering."""
-        # Header with title and copy button (always visible)
-        with Horizontal(classes="message-header"):
-            yield Static(self.message_title, classes="message-title")
-            yield Button("📋 Copy", classes="copy-button", variant="primary")
+    def compose_content(self) -> ComposeResult:
+        """Compose the AI message content with markdown rendering.
 
-        # Collapsible content with markdown
-        with Collapsible(title="", collapsed=self.start_collapsed):
-            try:
-                content_widget = Static(classes="message-content", markup=False)
-                content_widget.update(Markdown(self.message_content))
-                yield content_widget
-            except Exception:
-                # Fallback to plain text without markup
-                yield Static(
-                    self.message_content, classes="message-content", markup=False
-                )
+        Returns:
+            Content widgets with markdown rendered
+        """
+        try:
+            content_widget = Static(classes="message-content", markup=False)
+            content_widget.update(Markdown(self.message_content))
+            yield content_widget
+        except Exception:
+            # Fallback to plain text without markup
+            yield Static(self.message_content, classes="message-content", markup=False)
 
 
 class ToolMessage(CopyableMessage):
