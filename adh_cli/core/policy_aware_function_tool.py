@@ -3,6 +3,7 @@
 import functools
 import inspect
 from typing import Callable, Optional, TYPE_CHECKING
+
 from google.adk.tools import FunctionTool
 from adh_cli.policies.policy_engine import PolicyEngine
 from adh_cli.policies.policy_types import ToolCall, PolicyDecision
@@ -73,6 +74,20 @@ class PolicyAwareFunctionTool(FunctionTool):
                 for i, arg in enumerate(args):
                     if i < len(param_names):
                         kwargs[param_names[i]] = arg
+
+            # Fill in default values for any missing optional parameters
+            signature = inspect.signature(func)
+            for param_name, param in signature.parameters.items():
+                if (
+                    param_name not in kwargs
+                    and param.default is not inspect.Parameter.empty
+                    and param.kind
+                    not in (
+                        inspect.Parameter.VAR_POSITIONAL,
+                        inspect.Parameter.VAR_KEYWORD,
+                    )
+                ):
+                    kwargs[param_name] = param.default
 
             # 1. Create tool call for policy evaluation
             tool_call = ToolCall(tool_name=tool_name, parameters=kwargs, context={})

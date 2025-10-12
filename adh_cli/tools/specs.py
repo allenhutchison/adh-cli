@@ -210,14 +210,14 @@ def register_default_specs() -> None:
     add(
         ToolSpec(
             name="google_search",
-            description="Search the public web using Google's search index via Gemini's built-in tool.",
+            description="Search the public web via Google Search and return summarized results with sources.",
             parameters={
                 "query": {
                     "type": "string",
                     "description": "Search query describing what to look up",
                 },
             },
-            adk_tool_factory=google_tools.create_google_search_tool,
+            handler=google_tools.google_search,
             tags=["network", "search", "web"],
             effects=["network_read", "external_search"],
         )
@@ -226,7 +226,7 @@ def register_default_specs() -> None:
     add(
         ToolSpec(
             name="google_url_context",
-            description="Fetch and ground responses in the content of provided URLs via Gemini's built-in tool.",
+            description="Fetch content from provided URLs and return a formatted context block (with optional summary).",
             parameters={
                 "urls": {
                     "type": "array",
@@ -234,7 +234,7 @@ def register_default_specs() -> None:
                     "items": {"type": "string"},
                 },
             },
-            adk_tool_factory=google_tools.create_url_context_tool,
+            handler=google_tools.google_url_context,
             tags=["network", "web", "context"],
             effects=["network_read", "external_content"],
         )

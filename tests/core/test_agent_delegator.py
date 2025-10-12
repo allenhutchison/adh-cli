@@ -251,12 +251,11 @@ class TestAgentDelegator:
             mock_agent = Mock()
             mock_agent.chat = AsyncMock(return_value="Research summary")
             mock_agent.register_tool = Mock()
-            mock_agent.register_native_tool = Mock()
             mock_agent_class.return_value = mock_agent
 
             await delegator.delegate(agent_name="researcher", task="Investigate")
 
-            assert mock_agent.register_tool.call_count == 4
+            assert mock_agent.register_tool.call_count == 6
             tool_names = {
                 call.kwargs["name"] for call in mock_agent.register_tool.call_args_list
             }
@@ -265,35 +264,28 @@ class TestAgentDelegator:
                 "list_directory",
                 "get_file_info",
                 "execute_command",
+                "google_search",
+                "google_url_context",
             }
-            assert mock_agent.register_native_tool.call_count == 2
-            native_names = {
-                call.kwargs["name"]
-                for call in mock_agent.register_native_tool.call_args_list
-            }
-            assert native_names == {"google_search", "google_url_context"}
 
     @pytest.mark.asyncio
-    async def test_search_agent_registers_native_tool(self, delegator):
-        """Search agent should register only the native Google Search tool."""
+    async def test_search_agent_registers_google_tools(self, delegator):
+        """Search agent should register the Google tools as standard handlers."""
         with patch(
             "adh_cli.core.agent_delegator.PolicyAwareLlmAgent"
         ) as mock_agent_class:
             mock_agent = Mock()
             mock_agent.chat = AsyncMock(return_value="Search results")
             mock_agent.register_tool = Mock()
-            mock_agent.register_native_tool = Mock()
             mock_agent_class.return_value = mock_agent
 
             await delegator.delegate(agent_name="search", task="Find AI news")
 
-            assert mock_agent.register_native_tool.call_count == 2
-            names = [
-                call.kwargs["name"]
-                for call in mock_agent.register_native_tool.call_args_list
-            ]
-            assert {"google_search", "google_url_context"} == set(names)
-            assert mock_agent.register_tool.call_count == 0
+            assert mock_agent.register_tool.call_count == 2
+            names = {
+                call.kwargs["name"] for call in mock_agent.register_tool.call_args_list
+            }
+            assert names == {"google_search", "google_url_context"}
 
     def test_clear_cache(self, delegator):
         """Test clearing the agent cache."""
