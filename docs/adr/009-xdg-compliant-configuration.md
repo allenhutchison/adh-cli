@@ -61,6 +61,7 @@ Consolidate all configuration and data files to **`~/.config/adh-cli/`** followi
 ```
 ~/.config/adh-cli/
 ├── config.json              # Application configuration
+├── model_aliases.json       # User-defined model aliases (optional)
 ├── policies/
 │   ├── defaults/            # Default policies (from project)
 │   ├── custom/              # User custom policies
@@ -91,6 +92,10 @@ class ConfigPaths:
     @classmethod
     def get_config_file(cls) -> Path:
         """Get path to config.json."""
+
+    @classmethod
+    def get_model_aliases_file(cls) -> Path:
+        """Get path to model_aliases.json."""
 
     @classmethod
     def get_policies_dir(cls) -> Path:
@@ -398,6 +403,7 @@ This message will only appear once.
    ```
    ~/.config/adh-cli/
    ├── config.json              # Application configuration
+   ├── model_aliases.json       # User-defined model aliases (optional)
    ├── policies/                # Policy definitions
    ├── policy_preferences.yaml  # User policy overrides
    ├── audit.log                # Tool execution audit log
@@ -435,3 +441,4 @@ This message will only appear once.
 |------|--------|--------|
 | 2025-10-02 | Initial decision | Allen Hutchison |
 | 2025-10-02 | Implementation completed (migration logic removed) | Allen Hutchison |
+| 2025-10-11 | Added model_aliases.json to configuration directory structure | Project Team |

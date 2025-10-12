@@ -3,11 +3,11 @@
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import yaml
 
-from adh_cli.config.models import ModelConfig, ModelRegistry
+from adh_cli.config.models import ModelConfig, ModelRegistry, GenerationParams
 
 
 @dataclass
@@ -22,6 +22,7 @@ class Agent:
     system_prompt: str = ""
     user_prompt_template: str = ""
     metadata: Dict[str, Any] = field(default_factory=dict)
+    generation_params: GenerationParams = field(default_factory=dict)
 
     def render_system_prompt(
         self, variables: Dict[str, Any], tool_descriptions: str = ""
@@ -64,6 +65,15 @@ class Agent:
 
         model = ModelRegistry.get_by_id(self.model)
         return model or ModelRegistry.DEFAULT
+
+    def get_model_and_params(self) -> Tuple[ModelConfig, GenerationParams]:
+        """Return the resolved model configuration and generation parameters.
+
+        Returns:
+            Tuple of (ModelConfig, GenerationParams)
+        """
+        model, params = ModelRegistry.get_model_and_config(self.model)
+        return (model or ModelRegistry.DEFAULT, params)
 
 
 class AgentLoader:
@@ -162,7 +172,7 @@ class AgentLoader:
                     agent_variables.add(var)
 
         configured_model = metadata.get("model")
-        model_config = ModelRegistry.get_by_id(configured_model)
+        model_config, gen_params = ModelRegistry.get_model_and_config(configured_model)
         if configured_model and not model_config:
             raise ValueError(f"Unknown model '{configured_model}' in {agent_path}")
 
@@ -176,6 +186,7 @@ class AgentLoader:
             system_prompt=system_prompt,
             user_prompt_template=user_prompt_template,
             metadata=metadata,
+            generation_params=gen_params,
         )
 
         return agent

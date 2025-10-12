@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "Built-in default model aliases for ADH CLI. These provide convenient shorthand names for Gemini models. Users can override these by defining the same alias name in ~/.config/adh-cli/model_aliases.json with custom parameters.",
+  "model_aliases": {
+    "gemini-pro": {
+      "model_id": "gemini-2.5-pro",
+      "parameters": {}
+    },
+    "gemini-2.5-flash": {
+      "model_id": "gemini-flash-latest",
+      "parameters": {}
+    },
+    "gemini-flash": {
+      "model_id": "gemini-flash-latest",
+      "parameters": {}
+    }
+  }
+}

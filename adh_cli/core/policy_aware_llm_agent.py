@@ -23,7 +23,48 @@ from adh_cli.safety.pipeline import SafetyPipeline
 from adh_cli.ui.tool_execution_manager import ToolExecutionManager
 from adh_cli.agents.agent_loader import AgentLoader
 from adh_cli.tools import web_tools
-from adh_cli.config.models import ModelConfig, ModelRegistry, get_default_model
+from adh_cli.config.models import (
+    ModelConfig,
+    ModelRegistry,
+    GenerationParams,
+    get_default_model,
+)
+
+
+class GenerationConfigTool(BaseTool):
+    """Applies custom generation parameters to LLM requests."""
+
+    def __init__(self, generation_params: GenerationParams) -> None:
+        """Initialize with generation parameters.
+
+        Args:
+            generation_params: Custom parameters for model generation
+        """
+        super().__init__(
+            name="_generation_config",
+            description="Applies custom generation configuration to requests",
+        )
+        self.generation_params = generation_params
+
+    async def process_llm_request(self, *, tool_context, llm_request) -> None:  # type: ignore[override]
+        """Apply generation parameters to the request.
+
+        This is called by the ADK before each LLM request.
+        """
+        # Initialize config if not present
+        llm_request.config = llm_request.config or types.GenerateContentConfig()
+
+        # Apply custom generation parameters
+        if "temperature" in self.generation_params:
+            llm_request.config.temperature = self.generation_params["temperature"]
+        if "max_output_tokens" in self.generation_params:
+            llm_request.config.max_output_tokens = self.generation_params[
+                "max_output_tokens"
+            ]
+        if "top_p" in self.generation_params:
+            llm_request.config.top_p = self.generation_params["top_p"]
+        if "top_k" in self.generation_params:
+            llm_request.config.top_k = self.generation_params["top_k"]
 
 
 class PolicyAwareNativeTool(BaseTool):
@@ -224,15 +265,24 @@ class PolicyAwareLlmAgent:
         # Track agent-level prompt variables (language, focus, etc.)
         self.agent_variables: Dict[str, Any] = {}
 
+        # Resolve model and any custom generation parameters
+        self.generation_params: GenerationParams = {}
         if model_name:
-            override_model = ModelRegistry.get_by_id(model_name)
+            override_model, gen_params = ModelRegistry.get_model_and_config(model_name)
             if not override_model:
                 raise ValueError(f"Unknown model: {model_name}")
             self.model_config = override_model
+            self.generation_params = gen_params
         elif agent_model_config:
             self.model_config = agent_model_config
+            # Check if the agent's model is an alias with custom parameters
+            _, gen_params = ModelRegistry.get_model_and_config(agent_model_config.id)
+            self.generation_params = gen_params
         else:
             self.model_config = get_default_model()
+            # Check default model for custom parameters
+            _, gen_params = ModelRegistry.get_model_and_config(self.model_config.id)
+            self.generation_params = gen_params
 
         self.model_id = self.model_config.id
         self.model_name = self.model_config.api_id
@@ -273,15 +323,29 @@ class PolicyAwareLlmAgent:
 
     def _init_adk_components(self):
         """Initialize ADK components (LlmAgent, Runner, SessionService)."""
-        # Initialize LlmAgent (without tools initially)
-        self.llm_agent = LlmAgent(
-            model=self.model_name,
-            name="policy_aware_assistant",
-            description="AI assistant with policy enforcement",
-            instruction=self._get_system_instruction(),
-            # tools will be set when tools are registered via _update_agent_tools
-            # Using model defaults for generation parameters
-        )
+        # Prepare initial tools list
+        initial_tools: List[BaseTool] = []
+
+        # If we have custom generation parameters, add the config tool
+        if self.generation_params:
+            gen_config_tool = GenerationConfigTool(self.generation_params)
+            initial_tools.append(gen_config_tool)
+            # Track this as a system tool
+            self.tools.append(gen_config_tool)
+
+        # Initialize LlmAgent (with generation config tool if needed)
+        llm_agent_kwargs = {
+            "model": self.model_name,
+            "name": "policy_aware_assistant",
+            "description": "AI assistant with policy enforcement",
+            "instruction": self._get_system_instruction(),
+        }
+
+        # Only add tools parameter if we have tools to add
+        if initial_tools:
+            llm_agent_kwargs["tools"] = initial_tools
+
+        self.llm_agent = LlmAgent(**llm_agent_kwargs)
 
         # Initialize session management
         self.session_service = InMemorySessionService()
@@ -818,7 +882,9 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
                         parts=[types.Part(text=prompt)],
                     )
                 ],
-                # Using model defaults for generation parameters
+                config=types.GenerateContentConfig(**self.generation_params)
+                if self.generation_params
+                else None,
             )
 
             if response.candidates and response.candidates[0].content:

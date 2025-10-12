@@ -49,6 +49,16 @@ class ConfigPaths:
         return policies_dir
 
     @classmethod
+    def get_model_aliases_file(cls) -> Path:
+        """Get path to model aliases file.
+
+        Returns:
+            Path to model_aliases.json
+        """
+        cls.get_base_dir()  # Ensure directory exists
+        return cls.BASE_DIR / "model_aliases.json"
+
+    @classmethod
     def get_audit_log(cls) -> Path:
         """Get path to audit log file.
 
