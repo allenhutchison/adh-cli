@@ -48,6 +48,7 @@ class TestChatScreen:
         mock_log = Mock()
         mock_input = Mock()
         mock_input.focus = Mock()
+        mock_thinking_display = Mock()
 
         # Make query_one return the appropriate mock based on selector
         def query_side_effect(selector, widget_type=None):
@@ -55,6 +56,8 @@ class TestChatScreen:
                 return mock_log
             elif "#chat-input" in selector:
                 return mock_input
+            elif "#thinking-display" in selector:
+                return mock_thinking_display
             return Mock()
 
         screen.query_one.side_effect = query_side_effect
@@ -65,8 +68,8 @@ class TestChatScreen:
         assert screen.agent == screen.app.agent
         assert screen.chat_log == mock_log
 
-        # Check initial messages were written
-        assert mock_log.write.call_count >= 2
+        # Check initial messages were mounted (uses mount() instead of write())
+        assert mock_log.mount.call_count >= 2
 
         # Check input was focused
         mock_input.focus.assert_called_once()
@@ -155,15 +158,17 @@ class TestChatScreen:
         screen.agent = Mock()
         screen.agent.chat = AsyncMock(side_effect=Exception("Test error"))
         screen.chat_log = Mock()
+        screen.thinking_display = Mock()
 
         mock_status = Mock()
         screen.query_one.return_value = mock_status
 
         await screen.get_ai_response("User message")
 
-        # Check error was displayed
-        screen.chat_log.write.assert_called()
-        assert "Error" in str(screen.chat_log.write.call_args)
+        # Check error was displayed (uses mount() instead of write())
+        screen.chat_log.mount.assert_called()
+        # Check that thinking display was hidden
+        screen.thinking_display.remove_class.assert_called_with("visible")
 
     @pytest.mark.asyncio
     async def test_handle_confirmation_approved(self, screen):
@@ -213,18 +218,10 @@ class TestChatScreen:
 
         screen._add_message("User", "Test message", is_user=True)
 
-        # Check message was written (might be called multiple times)
-        mock_log.write.assert_called()
-
-        # Check that the message content was written
-        all_calls = [
-            str(call[0][0]) for call in mock_log.write.call_args_list if call[0]
-        ]
-        combined_text = " ".join(all_calls)
-
-        # User messages should contain the speaker and message
-        # The format is "[bold cyan]User:[/bold cyan] Test message"
-        assert "Test message" in combined_text
+        # Check message widget was mounted
+        mock_log.mount.assert_called_once()
+        # Check message was added to history for copying
+        assert "User: Test message" in screen._message_history
 
     def test_add_message_ai(self, screen):
         """Test adding AI message with markdown."""
@@ -233,17 +230,25 @@ class TestChatScreen:
 
         screen._add_message("AI", "**Bold** message", is_user=False)
 
-        # Check message was written
-        mock_log.write.assert_called()
+        # Check message widget was mounted
+        mock_log.mount.assert_called_once()
+        # Check message was added to history
+        assert "AI: **Bold** message" in screen._message_history
 
     def test_action_clear_chat(self, screen):
         """Test clearing chat."""
         screen.chat_log = Mock()
+        screen._message_history = ["test message"]
+        screen._tool_widgets = {"test": Mock()}
 
         screen.action_clear_chat()
 
-        screen.chat_log.clear.assert_called_once()
-        screen.chat_log.write.assert_called_with("[dim]Chat cleared.[/dim]")
+        # Check widgets were removed and mount was called for info message
+        screen.chat_log.remove_children.assert_called_once()
+        screen.chat_log.mount.assert_called()
+        # Check history was cleared
+        assert len(screen._message_history) == 0
+        assert len(screen._tool_widgets) == 0
 
     def test_action_show_policies(self, screen):
         """Test showing policies."""
@@ -255,12 +260,14 @@ class TestChatScreen:
 
         screen.action_show_policies()
 
-        # Check policy info was displayed
-        assert screen.chat_log.write.call_count >= 3
+        # Check policy info was displayed via mount() calls
+        assert screen.chat_log.mount.call_count >= 3
 
     def test_action_toggle_safety_disable(self, screen):
         """Test disabling safety."""
         screen.agent = Mock()
+        screen.agent.policy_engine = Mock()
+        screen.agent.policy_engine.user_preferences = {}
         screen.safety_enabled = True
         screen.chat_log = Mock()
         mock_status = Mock()
@@ -269,12 +276,15 @@ class TestChatScreen:
         screen.action_toggle_safety()
 
         assert screen.safety_enabled is False
-        screen.agent.policy_engine.user_preferences = {"auto_approve": ["*"]}
-        screen.chat_log.write.assert_called()
+        assert screen.agent.policy_engine.user_preferences == {"auto_approve": ["*"]}
+        # Check info message was mounted
+        screen.chat_log.mount.assert_called()
 
     def test_action_toggle_safety_enable(self, screen):
         """Test enabling safety."""
         screen.agent = Mock()
+        screen.agent.policy_engine = Mock()
+        screen.agent.policy_engine.user_preferences = {"auto_approve": ["*"]}
         screen.safety_enabled = False
         screen.chat_log = Mock()
         mock_status = Mock()
@@ -283,8 +293,9 @@ class TestChatScreen:
         screen.action_toggle_safety()
 
         assert screen.safety_enabled is True
-        screen.agent.policy_engine.user_preferences = {}
-        screen.chat_log.write.assert_called()
+        assert screen.agent.policy_engine.user_preferences == {}
+        # Check info message was mounted
+        screen.chat_log.mount.assert_called()
 
 
 @pytest.mark.asyncio

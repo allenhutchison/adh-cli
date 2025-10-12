@@ -1,18 +1,20 @@
 """Chat screen with policy-aware agent integration."""
 
 from typing import Optional
+import pyperclip
 from textual import on, events
 from textual.app import ComposeResult
-from textual.containers import Container
+from textual.containers import Container, VerticalScroll
 from textual.screen import Screen
-from textual.widgets import RichLog, TextArea, Footer
+from textual.widgets import TextArea, Footer, Static
 from textual.binding import Binding
+from rich.text import Text
 from rich.markdown import Markdown
-from rich.panel import Panel
 
 from ..core.tool_executor import ExecutionContext
 from ..ui.confirmation_dialog import ConfirmationDialog, PolicyNotification
-from ..ui.tool_execution import ToolExecutionInfo
+from ..ui.tool_execution import ToolExecutionInfo, format_parameters_inline
+from ..ui.chat_widgets import AIMessage, ToolMessage, UserMessage
 from ..policies.policy_types import PolicyDecision
 
 
@@ -85,6 +87,11 @@ class ChatScreen(Screen):
         background: $surface;
     }
 
+    #chat-messages {
+        width: 100%;
+        height: auto;
+    }
+
     #chat-input {
         width: 100%;
         height: auto;
@@ -99,10 +106,38 @@ class ChatScreen(Screen):
     #chat-input:focus {
         border: solid $border-focus;
     }
+
+    .info-message {
+        color: $text-muted;
+        padding: 0 0 1 0;
+    }
+
+    #thinking-display {
+        display: none;
+        width: 100%;
+        max-height: 8;
+        margin: 0 2 1 2;
+        padding: 1 2;
+        border: solid $border;
+        background: $panel;
+        color: $text-muted;
+        overflow-y: auto;
+    }
+
+    #thinking-display.visible {
+        display: block;
+    }
+
+    .thinking-separator {
+        color: $text-muted;
+        text-align: center;
+        margin: 1 0;
+    }
     """
 
     BINDINGS = [
         Binding("ctrl+l", "clear_chat", "Clear Chat"),
+        Binding("ctrl+y", "copy_chat", "Copy Chat"),
         Binding("ctrl+slash", "show_policies", "Show Policies"),
         Binding("ctrl+s", "toggle_safety", "Toggle Safety"),
         Binding("ctrl+comma", "app.show_settings", "Settings"),
@@ -112,22 +147,27 @@ class ChatScreen(Screen):
         """Initialize the policy chat screen."""
         super().__init__()
         self.agent = None  # Will be set from app
-        self.chat_log: Optional[RichLog] = None
+        self.chat_log: Optional[VerticalScroll] = None
         self.notifications = []
         self.safety_enabled = True
         self.context = ExecutionContext()
         self._processing_requests = 0  # Counter for concurrent AI requests
+        self._message_history = []  # Track plain text messages for copying
+        self._message_history_ids = {}  # Map execution ID -> message history index
+        self._tool_widgets = {}  # Map execution ID -> ToolMessage widget
+        self.thinking_display: Optional[VerticalScroll] = None
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the chat screen."""
-        # Main chat container
+        # Main chat container with scrollable messages
         with Container(id="chat-container"):
-            log = RichLog(
-                id="chat-log", wrap=True, highlight=True, markup=True, auto_scroll=True
-            )
-            # Border title will be set dynamically by _update_chat_title()
-            log.can_focus = True
-            yield log
+            with VerticalScroll(id="chat-log") as vs:
+                vs.can_focus = True
+                # Messages will be mounted here
+                pass
+
+        # Thinking display (appears above input when model is thinking)
+        yield VerticalScroll(id="thinking-display")
 
         # Input area (ChatTextArea for multi-line support)
         text_area = ChatTextArea(id="chat-input")
@@ -142,7 +182,8 @@ class ChatScreen(Screen):
 
     def on_mount(self) -> None:
         """Initialize services when screen is mounted."""
-        self.chat_log = self.query_one("#chat-log", RichLog)
+        self.chat_log = self.query_one("#chat-log", VerticalScroll)
+        self.thinking_display = self.query_one("#thinking-display", VerticalScroll)
 
         # Set initial border title with safety status
         self._update_chat_title()
@@ -170,20 +211,21 @@ class ChatScreen(Screen):
                         self.on_confirmation_required
                     )
 
-                # Display agent info
-                from rich.text import Text
+                # Register thinking callback
+                if hasattr(self.agent, "on_thinking"):
+                    self.agent.on_thinking = self.on_thinking
 
+                # Display agent info
                 agent_name = getattr(self.agent, "agent_name", "orchestrator")
 
                 welcome = Text()
                 welcome.append("Policy-Aware Chat Ready ", style="dim")
                 welcome.append(f"(Agent: {agent_name})", style="dim cyan")
-                self.chat_log.write(welcome)
+                self._mount_info_message(welcome)
 
-                self.chat_log.write(
+                self._mount_info_message(
                     "[dim]Tools will be executed according to configured policies.[/dim]"
                 )
-                self.chat_log.write("")  # Spacing
 
                 # Keyboard shortcuts
                 shortcuts = Text()
@@ -194,19 +236,20 @@ class ChatScreen(Screen):
                 shortcuts.append(" / ", style="dim")
                 shortcuts.append("Ctrl+J", style="bold")
                 shortcuts.append(" newline | ", style="dim")
+                shortcuts.append("Ctrl+Y", style="bold")
+                shortcuts.append(" copy | ", style="dim")
                 shortcuts.append("Ctrl+/", style="bold")
                 shortcuts.append(" policies | ", style="dim")
                 shortcuts.append("Ctrl+S", style="bold")
                 shortcuts.append(" safety | ", style="dim")
                 shortcuts.append("Ctrl+L", style="bold")
                 shortcuts.append(" clear", style="dim")
-                self.chat_log.write(shortcuts)
-                self.chat_log.write("")  # Spacing
+                self._mount_info_message(shortcuts)
             else:
                 raise Exception("App does not have an agent initialized")
 
         except Exception as e:
-            self.chat_log.write(f"[red]Error accessing agent: {str(e)}[/red]")
+            self._mount_info_message(f"[red]Error accessing agent: {str(e)}[/red]")
 
         # Focus input
         self.query_one("#chat-input", ChatTextArea).focus()
@@ -226,7 +269,7 @@ class ChatScreen(Screen):
 
         # Check agent availability
         if not self.agent:
-            self.chat_log.write("[red]Agent not initialized.[/red]")
+            self._mount_info_message("[red]Agent not initialized.[/red]")
             return
 
         # Process message asynchronously
@@ -249,11 +292,13 @@ class ChatScreen(Screen):
             self._add_message("AI", response, is_user=False)
 
         except Exception as e:
-            self.chat_log.write(f"[red]Error: {str(e)}[/red]")
+            self._mount_info_message(f"[red]Error: {str(e)}[/red]")
         finally:
             # Decrement counter and update title
             self._processing_requests -= 1
             self._update_chat_title()
+            # Hide thinking display
+            self.hide_thinking()
 
     async def handle_confirmation(
         self, tool_call=None, decision=None, message=None, **kwargs
@@ -310,6 +355,47 @@ class ChatScreen(Screen):
 
         self.chat_log.border_title = " • ".join(title_parts)
 
+    def show_thinking(self, thought_text: str) -> None:
+        """Show model thinking above the input.
+
+        Args:
+            thought_text: The thinking/reasoning text from the model
+        """
+        if self.thinking_display:
+            # If this is the first thought, add a header
+            if not self.thinking_display.children:
+                header = Static(Markdown("💭 **Thinking:**"))
+                self.thinking_display.mount(header)
+
+            # Mount the new thought as a separate widget
+            # This is more efficient than re-rendering all thoughts each time
+            new_thought_widget = Static(Markdown(thought_text))
+            self.thinking_display.mount(new_thought_widget)
+
+            # Add separator between thoughts
+            separator = Static("---", classes="thinking-separator")
+            self.thinking_display.mount(separator)
+
+            self.thinking_display.add_class("visible")
+            self.thinking_display.scroll_end(animate=False)
+
+    def hide_thinking(self) -> None:
+        """Hide the thinking display."""
+        if self.thinking_display:
+            self.thinking_display.remove_class("visible")
+            # Clear all thought widgets for next request
+            self.thinking_display.remove_children()
+
+    def _mount_info_message(self, content) -> None:
+        """Mount an info message to the chat log.
+
+        Args:
+            content: Rich renderable or markup string
+        """
+        info_widget = Static(content, classes="info-message")
+        self.chat_log.mount(info_widget)
+        self.chat_log.scroll_end(animate=False)
+
     def _add_message(self, speaker: str, message: str, is_user: bool = False) -> None:
         """Add a message to the chat log.
 
@@ -318,145 +404,143 @@ class ChatScreen(Screen):
             message: The message content
             is_user: Whether this is a user message
         """
-        # Use theme colors instead of hardcoded colors
-        # Colors are defined in adh_cli/ui/theme.py
+        # Track message in history for copying
+        self._message_history.append(f"{speaker}: {message}")
+
+        # Mount appropriate widget based on message type
         if is_user:
-            # User messages - bright blue, more prominent
-            from rich.text import Text
-
-            user_message = Text()
-            user_message.append("You: ", style="bold blue")
-            user_message.append(message, style="white")
-            self.chat_log.write(user_message)
+            # User messages - simple non-collapsible widget
+            widget = UserMessage(content=message)
         else:
-            # AI messages - render as markdown in a panel
-            try:
-                md = Markdown(message)
-                panel = Panel(
-                    md,
-                    title="[bold cyan]AI:[/bold cyan]",
-                    title_align="left",
-                    border_style="cyan",
-                    padding=(0, 1),
-                )
-                self.chat_log.write(panel)
-            except Exception:
-                # Fallback to plain text
-                self.chat_log.write(f"[bold cyan]AI:[/bold cyan]\n{message}")
+            # AI messages - collapsible with copy button, start expanded
+            widget = AIMessage(content=message, collapsed=False)
 
-        self.chat_log.write("")  # Add spacing
+        self.chat_log.mount(widget)
+        self.chat_log.scroll_end(animate=False)
 
-    def _add_tool_message(self, info: ToolExecutionInfo) -> None:
-        """Add a tool execution message to the chat log.
+    def _build_tool_content(self, info: ToolExecutionInfo) -> str:
+        """Build content text for a tool execution message.
 
         Args:
             info: Tool execution information
+
+        Returns:
+            Formatted content string
         """
-        from rich.text import Text
-        from ..ui.tool_execution import format_parameters_inline
-
-        # Determine border style based on state
-        state_styles = {
-            "pending": "dim",
-            "confirming": "yellow",
-            "executing": "blue",
-            "success": "green",
-            "failed": "red",
-            "blocked": "red",
-            "cancelled": "dim",
-        }
-        border_style = state_styles.get(info.state.value, "white")
-
-        # Build content
-        content = Text()
+        content_parts = []
 
         # Status line
-        content.append(f"{info.status_icon} ", style="bold")
-        content.append(info.status_text, style=border_style)
-        content.append("\n\n")
+        content_parts.append(f"{info.status_icon} {info.status_text}")
+        content_parts.append("")  # Blank line
 
         # Parameters (compact inline format)
         if info.parameters:
             inline_params = format_parameters_inline(
                 info.parameters, max_params=3, max_value_length=60
             )
-            content.append("Parameters: ", style="dim")
-            content.append(inline_params, style="")
-            content.append("\n")
+            content_parts.append(f"Parameters: {inline_params}")
 
         # Risk level (if confirming)
         if info.state.value == "confirming" and info.policy_decision:
             risk = info.policy_decision.risk_level
-            risk_colors = {
-                "none": "green",
-                "low": "green",
-                "medium": "yellow",
-                "high": "red",
-                "critical": "bold red",
-            }
-            risk_color = risk_colors.get(risk.value, "white")
-            content.append("Risk: ", style="dim")
-            content.append(f"{risk.value.upper()}", style=risk_color)
-            content.append("\n")
+            content_parts.append(f"Risk: {risk.value.upper()}")
 
         # Error message (if failed)
         if info.state.value == "failed" and info.error:
-            content.append("\n")
-            content.append("Error: ", style="bold red")
-            content.append(str(info.error), style="red")
+            content_parts.append("")  # Blank line
+            content_parts.append(f"Error: {info.error}")
 
         # Result preview (if success and result exists)
         if info.state.value == "success" and info.result:
             result_str = str(info.result)
-            if len(result_str) > 200:
-                result_str = result_str[:200] + "..."
-            content.append("\n")
-            content.append("Result: ", style="dim")
-            content.append(result_str, style="dim")
+            # Don't truncate for copying - user can collapse it
+            content_parts.append("")  # Blank line
+            content_parts.append(f"Result:\n{result_str}")
 
-        # Create panel with agent name if from delegated agent
-        if info.agent_name and info.agent_name != "orchestrator":
-            title = f"[bold]🔧 Tool: {info.tool_name}[/bold] [dim](via {info.agent_name})[/dim]"
-        else:
-            title = f"[bold]🔧 Tool: {info.tool_name}[/bold]"
+        return "\n".join(content_parts)
 
-        panel = Panel(
-            content,
-            title=title,
-            title_align="left",
-            border_style=border_style,
-            padding=(0, 1),
+    def _add_tool_message(self, info: ToolExecutionInfo) -> ToolMessage:
+        """Add a tool execution message to the chat log.
+
+        Args:
+            info: Tool execution information
+
+        Returns:
+            The created ToolMessage widget
+        """
+        # Build content text
+        content = self._build_tool_content(info)
+
+        # Track in message history for copying
+        agent_suffix = (
+            f" (via {info.agent_name})"
+            if info.agent_name and info.agent_name != "orchestrator"
+            else ""
+        )
+        history_index = len(self._message_history)
+        self._message_history.append(f"Tool {info.tool_name}{agent_suffix}: {content}")
+        # Map execution ID to history index for robust updates
+        self._message_history_ids[info.id] = history_index
+
+        # Create tool message widget
+        widget = ToolMessage(
+            tool_name=info.tool_name,
+            content=content,
+            status=info.state.value,
+            collapsed=True,  # Start collapsed
+            agent_name=info.agent_name,
         )
 
-        self.chat_log.write(panel)
-        self.chat_log.write("")  # Add spacing
+        self.chat_log.mount(widget)
+        self.chat_log.scroll_end(animate=False)
+
+        return widget
 
     def action_clear_chat(self) -> None:
         """Clear the chat log."""
-        self.chat_log.clear()
-        self.chat_log.write("[dim]Chat cleared.[/dim]")
+        # Remove all child widgets
+        self.chat_log.remove_children()
+        self._message_history.clear()
+        self._message_history_ids.clear()
+        self._tool_widgets.clear()
+        self._mount_info_message("[dim]Chat cleared.[/dim]")
         # Reset title to normal state (no processing indicator)
         self._update_chat_title()
+
+    def action_copy_chat(self) -> None:
+        """Copy the entire chat log to clipboard."""
+        if not self._message_history:
+            self.notify("No messages to copy", title="Info", severity="information")
+            return
+
+        try:
+            # Join all messages with double newlines
+            chat_text = "\n\n".join(self._message_history)
+            pyperclip.copy(chat_text)
+            self.notify(
+                f"Copied {len(self._message_history)} messages to clipboard",
+                title="Success",
+            )
+        except pyperclip.PyperclipException as e:
+            self.notify(f"Failed to copy: {e}", title="Error", severity="error")
 
     def action_show_policies(self) -> None:
         """Show active policies."""
         if not self.agent:
             return
 
-        self.chat_log.write("[bold]Active Policies:[/bold]")
+        self._mount_info_message("[bold]Active Policies:[/bold]")
 
         # Show user preferences
         prefs = self.agent.policy_engine.user_preferences
         if prefs:
-            self.chat_log.write("\n[cyan]User Preferences:[/cyan]")
+            self._mount_info_message("\n[cyan]User Preferences:[/cyan]")
             for key, value in prefs.items():
-                self.chat_log.write(f"  {key}: {value}")
+                self._mount_info_message(f"  {key}: {value}")
 
         # Show loaded rules count
         rule_count = len(self.agent.policy_engine.rules)
-        self.chat_log.write(f"\n[cyan]Loaded Rules:[/cyan] {rule_count}")
-
-        self.chat_log.write("")
+        self._mount_info_message(f"\n[cyan]Loaded Rules:[/cyan] {rule_count}")
 
     def action_toggle_safety(self) -> None:
         """Toggle safety checks on/off."""
@@ -472,17 +556,15 @@ class ChatScreen(Screen):
                 self.agent.policy_engine.user_preferences = {
                     "auto_approve": ["*"],
                 }
-                self.chat_log.write(
+                self._mount_info_message(
                     "[yellow]⚠️ Safety checks disabled. All tools will execute automatically.[/yellow]"
                 )
             else:
                 # Re-enable normal policy enforcement
                 self.agent.policy_engine.user_preferences = {}
-                self.chat_log.write(
+                self._mount_info_message(
                     "[green]✓ Safety checks enabled. Tools subject to policy enforcement.[/green]"
                 )
-
-        self.chat_log.write("")
 
     # Tool Execution Manager Callbacks
 
@@ -492,8 +574,9 @@ class ChatScreen(Screen):
         Args:
             info: Execution information
         """
-        # Add tool message to chat log
-        self._add_tool_message(info)
+        # Add tool message to chat log and track it for updates
+        widget = self._add_tool_message(info)
+        self._tool_widgets[info.id] = widget
 
     def on_execution_update(self, info: ToolExecutionInfo) -> None:
         """Handle execution update event from manager.
@@ -510,8 +593,34 @@ class ChatScreen(Screen):
         Args:
             info: Completed execution information
         """
-        # Add completion message to chat log
-        self._add_tool_message(info)
+        # Check if we have an existing widget for this execution
+        widget = self._tool_widgets.get(info.id)
+
+        if widget:
+            # Update the existing widget with the completion status
+            content = self._build_tool_content(info)
+
+            # Update the widget
+            widget.update_status(info.state.value, content)
+
+            # Update message history for copying using execution ID
+            if info.id in self._message_history_ids:
+                agent_suffix = (
+                    f" (via {info.agent_name})"
+                    if info.agent_name and info.agent_name != "orchestrator"
+                    else ""
+                )
+                history_entry = f"Tool {info.tool_name}{agent_suffix}: {content}"
+                history_index = self._message_history_ids[info.id]
+                self._message_history[history_index] = history_entry
+                # Clean up the ID mapping
+                del self._message_history_ids[info.id]
+
+            # Clean up the widget reference
+            del self._tool_widgets[info.id]
+        else:
+            # Fallback: create new message if widget not found
+            self._add_tool_message(info)
 
     async def on_confirmation_required(
         self, info: ToolExecutionInfo, decision: PolicyDecision
@@ -539,3 +648,12 @@ class ChatScreen(Screen):
         else:
             # User cancelled - notify execution manager to abort
             self.agent.execution_manager.cancel_execution(info.id)
+
+    def on_thinking(self, thought_text: str) -> None:
+        """Handle thinking events from the model.
+
+        Args:
+            thought_text: The thinking/reasoning text from the model
+        """
+        # Update the thinking display
+        self.show_thinking(thought_text)

@@ -65,6 +65,17 @@ class GenerationConfigTool(BaseTool):
             llm_request.config.top_p = self.generation_params["top_p"]
         if "top_k" in self.generation_params:
             llm_request.config.top_k = self.generation_params["top_k"]
+        # Apply thinking configuration if specified
+        if (
+            "thinking_budget" in self.generation_params
+            or "include_thoughts" in self.generation_params
+        ):
+            thinking_budget = self.generation_params.get("thinking_budget")
+            include_thoughts = self.generation_params.get("include_thoughts", False)
+            llm_request.config.thinking_config = types.ThinkingConfig(
+                thinking_budget=thinking_budget,
+                include_thoughts=include_thoughts,
+            )
 
 
 class PolicyAwareNativeTool(BaseTool):
@@ -224,6 +235,8 @@ class PolicyAwareLlmAgent:
         on_execution_update: Optional[Callable] = None,
         on_execution_complete: Optional[Callable] = None,
         on_confirmation_required: Optional[Callable] = None,
+        # Thinking callback
+        on_thinking: Optional[Callable] = None,
     ):
         """Initialize policy-aware LlmAgent.
 
@@ -239,11 +252,13 @@ class PolicyAwareLlmAgent:
             on_execution_update: Callback when execution state updates
             on_execution_complete: Callback when execution completes
             on_confirmation_required: Callback when confirmation needed
+            on_thinking: Callback when model thinking is received
         """
         self.agent_name = agent_name
         self.api_key = api_key
         self.confirmation_handler = confirmation_handler
         self.notification_handler = notification_handler
+        self.on_thinking = on_thinking
 
         agent_model_config: Optional[ModelConfig] = None
         self.agent_definition = None
@@ -283,6 +298,11 @@ class PolicyAwareLlmAgent:
             # Check default model for custom parameters
             _, gen_params = ModelRegistry.get_model_and_config(self.model_config.id)
             self.generation_params = gen_params
+
+        # Enable thinking mode with unlimited budget (-1)
+        # This will be configurable in a future PR via model config
+        self.generation_params["thinking_budget"] = -1
+        self.generation_params["include_thoughts"] = True
 
         self.model_id = self.model_config.id
         self.model_name = self.model_config.api_id
@@ -359,6 +379,18 @@ class PolicyAwareLlmAgent:
 
         # Initialize session asynchronously
         # Note: This will be handled in the first chat call
+
+    @staticmethod
+    def _is_thought_part(part) -> bool:
+        """Check if a content part is a thought part.
+
+        Args:
+            part: Content part from streaming event
+
+        Returns:
+            True if this is a thought part, False otherwise
+        """
+        return hasattr(part, "thought") and part.thought
 
     def _get_system_instruction(self) -> str:
         """Get system instruction for the agent."""
@@ -625,13 +657,24 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
                 # and displayed in the UI notification area, so we don't need
                 # pop-up notifications here
 
+                # Extract thoughts from streaming events
+                if event.content:
+                    for part in event.content.parts:
+                        # Check if this is a thought part
+                        if self._is_thought_part(part) and part.text:
+                            if self.on_thinking:
+                                self.on_thinking(part.text)
+
                 # Collect final response
                 if event.is_final_response():
                     final_event = event
                     if event.content:
                         for part in event.content.parts:
+                            # Only collect non-thought parts as response text
                             if hasattr(part, "text") and part.text:
-                                response_text += part.text
+                                # Skip thought parts from final response
+                                if not self._is_thought_part(part):
+                                    response_text += part.text
 
             if final_event:
                 fallback_response = await self._maybe_run_url_context_fallback(

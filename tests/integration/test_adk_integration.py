@@ -70,14 +70,14 @@ class TestADKIntegration:
             handler=test_tool,
         )
 
-        # Verify tool was registered
-        assert len(agent.tools) == 1
+        # Verify tool was registered (includes GenerationConfigTool + test_tool)
+        assert len(agent.tools) == 2
         assert "test_tool" in agent.tool_handlers
 
-        # Verify tool is wrapped with policy
+        # Verify test_tool is wrapped with policy (GenerationConfigTool is tools[0])
         from adh_cli.core.policy_aware_function_tool import PolicyAwareFunctionTool
 
-        assert isinstance(agent.tools[0], PolicyAwareFunctionTool)
+        assert isinstance(agent.tools[1], PolicyAwareFunctionTool)
 
     @pytest.mark.asyncio
     async def test_automatic_tool_execution_no_confirmation(self, mock_adk_agent):
@@ -154,6 +154,7 @@ class TestADKIntegration:
         mock_event.is_final_response.return_value = True
         mock_part = Mock()
         mock_part.text = "File written"
+        mock_part.thought = False  # Explicitly set to False so it's not filtered
         mock_content = Mock()
         mock_content.parts = [mock_part]
         mock_event.content = mock_content
@@ -257,6 +258,7 @@ class TestADKIntegration:
         mock_event5.is_final_response.return_value = True
         mock_part = Mock()
         mock_part.text = "Both tools executed"
+        mock_part.thought = False  # Explicitly set to False so it's not filtered
         mock_content = Mock()
         mock_content.parts = [mock_part]
         mock_event5.content = mock_content

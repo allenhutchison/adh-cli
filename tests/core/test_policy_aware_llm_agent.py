@@ -183,6 +183,9 @@ class TestPolicyAwareLlmAgent:
 
         mock_part = Mock()
         mock_part.text = "Hello! How can I help you?"
+        mock_part.thought = (
+            False  # Explicitly set to False so it's not filtered as thought
+        )
         mock_content = Mock()
         mock_content.parts = [mock_part]
         mock_event.content = mock_content
@@ -224,6 +227,7 @@ class TestPolicyAwareLlmAgent:
                     event.is_final_response.return_value = True
                     part = Mock()
                     part.text = "Review complete"
+                    part.thought = False  # Explicitly set to False so it's not filtered
                     content = Mock()
                     content.parts = [part]
                     event.content = content
