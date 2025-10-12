@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
@@ -12,6 +13,8 @@ from google.genai import types
 from adh_cli.config.models import ModelRegistry
 
 from . import web_tools
+
+LOGGER = logging.getLogger(__name__)
 
 # Default model used when callers do not provide one explicitly.
 _DEFAULT_MODEL = ModelRegistry.DEFAULT.api_id
@@ -149,6 +152,9 @@ async def google_search(
         error_type = type(exc).__name__
         error_detail = str(exc)
 
+        # Log full traceback for debugging while returning structured error to caller
+        LOGGER.exception("google_search failed for query: %s", query)
+
         # Check for common error patterns
         if "API key" in error_detail or "INVALID_ARGUMENT" in error_detail:
             error_msg = f"API key error: {error_detail}"
@@ -167,15 +173,7 @@ async def google_search(
 
 def _dedupe_preserve_order(values: Iterable[str]) -> List[str]:
     """Deduplicate iterable entries while preserving order."""
-
-    seen: Set[str] = set()
-    result: List[str] = []
-    for value in values:
-        if value in seen:
-            continue
-        seen.add(value)
-        result.append(value)
-    return result
+    return list(dict.fromkeys(values))
 
 
 def _normalize_url_for_fetch(url: str) -> str:
@@ -311,6 +309,7 @@ async def google_url_context(
         summary = None
     except Exception:
         # Best effort: ignore summarization errors but keep fetched content.
+        LOGGER.exception("Optional summarization in google_url_context failed")
         summary = None
 
     if summary:
