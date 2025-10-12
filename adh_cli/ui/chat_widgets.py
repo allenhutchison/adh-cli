@@ -283,7 +283,11 @@ class UserMessage(Horizontal):
     UserMessage .user-label {
         color: $primary;
         text-style: bold;
-        margin-right: 1;
+        width: auto;
+    }
+
+    UserMessage .user-content {
+        width: 1fr;
     }
     """
 
@@ -300,5 +304,5 @@ class UserMessage(Horizontal):
 
     def compose(self) -> ComposeResult:
         """Compose the user message widget."""
-        yield Static("You:", classes="user-label")
-        yield Static(self.message_content, markup=False)
+        yield Static("You: ", classes="user-label")
+        yield Static(self.message_content, classes="user-content", markup=False)
