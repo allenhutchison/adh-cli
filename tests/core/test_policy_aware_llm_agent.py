@@ -12,7 +12,7 @@ from google.genai import types as genai_types
 from adh_cli.core.policy_aware_llm_agent import PolicyAwareLlmAgent
 from adh_cli.config.models import ModelRegistry
 from adh_cli.core.tool_executor import ExecutionContext
-from adh_cli.tools.google_tools import create_google_search_tool
+from google.adk.tools.google_search_tool import GoogleSearchTool
 
 
 class TestPolicyAwareLlmAgent:
@@ -136,7 +136,7 @@ class TestPolicyAwareLlmAgent:
             name="google_search",
             description="Search the public web",
             parameters={"query": {"type": "string"}},
-            factory=create_google_search_tool,
+            factory=lambda: GoogleSearchTool(),
         )
 
         assert "google_search" in agent_without_api_key.native_tools
@@ -153,7 +153,7 @@ class TestPolicyAwareLlmAgent:
                 name="google_search",
                 description="Search the public web",
                 parameters={"query": {"type": "string"}},
-                factory=create_google_search_tool,
+                factory=lambda: GoogleSearchTool(),
             )
 
             # Policy directory swap should keep native tool

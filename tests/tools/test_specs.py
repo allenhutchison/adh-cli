@@ -2,14 +2,13 @@
 
 import pytest
 
-from google.adk.tools.google_search_tool import GoogleSearchTool
-
 from adh_cli.tools import specs
+from adh_cli.tools import google_tools
 from adh_cli.tools.base import ToolSpec, registry
-from adh_cli.tools.google_tools import (
-    UrlContextTool,
-    create_google_search_tool,
-)
+
+
+class DummyTool:
+    """Simple placeholder tool for factory tests."""
 
 
 class TestToolSpecValidation:
@@ -41,12 +40,12 @@ class TestToolSpecValidation:
             name="native",
             description="Native factory",
             parameters={},
-            adk_tool_factory=create_google_search_tool,
+            adk_tool_factory=lambda: DummyTool(),
         )
 
         tool = spec.create_adk_tool()
 
-        assert isinstance(tool, GoogleSearchTool)
+        assert isinstance(tool, DummyTool)
 
 
 @pytest.fixture
@@ -68,15 +67,13 @@ class TestRegisterDefaultSpecs:
 
         search_spec = registry.get("google_search")
         assert search_spec is not None
-        assert search_spec.handler is None
-        assert search_spec.adk_tool_factory is not None
-        assert isinstance(search_spec.create_adk_tool(), GoogleSearchTool)
+        assert search_spec.handler is google_tools.google_search
+        assert search_spec.adk_tool_factory is None
 
         url_spec = registry.get("google_url_context")
         assert url_spec is not None
-        assert url_spec.handler is None
-        assert url_spec.adk_tool_factory is not None
-        assert isinstance(url_spec.create_adk_tool(), UrlContextTool)
+        assert url_spec.handler is google_tools.google_url_context
+        assert url_spec.adk_tool_factory is None
 
         # Registry remains idempotent
         specs.register_default_specs()

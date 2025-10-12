@@ -84,7 +84,7 @@ Parameters:
 
 ## `google_search`
 
-Search the public web using Google's search index via Gemini's built-in tool.
+Search the public web via Gemini with Google Search integration and return a summarized list of results with sources.
 
 - Tags: network, search, web
 - Effects: network_read, external_search
@@ -98,7 +98,7 @@ Parameters:
 
 ## `google_url_context`
 
-Fetch and ground responses in the content of provided URLs via Gemini's built-in tool.
+Fetch the content of provided URLs, truncate lengthy pages, and return a formatted context block (with an optional Gemini-generated summary when an API key is available).
 
 - Tags: network, web, context
 - Effects: network_read, external_content

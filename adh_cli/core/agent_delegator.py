@@ -1,6 +1,8 @@
 """Agent delegation infrastructure for multi-agent orchestration."""
 
 from dataclasses import dataclass
+import functools
+import inspect
 from typing import Any, Dict, Optional
 from pathlib import Path
 
@@ -206,16 +208,73 @@ class AgentDelegator:
         from ..tools.specs import register_default_specs
 
         register_default_specs()
-        for tool_name in ("google_search", "google_url_context"):
+        raw_generation_params = getattr(agent, "generation_params", None)
+        generation_config = (
+            dict(raw_generation_params)
+            if isinstance(raw_generation_params, dict)
+            else None
+        )
+        agent_model = getattr(agent, "model_name", None)
+
+        # Register each tool separately to avoid closure issues
+        def _register_tool(tool_name: str):
+            """Register a single google tool with proper closure capture."""
             spec = registry.get(tool_name)
-            if spec is None or spec.adk_tool_factory is None:
+            if spec is None or spec.handler is None:
                 raise ValueError(f"{tool_name} specification not registered")
-            agent.register_native_tool(
+
+            # Capture spec.handler in the closure correctly
+            original_handler = spec.handler
+
+            @functools.wraps(original_handler)
+            async def bound_handler(
+                *args,
+                __handler=original_handler,
+                __api_key=self.api_key,
+                __model=agent_model,
+                __generation_config=generation_config,
+                **kwargs,
+            ):
+                kwargs = dict(kwargs)
+                request_api_key = kwargs.pop("api_key", None)
+                request_model = kwargs.pop("model", None)
+                request_generation_config = kwargs.pop("generation_config", None)
+
+                effective_api_key = __api_key or request_api_key
+                effective_model = __model or request_model
+                effective_generation_config = (
+                    __generation_config or request_generation_config
+                )
+
+                return await __handler(
+                    *args,
+                    api_key=effective_api_key,
+                    model=effective_model,
+                    generation_config=effective_generation_config,
+                    **kwargs,
+                )
+
+            original_signature = inspect.signature(original_handler)
+            adjusted_parameters = [
+                param.replace(default=inspect._empty)
+                if param.default is not inspect._empty
+                else param
+                for param in original_signature.parameters.values()
+            ]
+            bound_handler.__signature__ = original_signature.replace(
+                parameters=adjusted_parameters
+            )
+
+            agent.register_tool(
                 name=spec.name,
                 description=spec.description,
                 parameters=spec.parameters,
-                factory=spec.adk_tool_factory,
+                handler=bound_handler,
             )
+
+        # Register both tools
+        _register_tool("google_search")
+        _register_tool("google_url_context")
 
     def _register_agent_tools(self, agent: PolicyAwareLlmAgent, agent_name: str):
         """Register tools appropriate for this agent.
