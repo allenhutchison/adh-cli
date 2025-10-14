@@ -339,19 +339,7 @@ class PolicyAwareLlmAgent:
             self.tools.append(gen_config_tool)
 
         # Initialize LlmAgent (with generation config tool if needed)
-        llm_agent_kwargs = {
-            "model": self.model_name,
-            "name": "policy_aware_assistant",
-            "description": "AI assistant with policy enforcement",
-            "instruction": self._get_system_instruction(),
-            # Enable model's built-in thinking features via BuiltInPlanner
-            "planner": BuiltInPlanner(
-                thinking_config=types.ThinkingConfig(
-                    thinking_budget=-1,  # -1 = automatic/unlimited budget
-                    include_thoughts=True,  # Return thoughts in response
-                )
-            ),
-        }
+        llm_agent_kwargs = self._create_llm_agent_kwargs()
 
         # Only add tools parameter if we have tools to add
         if initial_tools:
@@ -383,6 +371,26 @@ class PolicyAwareLlmAgent:
             True if this is a thought part, False otherwise
         """
         return hasattr(part, "thought") and part.thought
+
+    def _create_llm_agent_kwargs(self) -> Dict[str, Any]:
+        """Create kwargs dictionary for LlmAgent initialization.
+
+        Returns:
+            Dictionary of kwargs for LlmAgent constructor
+        """
+        return {
+            "model": self.model_name,
+            "name": "policy_aware_assistant",
+            "description": "AI assistant with policy enforcement",
+            "instruction": self._get_system_instruction(),
+            # Enable model's built-in thinking features via BuiltInPlanner
+            "planner": BuiltInPlanner(
+                thinking_config=types.ThinkingConfig(
+                    thinking_budget=-1,  # -1 = automatic/unlimited budget
+                    include_thoughts=True,  # Return thoughts in response
+                )
+            ),
+        }
 
     def _get_system_instruction(self) -> str:
         """Get system instruction for the agent."""
@@ -581,22 +589,9 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
             return
 
         # Recreate LlmAgent with updated tools
-        # Only pass tools if we have some (don't pass empty list or None)
-        # Using model defaults for generation parameters
-        llm_agent_kwargs = {
-            "model": self.model_name,
-            "name": "policy_aware_assistant",
-            "description": "AI assistant with policy enforcement",
-            "instruction": self._get_system_instruction(),
-            # Enable model's built-in thinking features via BuiltInPlanner
-            "planner": BuiltInPlanner(
-                thinking_config=types.ThinkingConfig(
-                    thinking_budget=-1,  # -1 = automatic/unlimited budget
-                    include_thoughts=True,  # Return thoughts in response
-                )
-            ),
-        }
+        llm_agent_kwargs = self._create_llm_agent_kwargs()
 
+        # Only pass tools if we have some (don't pass empty list or None)
         if self.tools:
             llm_agent_kwargs["tools"] = self.tools
 
@@ -659,27 +654,8 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
                 # Extract thoughts from streaming events
                 if event.content:
                     for part in event.content.parts:
-                        # Debug: Check what we're seeing
-                        has_thought_attr = hasattr(part, "thought")
-                        thought_value = (
-                            getattr(part, "thought", None) if has_thought_attr else None
-                        )
-                        has_text = hasattr(part, "text") and part.text
-
-                        if has_thought_attr or has_text:
-                            from textual import log
-
-                            log(
-                                f"[DEBUG] Part attributes: thought={thought_value}, has_text={has_text}, text_preview={part.text[:50] if has_text else 'N/A'}"
-                            )
-
                         # Check if this is a thought part
                         if self._is_thought_part(part) and part.text:
-                            from textual import log
-
-                            log(
-                                "[DEBUG] Thought detected! Calling on_thinking callback"
-                            )
                             if self.on_thinking:
                                 self.on_thinking(part.text)
 

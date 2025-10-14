@@ -360,24 +360,18 @@ class ChatScreen(Screen):
         Args:
             thought_text: The thinking/reasoning text from the model
         """
-        from textual import log
-
-        log(f"[DEBUG] show_thinking called, thinking_display={self.thinking_display}")
-
         if self.thinking_display:
             # Clear previous thoughts and replace with the latest one
             self.thinking_display.remove_children()
 
             # Extract just the first line of the thought
             first_line = thought_text.split("\n")[0].strip()
-            log(f"[DEBUG] Displaying first line: {first_line}")
 
             # Create simple "Thinking: ..." display
             thinking_widget = Static(f"Thinking: {first_line}")
             self.thinking_display.mount(thinking_widget)
 
             self.thinking_display.add_class("visible")
-            log("[DEBUG] Thinking display should now be visible")
             self.thinking_display.scroll_end(animate=False)
 
     def hide_thinking(self) -> None:
@@ -656,8 +650,5 @@ class ChatScreen(Screen):
         Args:
             thought_text: The thinking/reasoning text from the model
         """
-        from textual import log
-
-        log(f"[DEBUG] on_thinking called with text: {thought_text[:100]}")
         # Update the thinking display
         self.show_thinking(thought_text)
