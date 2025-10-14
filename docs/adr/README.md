@@ -50,6 +50,7 @@ Each ADR follows a consistent template (see `000-template.md`):
 | [019](019-adopt-textuals-built-in-footer.md) | Adopt Textual's Built-in Footer Widget | Accepted | 2025-10-08 |
 | [020](020-session-transcript-capture.md) | Session and Transcript Capture | Proposed | 2025-10-08 |
 | [021](021-agent-tool-configuration-strategy.md) | Agent Tool Configuration Strategy | Proposed | 2025-10-09 |
+| [022](022-deep-adk-integration-via-plugins.md) | Deep ADK Integration via Plugin Architecture | Proposed | 2025-10-14 |
 
 ## When to Create an ADR
 
