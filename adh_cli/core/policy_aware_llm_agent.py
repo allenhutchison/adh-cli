@@ -11,6 +11,7 @@ from google.adk.agents import LlmAgent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.tools.base_tool import BaseTool
+from google.adk.planners.built_in_planner import BuiltInPlanner
 from google import genai
 from google.genai import types
 from pydantic import ValidationError
@@ -65,17 +66,6 @@ class GenerationConfigTool(BaseTool):
             llm_request.config.top_p = self.generation_params["top_p"]
         if "top_k" in self.generation_params:
             llm_request.config.top_k = self.generation_params["top_k"]
-        # Apply thinking configuration if specified
-        if (
-            "thinking_budget" in self.generation_params
-            or "include_thoughts" in self.generation_params
-        ):
-            thinking_budget = self.generation_params.get("thinking_budget")
-            include_thoughts = self.generation_params.get("include_thoughts", False)
-            llm_request.config.thinking_config = types.ThinkingConfig(
-                thinking_budget=thinking_budget,
-                include_thoughts=include_thoughts,
-            )
 
 
 class PolicyAwareNativeTool(BaseTool):
@@ -299,11 +289,6 @@ class PolicyAwareLlmAgent:
             _, gen_params = ModelRegistry.get_model_and_config(self.model_config.id)
             self.generation_params = gen_params
 
-        # Enable thinking mode with unlimited budget (-1)
-        # This will be configurable in a future PR via model config
-        self.generation_params["thinking_budget"] = -1
-        self.generation_params["include_thoughts"] = True
-
         self.model_id = self.model_config.id
         self.model_name = self.model_config.api_id
 
@@ -359,6 +344,13 @@ class PolicyAwareLlmAgent:
             "name": "policy_aware_assistant",
             "description": "AI assistant with policy enforcement",
             "instruction": self._get_system_instruction(),
+            # Enable model's built-in thinking features via BuiltInPlanner
+            "planner": BuiltInPlanner(
+                thinking_config=types.ThinkingConfig(
+                    thinking_budget=-1,  # -1 = automatic/unlimited budget
+                    include_thoughts=True,  # Return thoughts in response
+                )
+            ),
         }
 
         # Only add tools parameter if we have tools to add
@@ -596,6 +588,13 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
             "name": "policy_aware_assistant",
             "description": "AI assistant with policy enforcement",
             "instruction": self._get_system_instruction(),
+            # Enable model's built-in thinking features via BuiltInPlanner
+            "planner": BuiltInPlanner(
+                thinking_config=types.ThinkingConfig(
+                    thinking_budget=-1,  # -1 = automatic/unlimited budget
+                    include_thoughts=True,  # Return thoughts in response
+                )
+            ),
         }
 
         if self.tools:
@@ -660,8 +659,27 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
                 # Extract thoughts from streaming events
                 if event.content:
                     for part in event.content.parts:
+                        # Debug: Check what we're seeing
+                        has_thought_attr = hasattr(part, "thought")
+                        thought_value = (
+                            getattr(part, "thought", None) if has_thought_attr else None
+                        )
+                        has_text = hasattr(part, "text") and part.text
+
+                        if has_thought_attr or has_text:
+                            from textual import log
+
+                            log(
+                                f"[DEBUG] Part attributes: thought={thought_value}, has_text={has_text}, text_preview={part.text[:50] if has_text else 'N/A'}"
+                            )
+
                         # Check if this is a thought part
                         if self._is_thought_part(part) and part.text:
+                            from textual import log
+
+                            log(
+                                "[DEBUG] Thought detected! Calling on_thinking callback"
+                            )
                             if self.on_thinking:
                                 self.on_thinking(part.text)
 
