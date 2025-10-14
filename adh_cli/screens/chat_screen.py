@@ -9,7 +9,6 @@ from textual.screen import Screen
 from textual.widgets import TextArea, Footer, Static
 from textual.binding import Binding
 from rich.text import Text
-from rich.markdown import Markdown
 
 from ..core.tool_executor import ExecutionContext
 from ..ui.confirmation_dialog import ConfirmationDialog, PolicyNotification
@@ -362,19 +361,15 @@ class ChatScreen(Screen):
             thought_text: The thinking/reasoning text from the model
         """
         if self.thinking_display:
-            # If this is the first thought, add a header
-            if not self.thinking_display.children:
-                header = Static(Markdown("💭 **Thinking:**"))
-                self.thinking_display.mount(header)
+            # Clear previous thoughts and replace with the latest one
+            self.thinking_display.remove_children()
 
-            # Mount the new thought as a separate widget
-            # This is more efficient than re-rendering all thoughts each time
-            new_thought_widget = Static(Markdown(thought_text))
-            self.thinking_display.mount(new_thought_widget)
+            # Extract just the first line of the thought
+            first_line = thought_text.split("\n")[0].strip()
 
-            # Add separator between thoughts
-            separator = Static("---", classes="thinking-separator")
-            self.thinking_display.mount(separator)
+            # Create simple "Thinking: ..." display
+            thinking_widget = Static(f"Thinking: {first_line}")
+            self.thinking_display.mount(thinking_widget)
 
             self.thinking_display.add_class("visible")
             self.thinking_display.scroll_end(animate=False)

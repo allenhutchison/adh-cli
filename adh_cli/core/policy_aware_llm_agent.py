@@ -11,6 +11,7 @@ from google.adk.agents import LlmAgent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.tools.base_tool import BaseTool
+from google.adk.planners.built_in_planner import BuiltInPlanner
 from google import genai
 from google.genai import types
 from pydantic import ValidationError
@@ -65,17 +66,6 @@ class GenerationConfigTool(BaseTool):
             llm_request.config.top_p = self.generation_params["top_p"]
         if "top_k" in self.generation_params:
             llm_request.config.top_k = self.generation_params["top_k"]
-        # Apply thinking configuration if specified
-        if (
-            "thinking_budget" in self.generation_params
-            or "include_thoughts" in self.generation_params
-        ):
-            thinking_budget = self.generation_params.get("thinking_budget")
-            include_thoughts = self.generation_params.get("include_thoughts", False)
-            llm_request.config.thinking_config = types.ThinkingConfig(
-                thinking_budget=thinking_budget,
-                include_thoughts=include_thoughts,
-            )
 
 
 class PolicyAwareNativeTool(BaseTool):
@@ -299,11 +289,6 @@ class PolicyAwareLlmAgent:
             _, gen_params = ModelRegistry.get_model_and_config(self.model_config.id)
             self.generation_params = gen_params
 
-        # Enable thinking mode with unlimited budget (-1)
-        # This will be configurable in a future PR via model config
-        self.generation_params["thinking_budget"] = -1
-        self.generation_params["include_thoughts"] = True
-
         self.model_id = self.model_config.id
         self.model_name = self.model_config.api_id
 
@@ -354,12 +339,7 @@ class PolicyAwareLlmAgent:
             self.tools.append(gen_config_tool)
 
         # Initialize LlmAgent (with generation config tool if needed)
-        llm_agent_kwargs = {
-            "model": self.model_name,
-            "name": "policy_aware_assistant",
-            "description": "AI assistant with policy enforcement",
-            "instruction": self._get_system_instruction(),
-        }
+        llm_agent_kwargs = self._create_llm_agent_kwargs()
 
         # Only add tools parameter if we have tools to add
         if initial_tools:
@@ -391,6 +371,26 @@ class PolicyAwareLlmAgent:
             True if this is a thought part, False otherwise
         """
         return hasattr(part, "thought") and part.thought
+
+    def _create_llm_agent_kwargs(self) -> Dict[str, Any]:
+        """Create kwargs dictionary for LlmAgent initialization.
+
+        Returns:
+            Dictionary of kwargs for LlmAgent constructor
+        """
+        return {
+            "model": self.model_name,
+            "name": "policy_aware_assistant",
+            "description": "AI assistant with policy enforcement",
+            "instruction": self._get_system_instruction(),
+            # Enable model's built-in thinking features via BuiltInPlanner
+            "planner": BuiltInPlanner(
+                thinking_config=types.ThinkingConfig(
+                    thinking_budget=-1,  # -1 = automatic/unlimited budget
+                    include_thoughts=True,  # Return thoughts in response
+                )
+            ),
+        }
 
     def _get_system_instruction(self) -> str:
         """Get system instruction for the agent."""
@@ -589,15 +589,9 @@ Your goal is to be helpful and efficient - use your tools to get answers immedia
             return
 
         # Recreate LlmAgent with updated tools
-        # Only pass tools if we have some (don't pass empty list or None)
-        # Using model defaults for generation parameters
-        llm_agent_kwargs = {
-            "model": self.model_name,
-            "name": "policy_aware_assistant",
-            "description": "AI assistant with policy enforcement",
-            "instruction": self._get_system_instruction(),
-        }
+        llm_agent_kwargs = self._create_llm_agent_kwargs()
 
+        # Only pass tools if we have some (don't pass empty list or None)
         if self.tools:
             llm_agent_kwargs["tools"] = self.tools
 
