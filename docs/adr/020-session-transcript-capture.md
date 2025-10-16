@@ -1,9 +1,11 @@
 # ADR 020: Session and Transcript Capture
 
-**Status:** Proposed
+**Status:** Proposed - Not Implemented
 **Date:** 2025-10-08
 **Deciders:** Allen, ADH CLI Maintainers
 **Tags:** architecture, observability, privacy, multi-agent
+
+> **Implementation Status (2025-10-14):** This ADR describes a proposed session recording feature that has not yet been implemented. No `SessionRecorder` service, `session/recorder.py`, JSONL transcript files, or session management commands exist. Session capture and transcript functionality remain future work. Current audit logging in `PolicyAwareLlmAgent` provides basic tool execution tracking but not the comprehensive conversation transcripts described here.
 
 ---
 

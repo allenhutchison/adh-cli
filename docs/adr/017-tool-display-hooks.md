@@ -1,9 +1,11 @@
 # ADR 017: Tool-Provided Display Hooks for Execution Updates
 
-**Status:** Proposed
+**Status:** Proposed - Not Implemented
 **Date:** 2025-10-05
 **Deciders:** Project Team
 **Tags:** architecture, ui, developer-experience, observability
+
+> **Implementation Status (2025-10-14):** This ADR describes a proposed enhancement that has not yet been implemented. The `AdhCliBaseTool` class, `ToolDisplayPayload`, `ToolInvocationContext`, and display hook system do not exist. Tools cannot currently provide custom display formatting for confirmations and execution updates. This remains future work to enhance the tool execution UX.
 
 ---
 

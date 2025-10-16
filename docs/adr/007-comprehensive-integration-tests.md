@@ -1,9 +1,11 @@
 # ADR 007: Comprehensive Integration Testing
 
-**Status:** Proposed
+**Status:** Proposed - Partially Implemented
 **Date:** 2025-09-30
 **Deciders:** Project Team
 **Tags:** testing, quality, reliability, high-priority
+
+> **Implementation Status (2025-10-14):** This ADR describes a comprehensive testing strategy that is only partially implemented. Currently, the project has 17 integration tests in `tests/integration/` covering basic ADK integration and tool execution UI. The proposed e2e/, performance/, and fixtures/ directories do not exist. Test counts have been updated to reflect current reality (410+ total tests). The comprehensive CI workflow and performance benchmarking remain future work.
 
 ---
 

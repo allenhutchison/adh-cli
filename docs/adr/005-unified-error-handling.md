@@ -1,9 +1,11 @@
 # ADR 005: Unified Error Handling and Response Processing
 
-**Status:** Proposed
+**Status:** Proposed - Not Implemented
 **Date:** 2025-09-30
 **Deciders:** Project Team
 **Tags:** reliability, error-handling, refactoring, critical
+
+> **Implementation Status (2025-10-14):** This ADR describes a proposed future enhancement that has not yet been implemented. Error handling is currently distributed across the `PolicyAwareLlmAgent` class without the unified `ResponseHandler` abstraction described here. The proposed exception hierarchy and response handler remain future work.
 
 ---
 

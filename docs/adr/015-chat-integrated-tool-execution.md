@@ -1,9 +1,11 @@
 # ADR 015: Chat-Integrated Tool Execution with Modal Confirmations
 
-**Status:** Accepted
+**Status:** Accepted - Implementation Differs from Specification
 **Date:** 2025-10-03
 **Deciders:** Allen Hutchison
 **Tags:** ui, ux, architecture, user-experience
+
+> **Implementation Note (2025-10-14):** The core functionality and intent of this ADR are implemented correctly (tools in chat, modal confirmations, unified view), but the implementation details differ from this document. The actual implementation uses custom `ToolMessage` widgets from `chat_widgets.py` instead of Rich panels, with in-place updates rather than append-only panels. The `ToolExecutionWidget` file still exists (12,514 bytes) but appears unused. The implementation is arguably better than originally planned, but this ADR should be updated to reflect the actual architecture.
 
 ---
 

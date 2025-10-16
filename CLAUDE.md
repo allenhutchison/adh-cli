@@ -188,7 +188,7 @@ Located in `adh_cli/policies/defaults/`:
   - Only HTTP/HTTPS schemes allowed
 
 #### Custom Policies
-Users can create custom policies in `~/.adh-cli/policies/`:
+Users can create custom policies in `~/.config/adh-cli/policies/`:
 - YAML format with pattern matching
 - Priority-based rule ordering
 - Conditional restrictions
@@ -226,3 +226,126 @@ pytest --cov=adh_cli
 # Quick test run (no traceback)
 pytest --tb=no -q
 ```
+
+## Architecture Decision Records (ADRs)
+
+This project uses ADRs to document architectural decisions. ADRs are located in `docs/adr/` and follow a structured format.
+
+### ADR Status Taxonomy
+
+ADRs use a precise status taxonomy to distinguish between decisions, implementations, and proposals:
+
+- **Accepted**: Decision made and fully implemented as described
+- **Accepted - Implementation Differs from Specification**: Core functionality implemented but details differ (document both)
+- **Proposed**: Decision documented but awaits implementation
+- **Proposed - Partially Implemented**: Some parts implemented, others pending (be specific about what's done)
+- **Proposed - Not Implemented**: Future feature documented but not yet started
+- **Superseded**: Replaced by another ADR (reference the replacement)
+
+### Keeping ADRs Accurate
+
+ADRs require active maintenance to remain trustworthy. When working on this codebase:
+
+**1. Verify ADR Claims Before Major Work**
+- If an ADR references test counts, file paths, or line counts, verify they're accurate
+- If implementation has diverged from an ADR, update the ADR first
+- Don't assume ADRs reflect current reality—check the code
+
+**2. Update ADRs When Implementation Changes**
+- If you implement a "Proposed" ADR, update its status to "Accepted"
+- If implementation differs from design, add an implementation note explaining how
+- If you remove features described in an ADR, mark it as "Superseded" or add a note
+
+**3. Add Implementation Status Notes**
+When an ADR's status is ambiguous, add a blockquote note at the top:
+
+```markdown
+> **Implementation Status (YYYY-MM-DD):** This ADR describes a proposed feature
+> that has not yet been implemented. Current state: [describe reality].
+> The proposed architecture remains future work.
+```
+
+**4. Keep Concrete Details Accurate**
+These are key signals that ADRs have drifted:
+- **Test counts** ("58 tests" → verify with actual count)
+- **File paths** (`~/.adh-cli/` → check if moved to `~/.config/adh-cli/`)
+- **Line counts** ("395 LOC" → verify with `wc -l`)
+- **File existence** ("will create X.py" → check if X.py exists)
+
+**5. Document Implementation Gaps**
+If an ADR documents a decision but code doesn't implement it:
+- Mark status as "Proposed - Not Implemented" or "Partially Implemented"
+- Add note explaining what's missing
+- If it's a critical gap (like ADR-021 tool registration), highlight it clearly
+
+**6. Celebrate Implementation Improvements**
+If implementation exceeds the original design:
+- Update the ADR to reflect the better approach
+- Add a note like "Implementation Note: Actual implementation uses X instead of Y, providing better Z"
+- Don't pretend it matches the original spec
+
+**7. Use Revision History**
+Add entries to the revision history table at the bottom of ADRs:
+
+```markdown
+| Date | Change | Author |
+|------|--------|--------|
+| 2025-10-14 | Updated test counts, fixed file paths | AI Assistant |
+```
+
+### When to Create New ADRs
+
+Create ADRs for:
+- Architectural patterns that affect multiple components
+- Technology choices (frameworks, libraries, patterns)
+- Cross-cutting concerns (security, performance, observability)
+- Significant refactorings that change component relationships
+
+Don't create ADRs for:
+- Implementation details of a single component
+- Bug fixes (unless they reveal architectural issues)
+- Routine feature additions that follow existing patterns
+
+### ADR Review Checklist
+
+When reviewing ADRs (quarterly or before major releases):
+
+- [ ] Verify test counts match actual test suite
+- [ ] Check file paths are correct and consistent
+- [ ] Confirm line counts are reasonably accurate
+- [ ] Verify claimed features actually exist
+- [ ] Update status for implemented proposals
+- [ ] Add implementation notes for divergent implementations
+- [ ] Mark deferred features as "Not Implemented"
+- [ ] Update revision history with review date
+
+### Example: Good vs Bad ADR Updates
+
+**Bad Update:**
+```markdown
+# ADR 042: New Feature X
+Status: Proposed
+[entire document describes feature not built]
+```
+
+**Good Update:**
+```markdown
+# ADR 042: New Feature X
+Status: Proposed - Not Implemented
+
+> **Implementation Status (2025-10-14):** This ADR describes a proposed
+> feature that has not yet been implemented. File X.py and service Y do not
+> exist. This remains future work pending prioritization.
+
+[rest of document unchanged]
+```
+
+### Living Documentation Philosophy
+
+ADRs serve multiple purposes:
+- **Historical Record**: What was decided, when, and why
+- **Implementation Guide**: How the system actually works today
+- **Roadmap**: What's planned for the future
+- **Onboarding Material**: How to understand the architecture
+
+Keep these purposes clear through accurate status indicators and honest assessment of what's implemented vs. proposed.

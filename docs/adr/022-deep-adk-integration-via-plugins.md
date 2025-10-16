@@ -1,6 +1,8 @@
 # 022. Deep ADK Integration via Plugin Architecture
 
-Status: Proposed
+Status: Proposed - Not Implemented
+
+> **Implementation Status (2025-10-14):** This ADR describes a proposed plugin-based architecture refactoring that has not yet been implemented. The wrapper pattern (`PolicyAwareFunctionTool`, `PolicyAwareNativeTool`) is still in use. No plugin files (`PolicyEnforcementPlugin`, `SafetyFilterPlugin`, `GenerationConfigPlugin`) exist. The event-driven confirmation architecture described here has not been built. Thinking mode uses ADK's `BuiltInPlanner` correctly (as noted in the ADR), but the broader plugin migration remains future work. This is a major refactoring effort (3-4 weeks estimated) that has been deferred.
 
 ## Context
 

@@ -1,9 +1,11 @@
 # ADR 021: Agent Tool Configuration Strategy
 
-**Status:** Proposed
+**Status:** Proposed - Partially Implemented (Critical Gap)
 **Date:** 2025-10-09
 **Deciders:** Allen Hutchison
 **Tags:** architecture, agents, tools, configuration, medium-priority
+
+> **Implementation Status (2025-10-14):** This ADR documents the architectural decision to make YAML frontmatter the single source of truth for agent tools, but this is **NOT yet implemented**. Agent frontmatter YAML correctly lists tools, but `AgentDelegator._register_agent_tools()` (lines 279-347) still uses hardcoded if/else logic and never reads the `agent_definition.tools` field. This creates two sources of truth and violates the core principle of this ADR. Implementation of the data-driven registration pattern described here is high priority.
 
 ---
 

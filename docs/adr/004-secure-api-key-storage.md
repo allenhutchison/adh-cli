@@ -1,9 +1,11 @@
 # ADR 004: Secure API Key Storage with System Keychain
 
-**Status:** Proposed
+**Status:** Proposed - Not Implemented
 **Date:** 2025-09-30
 **Deciders:** Project Team
 **Tags:** security, critical, compliance
+
+> **Implementation Status (2025-10-14):** This ADR describes a proposed future enhancement that has not yet been implemented. The application currently stores API keys using environment variables (GOOGLE_API_KEY, GEMINI_API_KEY) loaded via python-dotenv from .env files. Keychain integration and secure storage remain future work.
 
 ---
 

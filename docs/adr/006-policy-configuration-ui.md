@@ -1,9 +1,11 @@
 # ADR 006: Policy Configuration UI
 
-**Status:** Proposed
+**Status:** Proposed - Not Implemented
 **Date:** 2025-09-30
 **Deciders:** Project Team
 **Tags:** ui, user-experience, policies, high-priority
+
+> **Implementation Status (2025-10-14):** This ADR describes a proposed future enhancement that has not yet been implemented. The `action_show_policies()` method in `app.py` (lines 291-294) currently displays a "coming soon" notification. The PolicyConfigScreen, presets system, and policy configuration UI remain future work.
 
 ---
 

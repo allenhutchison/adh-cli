@@ -38,22 +38,18 @@ The application integrates with AI models (Google Gemini) that can execute arbit
 
 ## Decision
 
-Implement a **dual-mode architecture** with an optional policy-aware layer:
+Implement a **policy-aware architecture** with integrated safety controls:
 
 ### Architecture Components
 
-1. **Classic Mode** (`PolicyAwareAgent`)
-   - Original behavior without policy enforcement
-   - Manual function calling with google.genai.Client
-   - Kept for backward compatibility and testing
-
-2. **Policy-Aware Mode** (Default - `PolicyAwareLlmAgent`)
+**Policy-Aware Agent** (`PolicyAwareLlmAgent`)
    - Full safety system integrated with Google ADK
    - Components:
      - **PolicyEngine**: Rule-based evaluation of tool calls
      - **SafetyPipeline**: Pre-execution safety checks
      - **ToolExecutionManager**: Lifecycle and UI tracking
      - **PolicyAwareFunctionTool**: Wraps ADK FunctionTool
+     - **ToolExecutor**: Tool execution with policy enforcement
 
 ### Key Design Principles
 
@@ -183,7 +179,7 @@ Audit Logging
 - **Impact:** Low - disk space consumption
 - **Mitigation:**
   - TODO: Implement log rotation
-  - Keep logs in ~/.adh-cli (user-scoped)
+  - Keep logs in ~/.config/adh-cli (user-scoped)
   - Document cleanup procedures
 
 ### Neutral
@@ -283,7 +279,7 @@ Use another AI model to evaluate safety.
 **Tool Integration:**
 - `adh_cli/core/policy_aware_function_tool.py` - ADK FunctionTool wrapper
 - `adh_cli/core/policy_aware_llm_agent.py` - ADK agent integration
-- `adh_cli/core/tool_executor.py` - Legacy execution (deprecated)
+- `adh_cli/core/tool_executor.py` - Tool execution with policy enforcement
 
 **UI Tracking:**
 - `adh_cli/ui/tool_execution_manager.py` - Execution lifecycle
@@ -294,7 +290,7 @@ Use another AI model to evaluate safety.
 
 **Policy Files:**
 ```
-~/.adh-cli/policies/
+~/.config/adh-cli/policies/
   ├── filesystem_policies.yaml
   ├── command_policies.yaml
   └── custom_policies.yaml
@@ -302,22 +298,25 @@ Use another AI model to evaluate safety.
 
 **User Preferences:**
 ```
-~/.adh-cli/policy_preferences.yaml
+~/.config/adh-cli/policy_preferences.yaml
 ```
 
 **Audit Log:**
 ```
-~/.adh-cli/audit.log
+~/.config/adh-cli/audit.log
 ```
 
 ### Testing
 
 **Coverage:**
-- Policy Engine: 58 tests
+- Policy Engine: 37 tests
 - Safety Checkers: 24 tests
-- Core Integration: 50 tests
-- UI Components: 67 tests
-- **Total: 324 tests passing**
+- Core: 79 tests
+- UI: 74 tests
+- Integration: 17 tests
+- Services: 37 tests
+- Tools: 57 tests
+- **Total: 410+ tests passing**
 
 **Test Strategy:**
 - Unit tests for each component
@@ -350,4 +349,5 @@ Use another AI model to evaluate safety.
 
 | Date | Change | Author |
 |------|--------|--------|
+| 2025-10-14 | Updated test counts (410+ tests), removed non-existent classic mode, updated config paths to XDG-compliant locations | Project Team |
 | 2025-01-XX | Initial retroactive documentation | Project Team |

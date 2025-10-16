@@ -1,9 +1,11 @@
 # ADR 018: Initialization Agent and Environment Probing Workflow
 
-**Status:** Proposed
+**Status:** Proposed - Not Implemented
 **Date:** 2025-10-05
 **Deciders:** ADH CLI Core Team
 **Tags:** architecture, agents, onboarding, documentation, developer-experience
+
+> **Implementation Status (2025-10-14):** This ADR describes a proposed initialization workflow that has not yet been implemented. `AGENTS.md` exists and was manually created, but there is no `AGENTS.local.md`, no initialization agent, no `InitScreen` in the TUI, no `initialization_service.py`, and no `probe_registry.py`. The TUI-driven initialization workflow and environment probing system remain future work.
 
 ---
 
