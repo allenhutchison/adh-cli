@@ -74,9 +74,13 @@ class TestAgentDelegator:
         with patch(
             "adh_cli.core.agent_delegator.PolicyAwareLlmAgent"
         ) as mock_agent_class:
-            # Setup mock agent
+            # Setup mock agent with agent_definition
             mock_agent = Mock()
             mock_agent.chat = AsyncMock(return_value="This is the plan")
+            mock_agent_def = Mock()
+            mock_agent_def.tools = ["read_file", "list_directory", "get_file_info"]
+            mock_agent.agent_definition = mock_agent_def
+            mock_agent.register_tool = Mock()
             mock_agent_class.return_value = mock_agent
 
             # Delegate task
@@ -110,6 +114,10 @@ class TestAgentDelegator:
         ) as mock_agent_class:
             mock_agent = Mock()
             mock_agent.chat = AsyncMock(return_value="Plan with context")
+            mock_agent_def = Mock()
+            mock_agent_def.tools = ["read_file", "list_directory", "get_file_info"]
+            mock_agent.agent_definition = mock_agent_def
+            mock_agent.register_tool = Mock()
             mock_agent_class.return_value = mock_agent
 
             context = {
@@ -158,6 +166,10 @@ class TestAgentDelegator:
         ) as mock_agent_class:
             mock_agent = Mock()
             mock_agent.chat = AsyncMock(return_value="Result")
+            mock_agent_def = Mock()
+            mock_agent_def.tools = ["read_file", "list_directory", "get_file_info"]
+            mock_agent.agent_definition = mock_agent_def
+            mock_agent.register_tool = Mock()
             mock_agent_class.return_value = mock_agent
 
             # First delegation
@@ -175,18 +187,21 @@ class TestAgentDelegator:
 
     @pytest.mark.asyncio
     async def test_register_agent_tools(self, delegator):
-        """Test that appropriate tools are registered for agents."""
+        """Test that appropriate tools are registered for agents based on YAML."""
         with patch(
             "adh_cli.core.agent_delegator.PolicyAwareLlmAgent"
         ) as mock_agent_class:
             mock_agent = Mock()
             mock_agent.chat = AsyncMock(return_value="Result")
             mock_agent.register_tool = Mock()
+            mock_agent_def = Mock()
+            mock_agent_def.tools = ["read_file", "list_directory", "get_file_info"]
+            mock_agent.agent_definition = mock_agent_def
             mock_agent_class.return_value = mock_agent
 
             await delegator.delegate(agent_name="planner", task="Task")
 
-            # Verify read-only tools were registered
+            # Verify read-only tools were registered from YAML
             assert (
                 mock_agent.register_tool.call_count == 3
             )  # read_file, list_directory, get_file_info
@@ -199,7 +214,7 @@ class TestAgentDelegator:
 
     @pytest.mark.asyncio
     async def test_code_reviewer_is_read_only(self, delegator):
-        """Code reviewer should only receive read-only inspection tools."""
+        """Code reviewer should only receive read-only inspection tools from YAML."""
         with patch(
             "adh_cli.core.agent_delegator.PolicyAwareLlmAgent"
         ) as mock_agent_class:
@@ -207,6 +222,9 @@ class TestAgentDelegator:
             mock_agent.chat = AsyncMock(return_value="Review")
             mock_agent.register_tool = Mock()
             mock_agent.register_native_tool = Mock()
+            mock_agent_def = Mock()
+            mock_agent_def.tools = ["read_file", "list_directory", "get_file_info"]
+            mock_agent.agent_definition = mock_agent_def
             mock_agent_class.return_value = mock_agent
 
             await delegator.delegate(agent_name="code_reviewer", task="Review code")
@@ -220,13 +238,21 @@ class TestAgentDelegator:
 
     @pytest.mark.asyncio
     async def test_tester_gets_execute_command(self, delegator):
-        """Tester agent should receive execute_command in addition to read-only tools."""
+        """Tester agent should receive execute_command from YAML definition."""
         with patch(
             "adh_cli.core.agent_delegator.PolicyAwareLlmAgent"
         ) as mock_agent_class:
             mock_agent = Mock()
             mock_agent.chat = AsyncMock(return_value="Test results")
             mock_agent.register_tool = Mock()
+            mock_agent_def = Mock()
+            mock_agent_def.tools = [
+                "read_file",
+                "list_directory",
+                "get_file_info",
+                "execute_command",
+            ]
+            mock_agent.agent_definition = mock_agent_def
             mock_agent_class.return_value = mock_agent
 
             await delegator.delegate(agent_name="tester", task="Run checks")
@@ -244,13 +270,23 @@ class TestAgentDelegator:
 
     @pytest.mark.asyncio
     async def test_researcher_gets_execute_command(self, delegator):
-        """Researcher agent should have execute_command for deep file searches."""
+        """Researcher agent should have tools from YAML including google search."""
         with patch(
             "adh_cli.core.agent_delegator.PolicyAwareLlmAgent"
         ) as mock_agent_class:
             mock_agent = Mock()
             mock_agent.chat = AsyncMock(return_value="Research summary")
             mock_agent.register_tool = Mock()
+            mock_agent_def = Mock()
+            mock_agent_def.tools = [
+                "read_file",
+                "list_directory",
+                "get_file_info",
+                "execute_command",
+                "google_search",
+                "google_url_context",
+            ]
+            mock_agent.agent_definition = mock_agent_def
             mock_agent_class.return_value = mock_agent
 
             await delegator.delegate(agent_name="researcher", task="Investigate")
@@ -270,13 +306,16 @@ class TestAgentDelegator:
 
     @pytest.mark.asyncio
     async def test_search_agent_registers_google_tools(self, delegator):
-        """Search agent should register the Google tools as standard handlers."""
+        """Search agent should register Google tools from YAML definition."""
         with patch(
             "adh_cli.core.agent_delegator.PolicyAwareLlmAgent"
         ) as mock_agent_class:
             mock_agent = Mock()
             mock_agent.chat = AsyncMock(return_value="Search results")
             mock_agent.register_tool = Mock()
+            mock_agent_def = Mock()
+            mock_agent_def.tools = ["google_search", "google_url_context"]
+            mock_agent.agent_definition = mock_agent_def
             mock_agent_class.return_value = mock_agent
 
             await delegator.delegate(agent_name="search", task="Find AI news")
