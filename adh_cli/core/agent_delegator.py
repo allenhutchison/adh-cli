@@ -160,54 +160,22 @@ class AgentDelegator:
         }
         return type_mapping.get(agent_name, "general")
 
-    def _register_execute_command_tool(
-        self, agent: PolicyAwareLlmAgent, description: str, command_example: str
+    def _register_google_tool(
+        self, agent: PolicyAwareLlmAgent, tool_name: str, spec: Any
     ):
-        """Helper to register the 'execute_command' tool with a specific description.
+        """Register a Google search tool with API key binding.
+
+        Google search tools require special handling to bind the API key
+        and generation config from the agent into the handler.
 
         Args:
             agent: The agent to register the tool for
-            description: Custom description for the execute_command tool
-            command_example: Example command for the description
+            tool_name: Name of the tool (google_search or google_url_context)
+            spec: Tool specification from registry
         """
-        from ..tools import shell_tools
+        if spec.handler is None:
+            raise ValueError(f"{tool_name} handler not found in registry")
 
-        agent.register_tool(
-            name="execute_command",
-            description=description,
-            parameters={
-                "command": {
-                    "type": "string",
-                    "description": f"Command to execute (e.g. `{command_example}`)",
-                },
-                "cwd": {
-                    "type": "string",
-                    "description": "Working directory for the command",
-                    "nullable": True,
-                },
-                "timeout": {
-                    "type": "integer",
-                    "description": "Timeout in seconds",
-                    "default": 300,
-                },
-                "shell": {
-                    "type": "boolean",
-                    "description": "Use shell execution",
-                    "default": True,
-                },
-            },
-            handler=shell_tools.execute_command,
-        )
-
-    def _register_google_search_tools(self, agent: PolicyAwareLlmAgent):
-        """Helper to register Google search and URL context tools.
-
-        Args:
-            agent: The agent to register the tools for
-        """
-        from ..tools.specs import register_default_specs
-
-        register_default_specs()
         raw_generation_params = getattr(agent, "generation_params", None)
         generation_config = (
             dict(raw_generation_params)
@@ -216,134 +184,98 @@ class AgentDelegator:
         )
         agent_model = getattr(agent, "model_name", None)
 
-        # Register each tool separately to avoid closure issues
-        def _register_tool(tool_name: str):
-            """Register a single google tool with proper closure capture."""
-            spec = registry.get(tool_name)
-            if spec is None or spec.handler is None:
-                raise ValueError(f"{tool_name} specification not registered")
+        # Capture handler in closure correctly
+        original_handler = spec.handler
 
-            # Capture spec.handler in the closure correctly
-            original_handler = spec.handler
+        @functools.wraps(original_handler)
+        async def bound_handler(
+            *args,
+            __handler=original_handler,
+            __api_key=self.api_key,
+            __model=agent_model,
+            __generation_config=generation_config,
+            **kwargs,
+        ):
+            kwargs = dict(kwargs)
+            request_api_key = kwargs.pop("api_key", None)
+            request_model = kwargs.pop("model", None)
+            request_generation_config = kwargs.pop("generation_config", None)
 
-            @functools.wraps(original_handler)
-            async def bound_handler(
+            effective_api_key = __api_key or request_api_key
+            effective_model = __model or request_model
+            effective_generation_config = (
+                __generation_config or request_generation_config
+            )
+
+            return await __handler(
                 *args,
-                __handler=original_handler,
-                __api_key=self.api_key,
-                __model=agent_model,
-                __generation_config=generation_config,
+                api_key=effective_api_key,
+                model=effective_model,
+                generation_config=effective_generation_config,
                 **kwargs,
-            ):
-                kwargs = dict(kwargs)
-                request_api_key = kwargs.pop("api_key", None)
-                request_model = kwargs.pop("model", None)
-                request_generation_config = kwargs.pop("generation_config", None)
-
-                effective_api_key = __api_key or request_api_key
-                effective_model = __model or request_model
-                effective_generation_config = (
-                    __generation_config or request_generation_config
-                )
-
-                return await __handler(
-                    *args,
-                    api_key=effective_api_key,
-                    model=effective_model,
-                    generation_config=effective_generation_config,
-                    **kwargs,
-                )
-
-            original_signature = inspect.signature(original_handler)
-            adjusted_parameters = [
-                param.replace(default=inspect._empty)
-                if param.default is not inspect._empty
-                else param
-                for param in original_signature.parameters.values()
-            ]
-            bound_handler.__signature__ = original_signature.replace(
-                parameters=adjusted_parameters
             )
 
-            agent.register_tool(
-                name=spec.name,
-                description=spec.description,
-                parameters=spec.parameters,
-                handler=bound_handler,
-            )
+        original_signature = inspect.signature(original_handler)
+        adjusted_parameters = [
+            param.replace(default=inspect._empty)
+            if param.default is not inspect._empty
+            else param
+            for param in original_signature.parameters.values()
+        ]
+        bound_handler.__signature__ = original_signature.replace(
+            parameters=adjusted_parameters
+        )
 
-        # Register both tools
-        _register_tool("google_search")
-        _register_tool("google_url_context")
+        agent.register_tool(
+            name=spec.name,
+            description=spec.description,
+            parameters=spec.parameters,
+            handler=bound_handler,
+        )
 
     def _register_agent_tools(self, agent: PolicyAwareLlmAgent, agent_name: str):
-        """Register tools appropriate for this agent.
+        """Register tools for this agent based on YAML definition.
 
-        Different agents get different tool sets based on their role:
-        - Planner: Read-only tools (read_file, list_directory, get_file_info)
-        - Code reviewer: Read-only inspection tools for code analysis
-        - etc.
+        Reads tool names from the agent's YAML frontmatter (agent_definition.tools)
+        and registers them from the tool registry. This makes YAML the single source
+        of truth for agent tool configuration (per ADR-021).
 
         Args:
             agent: The agent to register tools for
-            agent_name: Name of the agent
+            agent_name: Name of the agent (used for error messages)
         """
-        from ..tools import shell_tools
+        from ..tools.specs import register_default_specs
 
-        # All agents get read-only tools for exploration
-        if agent_name == "search":
-            self._register_google_search_tools(agent)
+        # Ensure all tool specs are registered
+        register_default_specs()
+
+        # Get agent definition from the agent
+        agent_def = agent.agent_definition
+        if not agent_def or not agent_def.tools:
+            # No tools specified in YAML - nothing to register
             return
 
-        # Default agents get read-only tools for exploration
-        agent.register_tool(
-            name="read_file",
-            description="Read contents of a text file",
-            parameters={},
-            handler=shell_tools.read_file,
-        )
+        # Register each tool from the YAML definition
+        for tool_name in agent_def.tools:
+            spec = registry.get(tool_name)
+            if spec is None:
+                available = ", ".join(sorted(registry.list_tools()))
+                raise ValueError(
+                    f"Tool '{tool_name}' not found in registry for agent '{agent_name}'. "
+                    f"Available tools: {available}"
+                )
 
-        agent.register_tool(
-            name="list_directory",
-            description="List contents of a directory",
-            parameters={},
-            handler=shell_tools.list_directory,
-        )
-
-        agent.register_tool(
-            name="get_file_info",
-            description="Get metadata about a file or directory",
-            parameters={},
-            handler=shell_tools.get_file_info,
-        )
-
-        # Planning and code review agents stay read-only to avoid accidental writes.
-        if agent_name == "code_reviewer":
-            return
-
-        if agent_name == "tester":
-            # Allow build/test agent to execute repository commands.
-            self._register_execute_command_tool(
-                agent,
-                description=(
-                    "Run a shell command inside the repository. Prefer `task` shortcuts "
-                    "for builds, linting, and tests."
-                ),
-                command_example="task test",
-            )
-            return
-
-        if agent_name == "researcher":
-            # Researcher needs repo exploration, shell access for search helpers, and web search tools.
-            self._register_execute_command_tool(
-                agent,
-                description=(
-                    "Run read-only commands (e.g. `rg`, `task list`) while researching topics."
-                ),
-                command_example='rg "keyword" docs',
-            )
-            self._register_google_search_tools(agent)
-            return
+            # Special handling for google search tools that need API key binding
+            if tool_name in ("google_search", "google_url_context"):
+                self._register_google_tool(agent, tool_name, spec)
+            else:
+                # Standard tool registration from registry
+                agent.register_tool(
+                    name=spec.name,
+                    description=spec.description,
+                    parameters=spec.parameters,
+                    handler=spec.handler,
+                )
 
     def clear_cache(self):
         """Clear the agent cache.
