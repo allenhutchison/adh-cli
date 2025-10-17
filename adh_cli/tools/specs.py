@@ -218,7 +218,7 @@ def register_default_specs() -> None:
                 },
             },
             handler=google_tools.google_search,
-            tags=["network", "search", "web"],
+            tags=["network", "search", "web", "requires_key_binding"],
             effects=["network_read", "external_search"],
         )
     )
@@ -235,7 +235,7 @@ def register_default_specs() -> None:
                 },
             },
             handler=google_tools.google_url_context,
-            tags=["network", "web", "context"],
+            tags=["network", "web", "context", "requires_key_binding"],
             effects=["network_read", "external_content"],
         )
     )

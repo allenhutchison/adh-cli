@@ -160,17 +160,19 @@ class AgentDelegator:
         }
         return type_mapping.get(agent_name, "general")
 
-    def _register_google_tool(
+    def _register_tool_with_key_binding(
         self, agent: PolicyAwareLlmAgent, tool_name: str, spec: Any
     ):
-        """Register a Google search tool with API key binding.
+        """Register a tool that requires API key binding.
 
-        Google search tools require special handling to bind the API key
-        and generation config from the agent into the handler.
+        Some tools (e.g., google_search, google_url_context) require special
+        handling to bind the API key and generation config from the agent
+        into the handler. These tools should have the 'requires_key_binding'
+        tag in their ToolSpec.
 
         Args:
             agent: The agent to register the tool for
-            tool_name: Name of the tool (google_search or google_url_context)
+            tool_name: Name of the tool to register
             spec: Tool specification from registry
         """
         if spec.handler is None:
@@ -265,9 +267,9 @@ class AgentDelegator:
                     f"Available tools: {available}"
                 )
 
-            # Special handling for google search tools that need API key binding
-            if tool_name in ("google_search", "google_url_context"):
-                self._register_google_tool(agent, tool_name, spec)
+            # Special handling for tools that require API key binding
+            if "requires_key_binding" in spec.tags:
+                self._register_tool_with_key_binding(agent, tool_name, spec)
             else:
                 # Standard tool registration from registry
                 agent.register_tool(
