@@ -234,3 +234,104 @@ def format_parameters_expanded(
         display_val, original_len = truncate_value(value, max_value_length)
         result.append((key, display_val, original_len))
     return result
+
+
+def get_tool_context_summary(
+    tool_name: str, parameters: Dict[str, Any]
+) -> Optional[str]:
+    """Extract contextual summary from tool parameters for display in header.
+
+    This provides quick scanability by showing the most relevant detail for each
+    tool type (e.g., command being executed, file being written, agent being called).
+
+    Args:
+        tool_name: Name of the tool being executed
+        parameters: Tool parameters
+
+    Returns:
+        Short contextual string (e.g., "pytest tests/") or None if no context
+    """
+    if not parameters:
+        return None
+
+    # Execute command - show the command
+    if tool_name == "execute_command" and "command" in parameters:
+        cmd = parameters["command"]
+        if isinstance(cmd, str):
+            # Truncate long commands
+            if len(cmd) > 60:
+                return cmd[:57] + "..."
+            return cmd
+
+    # File operations - show the file path
+    if (
+        tool_name in ("write_file", "read_file", "delete_file")
+        and "file_path" in parameters
+    ):
+        file_path = parameters["file_path"]
+        if isinstance(file_path, str):
+            # Show just the filename if path is long
+            if len(file_path) > 50:
+                return "..." + file_path[-47:]
+            return file_path
+
+    # Directory operations - show the directory
+    if tool_name == "list_directory" and "directory" in parameters:
+        directory = parameters["directory"]
+        if isinstance(directory, str) and directory != ".":
+            if len(directory) > 50:
+                return "..." + directory[-47:]
+            return directory
+
+    if tool_name == "create_directory" and "directory" in parameters:
+        directory = parameters["directory"]
+        if isinstance(directory, str):
+            if len(directory) > 50:
+                return "..." + directory[-47:]
+            return directory
+
+    # Get file info - show the file/directory path
+    if tool_name == "get_file_info" and "file_path" in parameters:
+        file_path = parameters["file_path"]
+        if isinstance(file_path, str):
+            if len(file_path) > 50:
+                return "..." + file_path[-47:]
+            return file_path
+
+    # URL fetch - show the URL
+    if tool_name == "fetch_url" and "url" in parameters:
+        url = parameters["url"]
+        if isinstance(url, str):
+            # Truncate long URLs
+            if len(url) > 60:
+                return url[:57] + "..."
+            return url
+
+    # Google search - show the query
+    if tool_name == "google_search" and "query" in parameters:
+        query = parameters["query"]
+        if isinstance(query, str):
+            if len(query) > 60:
+                return query[:57] + "..."
+            return query
+
+    # Agent delegation - show target agent and task preview
+    if tool_name == "delegate_to_agent":
+        parts = []
+        if "agent" in parameters:
+            agent = parameters["agent"]
+            if isinstance(agent, str):
+                parts.append(f"→ {agent}")
+        if "task" in parameters and parts:  # Only show task if we have agent
+            task = parameters["task"]
+            if isinstance(task, str):
+                # Show first line or first 40 chars of task
+                first_line = task.split("\n")[0] if "\n" in task else task
+                if len(first_line) > 40:
+                    parts.append(f": {first_line[:37]}...")
+                else:
+                    parts.append(f": {first_line}")
+        if parts:
+            return "".join(parts)
+
+    return None

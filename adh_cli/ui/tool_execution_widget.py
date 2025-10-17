@@ -12,6 +12,7 @@ from adh_cli.ui.tool_execution import (
     ToolExecutionState,
     format_parameters_inline,
     format_parameters_expanded,
+    get_tool_context_summary,
 )
 
 
@@ -274,6 +275,15 @@ class ToolExecutionWidget(Widget):
 
         # Icon and tool name
         parts.append(f"{info.status_icon} {info.tool_name}")
+
+        # Add contextual information (e.g., command, file path, agent name)
+        context = get_tool_context_summary(info.tool_name, info.parameters)
+        if context:
+            parts.append(f": {context}")
+
+        # Add agent name if this is a delegated agent execution
+        if info.agent_name:
+            parts.append(f"(via {info.agent_name})")
 
         # Risk badge (if confirming)
         if info.state == ToolExecutionState.CONFIRMING and info.policy_decision:
