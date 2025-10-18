@@ -14,12 +14,15 @@ from .models import (
     ToolInvocation,
 )
 
+# Maximum length for tool results before truncation
+MAX_RESULT_LENGTH = 1000
+
 
 class SessionRecorder:
     """Records session transcripts to JSONL files.
 
     Features:
-    - Async buffering for performance
+    - Async file I/O to prevent UI blocking
     - JSONL format for easy parsing
     - Automatic session management
     - Export to markdown
@@ -31,6 +34,7 @@ class SessionRecorder:
         session_id: Optional[str] = None,
         agent_name: str = "orchestrator",
         buffer_size: int = 10,
+        _from_load: bool = False,
     ):
         """Initialize session recorder.
 
@@ -39,6 +43,7 @@ class SessionRecorder:
             session_id: Session identifier (generated if not provided)
             agent_name: Name of the agent
             buffer_size: Number of entries to buffer before flushing
+            _from_load: Internal flag - skip metadata creation when loading existing session
         """
         # Set up session directory
         if session_dir is None:
@@ -57,15 +62,17 @@ class SessionRecorder:
             agent_name=agent_name,
         )
 
-        # Write metadata as first line
-        self._write_line({"type": "metadata", "data": self.metadata.to_dict()})
+        # Write metadata as first line (only for new sessions)
+        if not _from_load:
+            # Synchronous write for initialization (happens once at startup)
+            self._write_line_sync({"type": "metadata", "data": self.metadata.to_dict()})
 
         # Buffering state
         self.buffer: List[TranscriptEntry] = []
         self.buffer_size = buffer_size
         self._lock = asyncio.Lock()
 
-    def record_chat_turn(
+    async def record_chat_turn(
         self, role: str, content: str, agent_name: Optional[str] = None
     ) -> None:
         """Record a chat message.
@@ -81,9 +88,9 @@ class SessionRecorder:
             content=content,
             agent_name=agent_name,
         )
-        self._add_entry(entry)
+        await self._add_entry(entry)
 
-    def record_tool_invocation(
+    async def record_tool_invocation(
         self,
         tool_name: str,
         parameters: dict,
@@ -105,8 +112,8 @@ class SessionRecorder:
             execution_time_ms: Execution time in milliseconds
         """
         # Truncate result if too long
-        if result and len(result) > 1000:
-            result = result[:1000] + "... (truncated)"
+        if result and len(result) > MAX_RESULT_LENGTH:
+            result = result[:MAX_RESULT_LENGTH] + "... (truncated)"
 
         entry = ToolInvocation(
             timestamp=datetime.now(),
@@ -118,9 +125,9 @@ class SessionRecorder:
             agent_name=agent_name,
             execution_time_ms=execution_time_ms,
         )
-        self._add_entry(entry)
+        await self._add_entry(entry)
 
-    def _add_entry(self, entry: TranscriptEntry) -> None:
+    async def _add_entry(self, entry: TranscriptEntry) -> None:
         """Add entry to buffer and flush if needed.
 
         Args:
@@ -130,21 +137,31 @@ class SessionRecorder:
 
         # Flush if buffer is full
         if len(self.buffer) >= self.buffer_size:
-            self.flush()
+            await self.flush()
 
-    def flush(self) -> None:
-        """Flush buffered entries to disk."""
+    async def flush(self) -> None:
+        """Flush buffered entries to disk asynchronously."""
         if not self.buffer:
             return
 
-        # Write all buffered entries
-        for entry in self.buffer:
-            self._write_line({"type": "entry", "data": entry.to_dict()})
+        async with self._lock:
+            # Write all buffered entries
+            for entry in self.buffer:
+                await self._write_line({"type": "entry", "data": entry.to_dict()})
 
-        self.buffer.clear()
+            self.buffer.clear()
 
-    def _write_line(self, data: dict) -> None:
-        """Write a line to the JSONL file.
+    async def _write_line(self, data: dict) -> None:
+        """Write a line to the JSONL file asynchronously.
+
+        Args:
+            data: Data to write
+        """
+        # Use to_thread to run blocking I/O in thread pool
+        await asyncio.to_thread(self._write_line_sync, data)
+
+    def _write_line_sync(self, data: dict) -> None:
+        """Synchronous file write (called via to_thread).
 
         Args:
             data: Data to write
@@ -152,16 +169,18 @@ class SessionRecorder:
         with open(self.session_file, "a", encoding="utf-8") as f:
             f.write(json.dumps(data) + "\n")
 
-    def close(self) -> None:
+    async def close(self) -> None:
         """Close the session and flush remaining entries."""
         # Flush any remaining buffered entries
-        self.flush()
+        await self.flush()
 
         # Update metadata with end time
         self.metadata.end_time = datetime.now()
 
         # Write final metadata
-        self._write_line({"type": "metadata_final", "data": self.metadata.to_dict()})
+        await self._write_line(
+            {"type": "metadata_final", "data": self.metadata.to_dict()}
+        )
 
     def export_markdown(self, output_path: Optional[Path] = None) -> str:
         """Export session to markdown format.
@@ -172,8 +191,11 @@ class SessionRecorder:
         Returns:
             Markdown content as string
         """
-        # Flush any pending entries
-        self.flush()
+        # Flush any pending entries synchronously (export is called from sync context)
+        if self.buffer:
+            for entry in self.buffer:
+                self._write_line_sync({"type": "entry", "data": entry.to_dict()})
+            self.buffer.clear()
 
         # Read and parse JSONL
         entries = []
@@ -275,11 +297,12 @@ class SessionRecorder:
 
             metadata = SessionMetadata.from_dict(data["data"])
 
-        # Create recorder instance
+        # Create recorder instance (skip metadata creation for existing sessions)
         recorder = cls(
             session_dir=session_file.parent,
             session_id=metadata.session_id,
             agent_name=metadata.agent_name,
+            _from_load=True,
         )
         recorder.metadata = metadata
 

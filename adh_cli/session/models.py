@@ -50,16 +50,15 @@ class SessionMetadata:
 class TranscriptEntry:
     """Base class for transcript entries."""
 
-    entry_type: EntryType
     timestamp: datetime
-    entry_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    entry_type: EntryType = field(init=False)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
+        # Subclasses should override to include entry_id
         return {
             "entry_type": self.entry_type.value,
             "timestamp": self.timestamp.isoformat(),
-            "entry_id": self.entry_id,
         }
 
     @classmethod
@@ -71,10 +70,9 @@ class TranscriptEntry:
 
 
 @dataclass
-class ChatTurn:
+class ChatTurn(TranscriptEntry):
     """A chat message turn (user or AI)."""
 
-    timestamp: datetime
     role: str  # "user" or "ai"
     content: str
     agent_name: Optional[str] = None  # For delegated agents
@@ -83,14 +81,16 @@ class ChatTurn:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
-        return {
-            "entry_type": self.entry_type.value,
-            "timestamp": self.timestamp.isoformat(),
-            "entry_id": self.entry_id,
-            "role": self.role,
-            "content": self.content,
-            "agent_name": self.agent_name,
-        }
+        base_dict = super().to_dict()
+        base_dict.update(
+            {
+                "entry_id": self.entry_id,
+                "role": self.role,
+                "content": self.content,
+                "agent_name": self.agent_name,
+            }
+        )
+        return base_dict
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ChatTurn":
@@ -105,10 +105,9 @@ class ChatTurn:
 
 
 @dataclass
-class ToolInvocation:
+class ToolInvocation(TranscriptEntry):
     """A tool invocation record."""
 
-    timestamp: datetime
     tool_name: str
     parameters: Dict[str, Any]
     success: bool
@@ -121,18 +120,20 @@ class ToolInvocation:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
-        return {
-            "entry_type": self.entry_type.value,
-            "timestamp": self.timestamp.isoformat(),
-            "entry_id": self.entry_id,
-            "tool_name": self.tool_name,
-            "parameters": self.parameters,
-            "success": self.success,
-            "result": self.result,
-            "error": self.error,
-            "agent_name": self.agent_name,
-            "execution_time_ms": self.execution_time_ms,
-        }
+        base_dict = super().to_dict()
+        base_dict.update(
+            {
+                "entry_id": self.entry_id,
+                "tool_name": self.tool_name,
+                "parameters": self.parameters,
+                "success": self.success,
+                "result": self.result,
+                "error": self.error,
+                "agent_name": self.agent_name,
+                "execution_time_ms": self.execution_time_ms,
+            }
+        )
+        return base_dict
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ToolInvocation":

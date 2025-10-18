@@ -13,7 +13,11 @@ from rich.text import Text
 
 from ..core.tool_executor import ExecutionContext
 from ..ui.confirmation_dialog import ConfirmationDialog, PolicyNotification
-from ..ui.tool_execution import ToolExecutionInfo, format_parameters_inline
+from ..ui.tool_execution import (
+    ToolExecutionInfo,
+    ToolExecutionState,
+    format_parameters_inline,
+)
 from ..ui.chat_widgets import AIMessage, ToolMessage, UserMessage
 from ..policies.policy_types import PolicyDecision
 from ..session import SessionRecorder
@@ -411,9 +415,12 @@ class ChatScreen(Screen):
         # Track message in history for copying
         self._message_history.append(f"{speaker}: {message}")
 
-        # Record in session transcript
+        # Record in session transcript (async, non-blocking)
         role = "user" if is_user else "ai"
-        self.session_recorder.record_chat_turn(role=role, content=message)
+        self.run_worker(
+            self.session_recorder.record_chat_turn(role=role, content=message),
+            exclusive=False,
+        )
 
         # Mount appropriate widget based on message type
         if is_user:
@@ -507,8 +514,8 @@ class ChatScreen(Screen):
 
     def action_clear_chat(self) -> None:
         """Clear the chat log."""
-        # Close current session
-        self.session_recorder.close()
+        # Close current session (async, run in background)
+        self.run_worker(self.session_recorder.close(), exclusive=False)
 
         # Remove all child widgets
         self.chat_log.remove_children()
@@ -567,7 +574,7 @@ class ChatScreen(Screen):
             # Also copy markdown to clipboard for convenience
             pyperclip.copy(markdown_content)
 
-        except Exception as e:
+        except (pyperclip.PyperclipException, IOError, OSError) as e:
             self.notify(f"Failed to export: {e}", title="Error", severity="error")
 
     def action_show_policies(self) -> None:
@@ -654,18 +661,21 @@ class ChatScreen(Screen):
         Args:
             info: Completed execution information
         """
-        # Record tool invocation in session transcript
-        success = info.state.value == "success"
-        result_str = str(info.result) if info.result else None
-        error_str = info.error if info.error else None
+        # Record tool invocation in session transcript (async, non-blocking)
+        success = info.state is ToolExecutionState.SUCCESS
+        result_str = str(info.result) if info.result is not None else None
+        error_str = info.error if info.error is not None else None
 
-        self.session_recorder.record_tool_invocation(
-            tool_name=info.tool_name,
-            parameters=info.parameters,
-            success=success,
-            result=result_str,
-            error=error_str,
-            agent_name=info.agent_name,
+        self.run_worker(
+            self.session_recorder.record_tool_invocation(
+                tool_name=info.tool_name,
+                parameters=info.parameters,
+                success=success,
+                result=result_str,
+                error=error_str,
+                agent_name=info.agent_name,
+            ),
+            exclusive=False,
         )
 
         # Check if we have an existing widget for this execution

@@ -124,8 +124,8 @@ class TestChatScreen:
         # Check input was cleared
         assert mock_input.text == ""
 
-        # Check worker was started
-        screen.run_worker.assert_called_once()
+        # Check workers were started (1 for session recording + 1 for AI response)
+        assert screen.run_worker.call_count == 2
 
         # Close the coroutine to avoid warning
         if async_task:

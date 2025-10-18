@@ -9,7 +9,8 @@ from adh_cli.session import SessionRecorder
 class TestSessionRecorder:
     """Test session recorder functionality."""
 
-    def test_session_initialization(self, tmp_path):
+    @pytest.mark.asyncio
+    async def test_session_initialization(self, tmp_path):
         """Test session recorder initialization."""
         recorder = SessionRecorder(session_dir=tmp_path)
 
@@ -28,18 +29,19 @@ class TestSessionRecorder:
             assert first_line["type"] == "metadata"
             assert first_line["data"]["session_id"] == recorder.session_id
 
-    def test_record_chat_turn(self, tmp_path):
+    @pytest.mark.asyncio
+    async def test_record_chat_turn(self, tmp_path):
         """Test recording chat turns."""
         recorder = SessionRecorder(session_dir=tmp_path)
 
         # Record user message
-        recorder.record_chat_turn("user", "Hello, AI!")
+        await recorder.record_chat_turn("user", "Hello, AI!")
 
         # Record AI response
-        recorder.record_chat_turn("ai", "Hello! How can I help you?")
+        await recorder.record_chat_turn("ai", "Hello! How can I help you?")
 
         # Flush to disk
-        recorder.flush()
+        await recorder.flush()
 
         # Read and verify
         entries = []
@@ -61,12 +63,13 @@ class TestSessionRecorder:
         assert entries[1]["role"] == "ai"
         assert entries[1]["content"] == "Hello! How can I help you?"
 
-    def test_record_tool_invocation(self, tmp_path):
+    @pytest.mark.asyncio
+    async def test_record_tool_invocation(self, tmp_path):
         """Test recording tool invocations."""
         recorder = SessionRecorder(session_dir=tmp_path)
 
         # Record successful tool call
-        recorder.record_tool_invocation(
+        await recorder.record_tool_invocation(
             tool_name="read_file",
             parameters={"file_path": "/test/file.txt"},
             success=True,
@@ -74,14 +77,14 @@ class TestSessionRecorder:
         )
 
         # Record failed tool call
-        recorder.record_tool_invocation(
+        await recorder.record_tool_invocation(
             tool_name="write_file",
             parameters={"file_path": "/test/output.txt", "content": "data"},
             success=False,
             error="Permission denied",
         )
 
-        recorder.flush()
+        await recorder.flush()
 
         # Read and verify
         entries = []
@@ -107,13 +110,14 @@ class TestSessionRecorder:
         assert entries[1]["result"] is None
         assert entries[1]["error"] == "Permission denied"
 
-    def test_buffering(self, tmp_path):
+    @pytest.mark.asyncio
+    async def test_buffering(self, tmp_path):
         """Test that entries are buffered and flushed."""
         recorder = SessionRecorder(session_dir=tmp_path, buffer_size=5)
 
         # Add 3 entries (less than buffer size)
         for i in range(3):
-            recorder.record_chat_turn("user", f"Message {i}")
+            await recorder.record_chat_turn("user", f"Message {i}")
 
         # Read file - should only have metadata (buffer not flushed)
         entries = []
@@ -127,7 +131,7 @@ class TestSessionRecorder:
 
         # Add 2 more entries (reach buffer size)
         for i in range(3, 5):
-            recorder.record_chat_turn("user", f"Message {i}")
+            await recorder.record_chat_turn("user", f"Message {i}")
 
         # Buffer should be flushed now
         entries = []
@@ -139,16 +143,17 @@ class TestSessionRecorder:
 
         assert len(entries) == 5
 
-    def test_close_flushes_buffer(self, tmp_path):
+    @pytest.mark.asyncio
+    async def test_close_flushes_buffer(self, tmp_path):
         """Test that close() flushes remaining entries."""
         recorder = SessionRecorder(session_dir=tmp_path, buffer_size=10)
 
         # Add entries (less than buffer size)
-        recorder.record_chat_turn("user", "Message 1")
-        recorder.record_chat_turn("ai", "Response 1")
+        await recorder.record_chat_turn("user", "Message 1")
+        await recorder.record_chat_turn("ai", "Response 1")
 
         # Close should flush
-        recorder.close()
+        await recorder.close()
 
         # Verify entries were written
         entries = []
@@ -167,20 +172,21 @@ class TestSessionRecorder:
             assert last_line["type"] == "metadata_final"
             assert last_line["data"]["end_time"] is not None
 
-    def test_export_markdown(self, tmp_path):
+    @pytest.mark.asyncio
+    async def test_export_markdown(self, tmp_path):
         """Test exporting session to markdown."""
         recorder = SessionRecorder(session_dir=tmp_path)
 
         # Add some chat turns and tool calls
-        recorder.record_chat_turn("user", "Read the config file")
-        recorder.record_chat_turn("ai", "I'll read that for you.")
-        recorder.record_tool_invocation(
+        await recorder.record_chat_turn("user", "Read the config file")
+        await recorder.record_chat_turn("ai", "I'll read that for you.")
+        await recorder.record_tool_invocation(
             tool_name="read_file",
             parameters={"file_path": "/config/settings.yaml"},
             success=True,
             result="key: value",
         )
-        recorder.record_chat_turn("ai", "The config contains: key=value")
+        await recorder.record_chat_turn("ai", "The config contains: key=value")
 
         # Export to markdown
         md_file = tmp_path / "export.md"
@@ -201,21 +207,22 @@ class TestSessionRecorder:
         assert "**Result:**" in markdown
         assert "key: value" in markdown
 
-    def test_truncate_long_results(self, tmp_path):
+    @pytest.mark.asyncio
+    async def test_truncate_long_results(self, tmp_path):
         """Test that long results are truncated."""
         recorder = SessionRecorder(session_dir=tmp_path)
 
         # Create a very long result
         long_result = "x" * 2000
 
-        recorder.record_tool_invocation(
+        await recorder.record_tool_invocation(
             tool_name="test_tool",
             parameters={},
             success=True,
             result=long_result,
         )
 
-        recorder.flush()
+        await recorder.flush()
 
         # Read back and verify truncation
         entries = []
@@ -229,15 +236,18 @@ class TestSessionRecorder:
         assert len(entries[0]["result"]) <= 1020  # 1000 + "... (truncated)"
         assert "truncated" in entries[0]["result"]
 
-    def test_delegated_agent_name(self, tmp_path):
+    @pytest.mark.asyncio
+    async def test_delegated_agent_name(self, tmp_path):
         """Test recording agent name for delegated executions."""
         recorder = SessionRecorder(session_dir=tmp_path)
 
         # Record chat turn from delegated agent
-        recorder.record_chat_turn("ai", "Analysis complete", agent_name="code_reviewer")
+        await recorder.record_chat_turn(
+            "ai", "Analysis complete", agent_name="code_reviewer"
+        )
 
         # Record tool call from delegated agent
-        recorder.record_tool_invocation(
+        await recorder.record_tool_invocation(
             tool_name="execute_command",
             parameters={"command": "pytest tests/"},
             success=True,
@@ -245,7 +255,7 @@ class TestSessionRecorder:
             agent_name="tester",
         )
 
-        recorder.flush()
+        await recorder.flush()
 
         # Verify agent names were recorded
         entries = []
@@ -258,12 +268,13 @@ class TestSessionRecorder:
         assert entries[0]["agent_name"] == "code_reviewer"
         assert entries[1]["agent_name"] == "tester"
 
-    def test_load_session(self, tmp_path):
+    @pytest.mark.asyncio
+    async def test_load_session(self, tmp_path):
         """Test loading an existing session."""
         # Create a session
         recorder1 = SessionRecorder(session_dir=tmp_path, session_id="test-session-123")
-        recorder1.record_chat_turn("user", "Hello")
-        recorder1.flush()
+        await recorder1.record_chat_turn("user", "Hello")
+        await recorder1.flush()
 
         session_file = recorder1.session_file
 
