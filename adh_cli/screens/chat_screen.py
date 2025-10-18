@@ -72,6 +72,11 @@ class ChatScreen(Screen):
     # Base title for the chat log border
     BASE_TITLE = "Policy-Aware ADH Chat"
 
+    # Default title for the chat input border
+    DEFAULT_INPUT_TITLE = (
+        "Type your message (Enter to send, Shift+Enter or Ctrl+J for new line)"
+    )
+
     CSS = """
     ChatScreen {
         layout: vertical;
@@ -116,28 +121,6 @@ class ChatScreen(Screen):
         color: $text-muted;
         padding: 0 0 1 0;
     }
-
-    #thinking-display {
-        display: none;
-        width: 100%;
-        max-height: 8;
-        margin: 0 2 1 2;
-        padding: 1 2;
-        border: solid $border;
-        background: $panel;
-        color: $text-muted;
-        overflow-y: auto;
-    }
-
-    #thinking-display.visible {
-        display: block;
-    }
-
-    .thinking-separator {
-        color: $text-muted;
-        text-align: center;
-        margin: 1 0;
-    }
     """
 
     BINDINGS = [
@@ -162,7 +145,7 @@ class ChatScreen(Screen):
         self._message_history_ids = {}  # Map execution ID -> message history index
         self._tool_widgets = {}  # Map execution ID -> ToolMessage widget
         self._streaming_positions = {}  # Map execution ID -> last streaming position
-        self.thinking_display: Optional[VerticalScroll] = None
+        self.chat_input: Optional[ChatTextArea] = None
 
         # Session recorder for transcript capture
         self.session_recorder = SessionRecorder()
@@ -176,15 +159,10 @@ class ChatScreen(Screen):
                 # Messages will be mounted here
                 pass
 
-        # Thinking display (appears above input when model is thinking)
-        yield VerticalScroll(id="thinking-display")
-
         # Input area (ChatTextArea for multi-line support)
         text_area = ChatTextArea(id="chat-input")
         text_area.show_line_numbers = False
-        text_area.border_title = (
-            "Type your message (Enter to send, Shift+Enter or Ctrl+J for new line)"
-        )
+        text_area.border_title = self.DEFAULT_INPUT_TITLE
         yield text_area
 
         # Footer to display key bindings
@@ -193,7 +171,7 @@ class ChatScreen(Screen):
     def on_mount(self) -> None:
         """Initialize services when screen is mounted."""
         self.chat_log = self.query_one("#chat-log", VerticalScroll)
-        self.thinking_display = self.query_one("#thinking-display", VerticalScroll)
+        self.chat_input = self.query_one("#chat-input", ChatTextArea)
 
         # Set initial border title with safety status
         self._update_chat_title()
@@ -368,31 +346,35 @@ class ChatScreen(Screen):
         self.chat_log.border_title = " • ".join(title_parts)
 
     def show_thinking(self, thought_text: str) -> None:
-        """Show model thinking above the input.
+        """Show model thinking in the input border title.
 
         Args:
             thought_text: The thinking/reasoning text from the model
         """
-        if self.thinking_display:
-            # Clear previous thoughts and replace with the latest one
-            self.thinking_display.remove_children()
-
+        if self.chat_input:
             # Extract just the first line of the thought
             first_line = thought_text.split("\n")[0].strip()
 
-            # Create simple "Thinking: ..." display
-            thinking_widget = Static(f"Thinking: {first_line}")
-            self.thinking_display.mount(thinking_widget)
+            # Strip common markdown formatting (bold, italic, code)
+            # Remove **bold** and __bold__
+            first_line = first_line.replace("**", "").replace("__", "")
+            # Remove *italic* and _italic_ (but not __ which we already handled)
+            first_line = first_line.replace("*", "").replace("_", "")
+            # Remove `code` backticks
+            first_line = first_line.replace("`", "")
 
-            self.thinking_display.add_class("visible")
-            self.thinking_display.scroll_end(animate=False)
+            # Truncate to reasonable length for border title (~100 chars)
+            max_length = 100
+            if len(first_line) > max_length:
+                first_line = first_line[: max_length - 3] + "..."
+
+            # Update input border title with thinking indicator
+            self.chat_input.border_title = f"💭 {first_line}"
 
     def hide_thinking(self) -> None:
-        """Hide the thinking display."""
-        if self.thinking_display:
-            self.thinking_display.remove_class("visible")
-            # Clear all thought widgets for next request
-            self.thinking_display.remove_children()
+        """Restore the default input border title."""
+        if self.chat_input:
+            self.chat_input.border_title = self.DEFAULT_INPUT_TITLE
 
     def _mount_info_message(self, content) -> None:
         """Mount an info message to the chat log.
