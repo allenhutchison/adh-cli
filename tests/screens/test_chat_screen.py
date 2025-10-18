@@ -29,7 +29,15 @@ class TestChatScreen:
 
             # Mock Textual components
             screen.query_one = Mock()
-            screen.run_worker = Mock()
+
+            # Mock run_worker to properly close coroutines to avoid warnings
+            def mock_run_worker(coro, **kwargs):
+                # Close the coroutine to avoid "never awaited" warnings
+                if hasattr(coro, "close"):
+                    coro.close()
+                return Mock()
+
+            screen.run_worker = Mock(side_effect=mock_run_worker)
             screen.set_timer = Mock()
             screen.notify = Mock()
 
@@ -106,13 +114,11 @@ class TestChatScreen:
         screen.chat_log = mock_log
         screen.agent = Mock()
 
-        # Mock run_worker to capture the coroutine without running it
-        async_task = None
+        # Mock run_worker to capture and close coroutines
+        captured_coros = []
 
         def capture_worker(coro, **kwargs):
-            nonlocal async_task
-            async_task = coro
-            # Return a mock to avoid the coroutine warning
+            captured_coros.append(coro)
             return Mock()
 
         screen.run_worker = Mock(side_effect=capture_worker)
@@ -127,9 +133,10 @@ class TestChatScreen:
         # Check workers were started (1 for session recording + 1 for AI response)
         assert screen.run_worker.call_count == 2
 
-        # Close the coroutine to avoid warning
-        if async_task:
-            async_task.close()
+        # Close all captured coroutines to avoid warnings
+        for coro in captured_coros:
+            if hasattr(coro, "close"):
+                coro.close()
 
     @pytest.mark.asyncio
     async def test_get_ai_response(self, screen):
