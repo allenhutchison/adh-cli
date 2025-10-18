@@ -142,7 +142,7 @@ async def list_directory(
 async def execute_command(
     command: str,
     cwd: Optional[str] = None,
-    timeout: Optional[int] = 30,
+    timeout: Optional[int] = 300,
     shell: bool = True,
 ) -> Dict[str, Any]:
     """Execute a shell command.
@@ -150,7 +150,7 @@ async def execute_command(
     Args:
         command: Command to execute
         cwd: Working directory for command execution
-        timeout: Timeout in seconds (default 30)
+        timeout: Timeout in seconds (default 300 / 5 minutes)
         shell: Whether to use shell execution (default True)
 
     Returns:

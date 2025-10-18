@@ -99,8 +99,8 @@ def register_default_specs() -> None:
                 },
                 "timeout": {
                     "type": "integer",
-                    "description": "Timeout seconds",
-                    "default": 30,
+                    "description": "Timeout in seconds (default 300 / 5 minutes)",
+                    "default": 300,
                 },
                 "shell": {
                     "type": "boolean",
