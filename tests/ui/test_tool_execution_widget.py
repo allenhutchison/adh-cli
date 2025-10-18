@@ -14,18 +14,14 @@ from adh_cli.policies.policy_types import (
     RiskLevel,
     SafetyCheck,
 )
-from adh_cli.ui.theme import get_themes
 
 
 class ToolExecutionTestApp(App):
-    """Test app with ADH themes registered."""
+    """Test app for ToolExecutionWidget tests."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Register ADH themes for testing
-        for theme_name, theme in get_themes().items():
-            self.register_theme(theme)
-        self.theme = "adh-dark"
+        self.theme = "textual-dark"
 
     def compose(self):
         # Will be overridden by test

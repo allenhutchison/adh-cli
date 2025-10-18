@@ -180,13 +180,13 @@ class TestADHApp:
 
     def test_action_toggle_dark(self, app):
         """Test toggling dark mode."""
-        app.theme = "adh-light"
+        app.theme = "textual-light"
 
         app.action_toggle_dark()
-        assert app.theme == "adh-dark"
+        assert app.theme == "textual-dark"
 
         app.action_toggle_dark()
-        assert app.theme == "adh-light"
+        assert app.theme == "textual-light"
 
     @patch("adh_cli.app.PolicyAwareLlmAgent")
     def test_load_config_with_orchestrator_agent(

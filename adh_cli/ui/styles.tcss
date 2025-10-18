@@ -84,15 +84,15 @@ Screen {
 
 /* Content width constraints for readability */
 .content-constrained {
-    max-width: $content-max-width;
+    max-width: 120;
 }
 
 .chat-constrained {
-    max-width: $chat-max-width;
+    max-width: 100;
 }
 
 .form-constrained {
-    max-width: $form-max-width;
+    max-width: 80;
 }
 
 /* ============================================================
@@ -125,65 +125,65 @@ Screen {
 
 .status-success {
     background: $success;
-    color: $text-on-success;
+    color: $foreground;
 }
 
 .status-warning {
     background: $warning;
-    color: $text-on-warning;
+    color: $foreground;
 }
 
 .status-error {
     background: $error;
-    color: $text-on-error;
+    color: $foreground;
 }
 
 .status-info {
     background: $primary;
-    color: $text-on-primary;
+    color: $foreground;
 }
 
 /* Risk level indicators */
 .risk-none {
-    color: $risk-none;
+    color: $text-muted;
 }
 
 .risk-low {
-    color: $risk-low;
+    color: $success;
 }
 
 .risk-medium {
-    color: $risk-medium;
+    color: $warning;
 }
 
 .risk-high {
-    color: $risk-high;
+    color: $warning-darken-2;
 }
 
 .risk-critical {
-    color: $risk-critical;
+    color: $error;
     text-style: bold;
 }
 
 /* Execution states */
 .state-pending {
-    color: $execution-pending;
+    color: $secondary;
 }
 
 .state-running {
-    color: $execution-running;
+    color: $primary;
 }
 
 .state-success {
-    color: $execution-success;
+    color: $success;
 }
 
 .state-failed {
-    color: $execution-failed;
+    color: $error;
 }
 
 .state-blocked {
-    color: $execution-blocked;
+    color: $warning;
 }
 
 /* ============================================================
@@ -196,7 +196,7 @@ Button {
 }
 
 Button:focus {
-    border: solid $border-focus;
+    border: solid $primary;
 }
 
 /* Button variants are handled by Textual, but we can add spacing */
@@ -245,11 +245,11 @@ Input {
 }
 
 Input:focus {
-    border: solid $border-focus;
+    border: solid $primary;
 }
 
 Input.error {
-    border: solid $border-error;
+    border: solid $error;
 }
 
 .form-field {
@@ -276,15 +276,15 @@ Input.error {
 }
 
 .chat-user {
-    color: $chat-user;
+    color: $primary;
 }
 
 .chat-ai {
-    color: $chat-ai;
+    color: $accent;
 }
 
 .chat-system {
-    color: $chat-system;
+    color: $secondary;
 }
 
 /* ============================================================
@@ -329,22 +329,22 @@ ModalScreen > Container {
 
 .badge-success {
     background: $success;
-    color: $text-on-success;
+    color: $foreground;
 }
 
 .badge-warning {
     background: $warning;
-    color: $text-on-warning;
+    color: $foreground;
 }
 
 .badge-error {
     background: $error;
-    color: $text-on-error;
+    color: $foreground;
 }
 
 .badge-info {
     background: $primary;
-    color: $text-on-primary;
+    color: $foreground;
 }
 
 /* Risk badges with semantic meaning */
@@ -355,23 +355,23 @@ ModalScreen > Container {
 }
 
 .risk-badge-low {
-    background: $risk-low;
-    color: $text-on-success;
+    background: $success;
+    color: $foreground;
 }
 
 .risk-badge-medium {
-    background: $risk-medium;
-    color: $text-on-warning;
+    background: $warning;
+    color: $foreground;
 }
 
 .risk-badge-high {
-    background: $risk-high;
-    color: $text-on-error;
+    background: $warning-darken-2;
+    color: $foreground;
 }
 
 .risk-badge-critical {
-    background: $risk-critical;
-    color: $text-on-error;
+    background: $error;
+    color: $foreground;
 }
 
 /* ============================================================
@@ -418,7 +418,7 @@ Select:focus,
 RadioSet:focus,
 OptionList:focus,
 TextArea:focus {
-    border: solid $border-focus;
+    border: solid $primary;
 }
 
 /* Avoid global focus-within outlines which created full-screen rails */

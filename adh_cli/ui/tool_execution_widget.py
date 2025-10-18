@@ -37,7 +37,7 @@ class ToolExecutionWidget(Widget):
 
     ToolExecutionWidget.executing {
         border: solid $border;
-        border-left: tall $execution-running;
+        border-left: tall $primary;
         background: $panel;
     }
 
@@ -49,19 +49,19 @@ class ToolExecutionWidget(Widget):
 
     ToolExecutionWidget.success {
         border: solid $border;
-        border-left: tall $execution-success;
+        border-left: tall $success;
         background: $surface;
     }
 
     ToolExecutionWidget.failed {
         border: solid $border;
-        border-left: tall $execution-failed;
+        border-left: tall $error;
         background: $surface;
     }
 
     ToolExecutionWidget.blocked {
         border: solid $border;
-        border-left: tall $execution-blocked;
+        border-left: tall $warning;
         background: $surface;
     }
 
@@ -110,7 +110,7 @@ class ToolExecutionWidget(Widget):
         visibility: visible;
         opacity: 1.0;
         background: $primary;
-        color: $text-on-primary;
+        color: $foreground;
         border: solid $primary;
         padding: 0 2;
     }
@@ -148,19 +148,19 @@ class ToolExecutionWidget(Widget):
     }
 
     ToolExecutionWidget .risk-badge-low {
-        color: $risk-low;
+        color: $success;
     }
 
     ToolExecutionWidget .risk-badge-medium {
-        color: $risk-medium;
+        color: $warning;
     }
 
     ToolExecutionWidget .risk-badge-high {
-        color: $risk-high;
+        color: $warning-darken-2;
     }
 
     ToolExecutionWidget .risk-badge-critical {
-        color: $risk-critical;
+        color: $error;
         text-style: bold;
     }
     """

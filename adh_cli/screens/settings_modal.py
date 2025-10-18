@@ -50,7 +50,7 @@ class SettingsModal(ModalScreen):
         border: solid $border;
         padding: 2;
         width: 70;
-        max-width: $form-max-width;
+        max-width: 80;
         max-height: 80%;
         overflow: hidden;
     }
@@ -76,7 +76,7 @@ class SettingsModal(ModalScreen):
     }
 
     SettingsModal Input:focus {
-        border: solid $border-focus;
+        border: solid $primary;
     }
 
     SettingsModal Select {
@@ -214,7 +214,7 @@ class SettingsModal(ModalScreen):
     @on(Switch.Changed, "#dark-mode-switch")
     def on_dark_mode_changed(self, event: Switch.Changed) -> None:
         """Toggle dark mode."""
-        self.app.theme = "adh-dark" if event.value else "adh-light"
+        self.app.theme = "textual-dark" if event.value else "textual-light"
 
     def on_mount(self) -> None:
         """Load existing settings when modal is mounted."""

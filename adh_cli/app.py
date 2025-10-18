@@ -11,7 +11,6 @@ from textual.widgets import Header
 from .screens.chat_screen import ChatScreen
 from .core.policy_aware_llm_agent import PolicyAwareLlmAgent
 from .core.config_paths import ConfigPaths
-from .ui.theme import get_themes
 from .config.models import ModelRegistry
 
 
@@ -67,12 +66,8 @@ class ADHApp(App):
         """Initialize the application."""
         super().__init__()
 
-        # Register custom themes
-        for theme_name, theme in get_themes().items():
-            self.register_theme(theme)
-
-        # Set default theme to adh-dark
-        self.theme = "adh-dark"
+        # Set default theme to Textual's dark theme
+        self.theme = "textual-dark"
 
         self.agent = None
         self.api_key = None
@@ -295,7 +290,9 @@ class ADHApp(App):
 
     def action_toggle_dark(self) -> None:
         """Toggle dark mode."""
-        self.theme = "adh-dark" if self.theme == "adh-light" else "adh-light"
+        self.theme = (
+            "textual-dark" if self.theme == "textual-light" else "textual-light"
+        )
 
     def update_api_key(self, api_key: str):
         """Update the API key and reinitialize the agent.
