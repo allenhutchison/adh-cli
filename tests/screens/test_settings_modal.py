@@ -2,7 +2,6 @@
 
 import json
 import pytest
-from pathlib import Path
 from unittest.mock import Mock, patch, PropertyMock
 
 from adh_cli.screens.settings_modal import SettingsModal
@@ -48,6 +47,23 @@ class TestSettingsModal:
 
                 yield modal, config_file
 
+    @pytest.fixture
+    def mock_ui_widgets(self, modal):
+        """Mocks the UI widgets queried by the modal."""
+        modal_instance, _ = modal
+
+        widgets = {
+            "#api-key-input": Mock(),
+            "#model-select": Mock(),
+            "#orchestrator-select": Mock(),
+        }
+
+        def query_side_effect(selector, widget_type=None):
+            return widgets.get(selector, Mock())
+
+        modal_instance.query_one = Mock(side_effect=query_side_effect)
+        return widgets
+
     def test_modal_initialization(self, modal):
         """Test modal initializes correctly."""
         modal_instance, _ = modal
@@ -58,7 +74,9 @@ class TestSettingsModal:
         modal_instance, _ = modal
 
         # Point to empty agents directory
-        with patch.object(Path, "parent", tmp_path):
+        with patch("adh_cli.screens.settings_modal.Path") as MockPath:
+            # Make Path(__file__).parent.parent return the temporary directory
+            MockPath.return_value.parent.parent = tmp_path
             agents = modal_instance._discover_agents()
 
         # Should return default orchestrator
@@ -87,9 +105,10 @@ class TestSettingsModal:
         invalid_dir.mkdir()
 
         # Mock the agents directory path
-        with patch.object(Path, "parent", tmp_path):
-            with patch.object(Path, "iterdir", return_value=agents_dir.iterdir()):
-                agents = modal_instance._discover_agents()
+        with patch("adh_cli.screens.settings_modal.Path") as MockPath:
+            # Make Path(__file__).parent.parent return the temporary directory
+            MockPath.return_value.parent.parent = tmp_path
+            agents = modal_instance._discover_agents()
 
         # Should find both valid agents, orchestrator first
         assert len(agents) >= 2
@@ -97,30 +116,14 @@ class TestSettingsModal:
         assert "planner" in agents
         assert "invalid" not in agents
 
-    def test_save_settings(self, modal):
+    def test_save_settings(self, modal, mock_ui_widgets):
         """Test saving settings to config file."""
         modal_instance, config_file = modal
 
-        # Mock input values
-        mock_api_input = Mock()
-        mock_api_input.value = "test-api-key-123"
-
-        mock_model_select = Mock()
-        mock_model_select.value = "gemini-flash-latest"
-
-        mock_orchestrator_select = Mock()
-        mock_orchestrator_select.value = "orchestrator"
-
-        def query_side_effect(selector, widget_type):
-            if selector == "#api-key-input":
-                return mock_api_input
-            elif selector == "#model-select":
-                return mock_model_select
-            elif selector == "#orchestrator-select":
-                return mock_orchestrator_select
-            return Mock()
-
-        modal_instance.query_one = Mock(side_effect=query_side_effect)
+        # Set values on mocked widgets
+        mock_ui_widgets["#api-key-input"].value = "test-api-key-123"
+        mock_ui_widgets["#model-select"].value = "gemini-flash-latest"
+        mock_ui_widgets["#orchestrator-select"].value = "orchestrator"
 
         # Save settings
         modal_instance.on_save_pressed()
@@ -143,30 +146,14 @@ class TestSettingsModal:
         # Verify modal was dismissed
         modal_instance.dismiss.assert_called_once()
 
-    def test_save_settings_invalid_model(self, modal):
+    def test_save_settings_invalid_model(self, modal, mock_ui_widgets):
         """Test saving with invalid model shows error."""
         modal_instance, config_file = modal
 
-        # Mock input values with invalid model
-        mock_api_input = Mock()
-        mock_api_input.value = "test-api-key"
-
-        mock_model_select = Mock()
-        mock_model_select.value = "invalid-model-id"
-
-        mock_orchestrator_select = Mock()
-        mock_orchestrator_select.value = "orchestrator"
-
-        def query_side_effect(selector, widget_type):
-            if selector == "#api-key-input":
-                return mock_api_input
-            elif selector == "#model-select":
-                return mock_model_select
-            elif selector == "#orchestrator-select":
-                return mock_orchestrator_select
-            return Mock()
-
-        modal_instance.query_one = Mock(side_effect=query_side_effect)
+        # Set values on mocked widgets with invalid model
+        mock_ui_widgets["#api-key-input"].value = "test-api-key"
+        mock_ui_widgets["#model-select"].value = "invalid-model-id"
+        mock_ui_widgets["#orchestrator-select"].value = "orchestrator"
 
         # Save settings
         modal_instance.on_save_pressed()
@@ -183,33 +170,17 @@ class TestSettingsModal:
         # Verify file was NOT written
         assert not config_file.exists()
 
-    def test_reset_settings(self, modal):
+    def test_reset_settings(self, modal, mock_ui_widgets):
         """Test resetting settings to defaults."""
         modal_instance, _ = modal
-
-        # Mock input widgets
-        mock_api_input = Mock()
-        mock_model_select = Mock()
-        mock_orchestrator_select = Mock()
-
-        def query_side_effect(selector, widget_type):
-            if selector == "#api-key-input":
-                return mock_api_input
-            elif selector == "#model-select":
-                return mock_model_select
-            elif selector == "#orchestrator-select":
-                return mock_orchestrator_select
-            return Mock()
-
-        modal_instance.query_one = Mock(side_effect=query_side_effect)
 
         # Reset settings
         modal_instance.on_reset_pressed()
 
         # Verify values were reset
-        assert mock_api_input.value == ""
-        assert mock_model_select.value == ModelRegistry.DEFAULT.id
-        assert mock_orchestrator_select.value == "orchestrator"
+        assert mock_ui_widgets["#api-key-input"].value == ""
+        assert mock_ui_widgets["#model-select"].value == ModelRegistry.DEFAULT.id
+        assert mock_ui_widgets["#orchestrator-select"].value == "orchestrator"
 
         # Verify notification
         modal_instance.notify.assert_called_once()
@@ -241,7 +212,7 @@ class TestSettingsModal:
 
         assert modal_instance.app.theme == "adh-light"
 
-    def test_load_existing_settings(self, modal):
+    def test_load_existing_settings(self, modal, mock_ui_widgets):
         """Test loading existing settings on mount."""
         modal_instance, config_file = modal
 
@@ -254,52 +225,20 @@ class TestSettingsModal:
 
         config_file.write_text(json.dumps(settings))
 
-        # Mock input widgets
-        mock_api_input = Mock()
-        mock_model_select = Mock()
-        mock_orchestrator_select = Mock()
-
-        def query_side_effect(selector, widget_type):
-            if selector == "#api-key-input":
-                return mock_api_input
-            elif selector == "#model-select":
-                return mock_model_select
-            elif selector == "#orchestrator-select":
-                return mock_orchestrator_select
-            return Mock()
-
-        modal_instance.query_one = Mock(side_effect=query_side_effect)
-
         # Trigger on_mount
         modal_instance.on_mount()
 
         # Verify values were loaded
-        assert mock_api_input.value == "existing-key"
-        assert mock_model_select.value == "gemini-2.5-pro"
-        assert mock_orchestrator_select.value == "planner"
+        assert mock_ui_widgets["#api-key-input"].value == "existing-key"
+        assert mock_ui_widgets["#model-select"].value == "gemini-2.5-pro"
+        assert mock_ui_widgets["#orchestrator-select"].value == "planner"
 
-    def test_load_settings_missing_file(self, modal):
+    def test_load_settings_missing_file(self, modal, mock_ui_widgets):
         """Test loading settings when config file doesn't exist."""
         modal_instance, config_file = modal
 
         # Ensure config file doesn't exist
         assert not config_file.exists()
-
-        # Mock input widgets
-        mock_api_input = Mock()
-        mock_model_select = Mock()
-        mock_orchestrator_select = Mock()
-
-        def query_side_effect(selector, widget_type):
-            if selector == "#api-key-input":
-                return mock_api_input
-            elif selector == "#model-select":
-                return mock_model_select
-            elif selector == "#orchestrator-select":
-                return mock_orchestrator_select
-            return Mock()
-
-        modal_instance.query_one = Mock(side_effect=query_side_effect)
 
         # Trigger on_mount - should not raise error
         modal_instance.on_mount()
@@ -307,28 +246,12 @@ class TestSettingsModal:
         # Values should not be set (no calls to .value setter beyond initialization)
         # This test mainly ensures no exception is raised
 
-    def test_load_settings_invalid_json(self, modal):
+    def test_load_settings_invalid_json(self, modal, mock_ui_widgets):
         """Test loading settings with corrupted config file."""
         modal_instance, config_file = modal
 
         # Create invalid JSON
         config_file.write_text("{invalid json")
-
-        # Mock input widgets
-        mock_api_input = Mock()
-        mock_model_select = Mock()
-        mock_orchestrator_select = Mock()
-
-        def query_side_effect(selector, widget_type):
-            if selector == "#api-key-input":
-                return mock_api_input
-            elif selector == "#model-select":
-                return mock_model_select
-            elif selector == "#orchestrator-select":
-                return mock_orchestrator_select
-            return Mock()
-
-        modal_instance.query_one = Mock(side_effect=query_side_effect)
 
         # Trigger on_mount - should handle gracefully
         modal_instance.on_mount()
@@ -336,7 +259,7 @@ class TestSettingsModal:
         # Should log warning but not crash
         modal_instance.app.log.warning.assert_called()
 
-    def test_load_settings_invalid_model(self, modal):
+    def test_load_settings_invalid_model(self, modal, mock_ui_widgets):
         """Test loading settings with invalid model ID."""
         modal_instance, config_file = modal
 
@@ -349,25 +272,15 @@ class TestSettingsModal:
 
         config_file.write_text(json.dumps(settings))
 
-        # Mock input widgets
-        mock_api_input = Mock()
-        mock_model_select = Mock()
-        mock_model_select.value = None  # Simulate failure to set value
-        mock_orchestrator_select = Mock()
-
-        def query_side_effect(selector, widget_type):
-            if selector == "#api-key-input":
-                return mock_api_input
-            elif selector == "#model-select":
-                return mock_model_select
-            elif selector == "#orchestrator-select":
-                return mock_orchestrator_select
-            return Mock()
-
-        modal_instance.query_one = Mock(side_effect=query_side_effect)
+        # Set a known initial value for the model select widget
+        mock_ui_widgets["#model-select"].value = "initial-value"
 
         # Trigger on_mount - should handle gracefully
         modal_instance.on_mount()
 
-        # API key should still be loaded
-        assert mock_api_input.value == "test-key"
+        # Valid settings should still be loaded
+        assert mock_ui_widgets["#api-key-input"].value == "test-key"
+        assert mock_ui_widgets["#orchestrator-select"].value == "orchestrator"
+
+        # The invalid model should not have changed the select widget's value
+        assert mock_ui_widgets["#model-select"].value == "initial-value"
