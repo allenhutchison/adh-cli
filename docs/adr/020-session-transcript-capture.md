@@ -6,7 +6,7 @@
 **Deciders:** Allen, ADH CLI Maintainers
 **Tags:** architecture, observability, privacy, multi-agent
 
-> **Implementation Status (2025-10-18):** Phase 1 (MVP) implemented. `SessionRecorder` service captures chat turns and tool invocations to JSONL files in `~/.adh-cli/sessions/`. Export to markdown supported. Chat screen integration complete with Ctrl+E export shortcut. Automatic session lifecycle management (new session on chat clear). All features tested with 10 new test cases. Future phases (configuration, retention, advanced querying) remain as described below.
+> **Implementation Status (2025-10-18):** Phase 1 (MVP) implemented. `SessionRecorder` service captures chat turns and tool invocations to JSONL files in `~/.local/share/adh-cli/sessions/` (XDG Base Directory compliant). Export to markdown supported. Chat screen integration complete with Ctrl+E export shortcut. Automatic session lifecycle management (new session on chat clear). All features tested with 10 new test cases. Future phases (configuration, retention, advanced querying) remain as described below.
 
 ---
 
@@ -37,7 +37,7 @@ Key elements:
    - Persist delegation summaries (agent name, task, result, success flag).
 
 3. **Storage & Access**
-   - Write transcripts to JSONL files under `~/.adh_cli/sessions/<session_id>.jsonl` by default.
+   - Write transcripts to JSONL files under `~/.local/share/adh-cli/sessions/<session_id>.jsonl` by default (XDG Base Directory compliant).
    - Provide an abstraction (`SessionArchive`) to query recent transcripts, scoped to the current repository when possible.
    - Integrate with the TUI so users can open the current session log.
 
@@ -137,7 +137,7 @@ Streaming transcripts to an external service (e.g., GCS, BigQuery) could central
 - Buffered writes (configurable buffer size, default 10)
 
 ✅ **Storage**:
-- JSONL format in `~/.adh-cli/sessions/`
+- JSONL format in `~/.local/share/adh-cli/sessions/` (XDG Base Directory compliant)
 - One line per entry for easy streaming/parsing
 - Metadata at start and end of session file
 
@@ -145,7 +145,7 @@ Streaming transcripts to an external service (e.g., GCS, BigQuery) could central
 - Markdown export with formatted timestamps
 - Tool executions with parameters and results
 - Success/failure indicators
-- Exports saved to `~/.adh-cli/exports/`
+- Exports saved to `~/.local/share/adh-cli/exports/` (XDG Base Directory compliant)
 - Clipboard copy for convenience
 
 ✅ **UI Integration**:

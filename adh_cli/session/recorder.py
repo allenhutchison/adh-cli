@@ -39,15 +39,15 @@ class SessionRecorder:
         """Initialize session recorder.
 
         Args:
-            session_dir: Directory to store session files (default: ~/.adh-cli/sessions)
+            session_dir: Directory to store session files (default: ~/.local/share/adh-cli/sessions)
             session_id: Session identifier (generated if not provided)
             agent_name: Name of the agent
             buffer_size: Number of entries to buffer before flushing
             _from_load: Internal flag - skip metadata creation when loading existing session
         """
-        # Set up session directory
+        # Set up session directory (XDG Base Directory compliant)
         if session_dir is None:
-            session_dir = Path.home() / ".adh-cli" / "sessions"
+            session_dir = Path.home() / ".local" / "share" / "adh-cli" / "sessions"
         self.session_dir = Path(session_dir)
         self.session_dir.mkdir(parents=True, exist_ok=True)
 

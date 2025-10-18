@@ -555,7 +555,8 @@ class ChatScreen(Screen):
         try:
             # Generate output filename
             session_id = self.session_recorder.session_id
-            output_dir = Path.home() / ".adh-cli" / "exports"
+            # XDG Base Directory compliant
+            output_dir = Path.home() / ".local" / "share" / "adh-cli" / "exports"
             output_dir.mkdir(parents=True, exist_ok=True)
             output_file = output_dir / f"session_{session_id}.md"
 
