@@ -144,6 +144,7 @@ async def execute_command(
     cwd: Optional[str] = None,
     timeout: Optional[int] = 300,
     shell: bool = True,
+    **kwargs,  # Internal: on_output callback for streaming
 ) -> Dict[str, Any]:
     """Execute a shell command.
 
@@ -160,6 +161,9 @@ async def execute_command(
         TimeoutError: If command exceeds timeout
         subprocess.CalledProcessError: If command fails
     """
+    # Extract internal streaming callback (not exposed to LLM)
+    on_output = kwargs.get("on_output", None)
+
     # Prepare execution environment
     env = os.environ.copy()
 
@@ -193,19 +197,47 @@ async def execute_command(
                 env=env,
             )
 
+        # Read output with optional streaming
+        async def read_stream(stream, stream_name: str, output_buffer: list):
+            """Read from a stream line-by-line, calling callback if provided."""
+            while True:
+                line_bytes = await stream.readline()
+                if not line_bytes:
+                    break
+
+                line_text = line_bytes.decode("utf-8", errors="replace")
+                output_buffer.append(line_text)
+
+                # Call streaming callback if provided
+                if on_output:
+                    await on_output(stream_name, line_text)
+
+        # Collect output in buffers
+        stdout_buffer = []
+        stderr_buffer = []
+
         # Wait for completion with timeout
         try:
-            stdout, stderr = await asyncio.wait_for(
-                process.communicate(), timeout=timeout
+            # Read stdout and stderr concurrently while streaming
+            await asyncio.wait_for(
+                asyncio.gather(
+                    read_stream(process.stdout, "stdout", stdout_buffer),
+                    read_stream(process.stderr, "stderr", stderr_buffer),
+                ),
+                timeout=timeout,
             )
+
+            # Wait for process to finish
+            await process.wait()
+
         except asyncio.TimeoutError:
             process.kill()
             await process.wait()
             raise TimeoutError(f"Command timed out after {timeout} seconds")
 
-        # Decode output
-        stdout_text = stdout.decode("utf-8", errors="replace") if stdout else ""
-        stderr_text = stderr.decode("utf-8", errors="replace") if stderr else ""
+        # Join output from buffers
+        stdout_text = "".join(stdout_buffer)
+        stderr_text = "".join(stderr_buffer)
 
         return {
             "success": process.returncode == 0,

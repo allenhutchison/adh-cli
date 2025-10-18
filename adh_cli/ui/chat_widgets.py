@@ -298,6 +298,25 @@ class ToolMessage(CopyableMessage):
         content_widget = self.query_one(".message-content", Static)
         content_widget.update(self.message_content)
 
+    def append_output(self, stream: str, data: str) -> None:
+        """Append streaming output to the message content.
+
+        This method is called during tool execution to stream output
+        in real-time. It appends new output data to the existing content
+        and updates the UI.
+
+        Args:
+            stream: Stream name ("stdout" or "stderr")
+            data: Text data to append (typically a line of output)
+        """
+        # Append to content buffer
+        self.message_content += data
+
+        # Update the content widget
+        if self.is_mounted:
+            content_widget = self.query_one(".message-content", Static)
+            content_widget.update(self.message_content)
+
 
 class UserMessage(Horizontal):
     """Simple user message display (not collapsible)."""

@@ -197,9 +197,17 @@ class TestExecuteCommand:
     async def test_execute_with_timeout(self, monkeypatch):
         """Test command timeout without sending OS signals."""
 
+        class DummyStream:
+            async def readline(self):
+                # Simulate a long-running process
+                await asyncio.sleep(5)
+                return b""
+
         class DummyProcess:
             def __init__(self):
                 self.returncode = None
+                self.stdout = DummyStream()
+                self.stderr = DummyStream()
 
             async def communicate(self):
                 # Simulate a long-running process so wait_for times out

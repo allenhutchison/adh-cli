@@ -154,6 +154,7 @@ class ChatScreen(Screen):
         self._message_history = []  # Track plain text messages for copying
         self._message_history_ids = {}  # Map execution ID -> message history index
         self._tool_widgets = {}  # Map execution ID -> ToolMessage widget
+        self._streaming_positions = {}  # Map execution ID -> last streaming position
         self.thinking_display: Optional[VerticalScroll] = None
 
     def compose(self) -> ComposeResult:
@@ -580,8 +581,23 @@ class ChatScreen(Screen):
         Args:
             info: Updated execution information
         """
-        # Nothing needed - updates will be shown via on_execution_complete
-        pass
+        # Handle streaming output updates
+        if info.streaming_output:
+            widget = self._tool_widgets.get(info.id)
+            if widget and hasattr(widget, "append_output"):
+                # Track the last position we've seen to avoid re-appending old output
+                if not hasattr(self, "_streaming_positions"):
+                    self._streaming_positions = {}
+
+                last_pos = self._streaming_positions.get(info.id, 0)
+                new_outputs = info.streaming_output[last_pos:]
+
+                # Append each new output chunk
+                for stream_name, data in new_outputs:
+                    widget.append_output(stream_name, data)
+
+                # Update our position tracker
+                self._streaming_positions[info.id] = len(info.streaming_output)
 
     def on_execution_complete(self, info: ToolExecutionInfo) -> None:
         """Handle execution complete event from manager.
