@@ -236,6 +236,56 @@ def format_parameters_expanded(
     return result
 
 
+# Constants for tool context summary truncation
+_MAX_COMMAND_LENGTH = 60
+_MAX_PATH_LENGTH = 50
+_MAX_TASK_LENGTH = 40
+
+
+def _truncate_from_end(value: str, max_length: int) -> str:
+    """Truncate string from the end with ellipsis.
+
+    Args:
+        value: String to truncate
+        max_length: Maximum length
+
+    Returns:
+        Truncated string with trailing "..."
+    """
+    if len(value) <= max_length:
+        return value
+    return value[: max_length - 3] + "..."
+
+
+def _truncate_from_start(value: str, max_length: int) -> str:
+    """Truncate string from the start with ellipsis.
+
+    Args:
+        value: String to truncate
+        max_length: Maximum length
+
+    Returns:
+        Truncated string with leading "..."
+    """
+    if len(value) <= max_length:
+        return value
+    return "..." + value[-(max_length - 3) :]
+
+
+def _get_string_param(parameters: Dict[str, Any], key: str) -> Optional[str]:
+    """Safely extract a string parameter.
+
+    Args:
+        parameters: Parameter dictionary
+        key: Parameter key
+
+    Returns:
+        String value or None if not found or not a string
+    """
+    value = parameters.get(key)
+    return value if isinstance(value, str) else None
+
+
 def get_tool_context_summary(
     tool_name: str, parameters: Dict[str, Any]
 ) -> Optional[str]:
@@ -255,83 +305,50 @@ def get_tool_context_summary(
         return None
 
     # Execute command - show the command
-    if tool_name == "execute_command" and "command" in parameters:
-        cmd = parameters["command"]
-        if isinstance(cmd, str):
-            # Truncate long commands
-            if len(cmd) > 60:
-                return cmd[:57] + "..."
-            return cmd
+    if tool_name == "execute_command":
+        cmd = _get_string_param(parameters, "command")
+        if cmd:
+            return _truncate_from_end(cmd, _MAX_COMMAND_LENGTH)
 
     # File operations - show the file path
-    if (
-        tool_name in ("write_file", "read_file", "delete_file")
-        and "file_path" in parameters
-    ):
-        file_path = parameters["file_path"]
-        if isinstance(file_path, str):
-            # Show just the filename if path is long
-            if len(file_path) > 50:
-                return "..." + file_path[-47:]
-            return file_path
+    if tool_name in ("write_file", "read_file", "delete_file", "get_file_info"):
+        file_path = _get_string_param(parameters, "file_path")
+        if file_path:
+            return _truncate_from_start(file_path, _MAX_PATH_LENGTH)
 
     # Directory operations - show the directory
-    if tool_name == "list_directory" and "directory" in parameters:
-        directory = parameters["directory"]
-        if isinstance(directory, str) and directory != ".":
-            if len(directory) > 50:
-                return "..." + directory[-47:]
-            return directory
-
-    if tool_name == "create_directory" and "directory" in parameters:
-        directory = parameters["directory"]
-        if isinstance(directory, str):
-            if len(directory) > 50:
-                return "..." + directory[-47:]
-            return directory
-
-    # Get file info - show the file/directory path
-    if tool_name == "get_file_info" and "file_path" in parameters:
-        file_path = parameters["file_path"]
-        if isinstance(file_path, str):
-            if len(file_path) > 50:
-                return "..." + file_path[-47:]
-            return file_path
+    if tool_name in ("list_directory", "create_directory"):
+        directory = _get_string_param(parameters, "directory")
+        if directory and (tool_name != "list_directory" or directory != "."):
+            return _truncate_from_start(directory, _MAX_PATH_LENGTH)
 
     # URL fetch - show the URL
-    if tool_name == "fetch_url" and "url" in parameters:
-        url = parameters["url"]
-        if isinstance(url, str):
-            # Truncate long URLs
-            if len(url) > 60:
-                return url[:57] + "..."
-            return url
+    if tool_name == "fetch_url":
+        url = _get_string_param(parameters, "url")
+        if url:
+            return _truncate_from_end(url, _MAX_COMMAND_LENGTH)
 
     # Google search - show the query
-    if tool_name == "google_search" and "query" in parameters:
-        query = parameters["query"]
-        if isinstance(query, str):
-            if len(query) > 60:
-                return query[:57] + "..."
-            return query
+    if tool_name == "google_search":
+        query = _get_string_param(parameters, "query")
+        if query:
+            return _truncate_from_end(query, _MAX_COMMAND_LENGTH)
 
     # Agent delegation - show target agent and task preview
     if tool_name == "delegate_to_agent":
-        parts = []
-        if "agent" in parameters:
-            agent = parameters["agent"]
-            if isinstance(agent, str):
-                parts.append(f"→ {agent}")
-        if "task" in parameters and parts:  # Only show task if we have agent
-            task = parameters["task"]
-            if isinstance(task, str):
-                # Show first line or first 40 chars of task
-                first_line = task.split("\n")[0] if "\n" in task else task
-                if len(first_line) > 40:
-                    parts.append(f": {first_line[:37]}...")
-                else:
-                    parts.append(f": {first_line}")
-        if parts:
-            return "".join(parts)
+        agent = _get_string_param(parameters, "agent")
+        if not agent:
+            return None
+
+        result = f"→ {agent}"
+
+        task = _get_string_param(parameters, "task")
+        if task:
+            # Show first line only for multiline tasks
+            first_line = task.split("\n")[0] if "\n" in task else task
+            task_preview = _truncate_from_end(first_line, _MAX_TASK_LENGTH)
+            result += f": {task_preview}"
+
+        return result
 
     return None

@@ -270,20 +270,17 @@ class ToolExecutionWidget(Widget):
         info = self.execution_info
         header = self.query_one("#header", Static)
 
-        # Build header text
-        parts = []
+        # Start with icon and tool name
+        header_text = f"{info.status_icon} {info.tool_name}"
 
-        # Icon and tool name
-        parts.append(f"{info.status_icon} {info.tool_name}")
-
-        # Add contextual information (e.g., command, file path, agent name)
+        # Add contextual information (e.g., command, file path)
         context = get_tool_context_summary(info.tool_name, info.parameters)
         if context:
-            parts.append(f": {context}")
+            header_text += f": {context}"
 
         # Add agent name if this is a delegated agent execution
-        if info.agent_name:
-            parts.append(f"(via {info.agent_name})")
+        if info.agent_name and info.agent_name != "orchestrator":
+            header_text += f" (via {info.agent_name})"
 
         # Risk badge (if confirming)
         if info.state == ToolExecutionState.CONFIRMING and info.policy_decision:
@@ -292,12 +289,12 @@ class ToolExecutionWidget(Widget):
             risk_text = Text()
             risk_text.append(" " * 10)  # Padding
             risk_text.append(f"Risk: {risk.value.upper()}", style=risk_class)
-            parts.append(risk_text.plain)
+            header_text += f" {risk_text.plain}"
 
         # Status
-        parts.append(f"[{info.status_text}]")
+        header_text += f" [{info.status_text}]"
 
-        header.update(" ".join(parts))
+        header.update(header_text)
 
     def _update_parameters(self) -> None:
         """Update parameter display."""

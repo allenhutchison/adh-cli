@@ -219,26 +219,17 @@ class ToolMessage(CopyableMessage):
             parameters: Tool parameters for contextual display
             **kwargs: Additional arguments
         """
-        # Create title with tool name and status
-        icon = self.STATUS_ICONS.get(status, "🔧")
-
-        # Build title parts
-        title_parts = [f"{icon} Tool: {tool_name}"]
-
-        # Add contextual information from parameters
-        if parameters:
-            context = get_tool_context_summary(tool_name, parameters)
-            if context:
-                title_parts.append(f": {context}")
-
-        # Add agent name if this was delegated to a sub-agent
-        if agent_name and agent_name != "orchestrator":
-            title_parts.append(f"(via {agent_name})")
-
-        title = " ".join(title_parts)
-
         # Ensure content is a string
         content_str = str(content) if content is not None else ""
+
+        # Store attributes before calling super().__init__
+        self.tool_name = tool_name
+        self.status = status
+        self.agent_name = agent_name
+        self.parameters = parameters if parameters is not None else {}
+
+        # Build title using helper method
+        title = self._build_title(tool_name, status, agent_name, parameters)
 
         super().__init__(
             title=title,
@@ -247,10 +238,41 @@ class ToolMessage(CopyableMessage):
             collapsed=collapsed,
             **kwargs,
         )
-        self.tool_name = tool_name
-        self.status = status
-        self.agent_name = agent_name
-        self.parameters = parameters if parameters is not None else {}
+
+    def _build_title(
+        self,
+        tool_name: str,
+        status: str,
+        agent_name: str = None,
+        parameters: Dict[str, Any] = None,
+    ) -> str:
+        """Build the tool message title with contextual information.
+
+        Args:
+            tool_name: Name of the tool
+            status: Execution status
+            agent_name: Name of the agent that executed this tool
+            parameters: Tool parameters for contextual display
+
+        Returns:
+            Formatted title string
+        """
+        icon = self.STATUS_ICONS.get(status, "🔧")
+
+        # Start with icon and tool name
+        title = f"{icon} Tool: {tool_name}"
+
+        # Add contextual information from parameters
+        if parameters:
+            context = get_tool_context_summary(tool_name, parameters)
+            if context:
+                title += f": {context}"
+
+        # Add agent name if this was delegated to a sub-agent
+        if agent_name and agent_name != "orchestrator":
+            title += f" (via {agent_name})"
+
+        return title
 
     def update_status(self, status: str, content: str) -> None:
         """Update the tool message status and content.
@@ -263,23 +285,10 @@ class ToolMessage(CopyableMessage):
         self.status = status
         self.message_content = str(content) if content is not None else ""
 
-        # Update title with new status icon
-        icon = self.STATUS_ICONS.get(status, "🔧")
-
-        # Build new title with contextual information
-        title_parts = [f"{icon} Tool: {self.tool_name}"]
-
-        # Add contextual information from parameters
-        if self.parameters:
-            context = get_tool_context_summary(self.tool_name, self.parameters)
-            if context:
-                title_parts.append(f": {context}")
-
-        # Add agent name if this was delegated to a sub-agent
-        if self.agent_name and self.agent_name != "orchestrator":
-            title_parts.append(f"(via {self.agent_name})")
-
-        new_title = " ".join(title_parts)
+        # Build new title using helper method
+        new_title = self._build_title(
+            self.tool_name, status, self.agent_name, self.parameters
+        )
 
         # Update the title widget in the header
         title_widget = self.query_one(".message-title", Static)
