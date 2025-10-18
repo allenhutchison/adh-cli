@@ -1,6 +1,7 @@
 """Chat screen with policy-aware agent integration."""
 
 from typing import Optional
+from pathlib import Path
 import pyperclip
 from textual import on, events
 from textual.app import ComposeResult
@@ -12,9 +13,14 @@ from rich.text import Text
 
 from ..core.tool_executor import ExecutionContext
 from ..ui.confirmation_dialog import ConfirmationDialog, PolicyNotification
-from ..ui.tool_execution import ToolExecutionInfo, format_parameters_inline
+from ..ui.tool_execution import (
+    ToolExecutionInfo,
+    ToolExecutionState,
+    format_parameters_inline,
+)
 from ..ui.chat_widgets import AIMessage, ToolMessage, UserMessage
 from ..policies.policy_types import PolicyDecision
+from ..session import SessionRecorder
 
 
 class ChatTextArea(TextArea):
@@ -137,6 +143,7 @@ class ChatScreen(Screen):
     BINDINGS = [
         Binding("ctrl+l", "clear_chat", "Clear Chat"),
         Binding("ctrl+y", "copy_chat", "Copy Chat"),
+        Binding("ctrl+e", "export_session", "Export Session"),
         Binding("ctrl+slash", "show_policies", "Show Policies"),
         Binding("ctrl+s", "toggle_safety", "Toggle Safety"),
         Binding("ctrl+comma", "app.show_settings", "Settings"),
@@ -156,6 +163,9 @@ class ChatScreen(Screen):
         self._tool_widgets = {}  # Map execution ID -> ToolMessage widget
         self._streaming_positions = {}  # Map execution ID -> last streaming position
         self.thinking_display: Optional[VerticalScroll] = None
+
+        # Session recorder for transcript capture
+        self.session_recorder = SessionRecorder()
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the chat screen."""
@@ -238,6 +248,8 @@ class ChatScreen(Screen):
                 shortcuts.append(" newline | ", style="dim")
                 shortcuts.append("Ctrl+Y", style="bold")
                 shortcuts.append(" copy | ", style="dim")
+                shortcuts.append("Ctrl+E", style="bold")
+                shortcuts.append(" export | ", style="dim")
                 shortcuts.append("Ctrl+/", style="bold")
                 shortcuts.append(" policies | ", style="dim")
                 shortcuts.append("Ctrl+S", style="bold")
@@ -403,6 +415,13 @@ class ChatScreen(Screen):
         # Track message in history for copying
         self._message_history.append(f"{speaker}: {message}")
 
+        # Record in session transcript (async, non-blocking)
+        role = "user" if is_user else "ai"
+        self.run_worker(
+            self.session_recorder.record_chat_turn(role=role, content=message),
+            exclusive=False,
+        )
+
         # Mount appropriate widget based on message type
         if is_user:
             # User messages - simple non-collapsible widget
@@ -495,6 +514,9 @@ class ChatScreen(Screen):
 
     def action_clear_chat(self) -> None:
         """Clear the chat log."""
+        # Close current session (async, run in background)
+        self.run_worker(self.session_recorder.close(), exclusive=False)
+
         # Remove all child widgets
         self.chat_log.remove_children()
         self._message_history.clear()
@@ -503,6 +525,9 @@ class ChatScreen(Screen):
         self._mount_info_message("[dim]Chat cleared.[/dim]")
         # Reset title to normal state (no processing indicator)
         self._update_chat_title()
+
+        # Start new session
+        self.session_recorder = SessionRecorder()
 
     def action_copy_chat(self) -> None:
         """Copy the entire chat log to clipboard."""
@@ -520,6 +545,38 @@ class ChatScreen(Screen):
             )
         except pyperclip.PyperclipException as e:
             self.notify(f"Failed to copy: {e}", title="Error", severity="error")
+
+    def action_export_session(self) -> None:
+        """Export the current session to markdown file."""
+        if not self._message_history:
+            self.notify("No messages to export", title="Info", severity="information")
+            return
+
+        try:
+            # Generate output filename
+            session_id = self.session_recorder.session_id
+            # XDG Base Directory compliant
+            output_dir = Path.home() / ".local" / "share" / "adh-cli" / "exports"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            output_file = output_dir / f"session_{session_id}.md"
+
+            # Export to markdown
+            markdown_content = self.session_recorder.export_markdown(output_file)
+
+            # Also save JSONL location
+            jsonl_file = self.session_recorder.session_file
+
+            self.notify(
+                f"Session exported:\nMarkdown: {output_file}\nJSONL: {jsonl_file}",
+                title="Export Complete",
+                timeout=10,
+            )
+
+            # Also copy markdown to clipboard for convenience
+            pyperclip.copy(markdown_content)
+
+        except (pyperclip.PyperclipException, IOError, OSError) as e:
+            self.notify(f"Failed to export: {e}", title="Error", severity="error")
 
     def action_show_policies(self) -> None:
         """Show active policies."""
@@ -605,6 +662,23 @@ class ChatScreen(Screen):
         Args:
             info: Completed execution information
         """
+        # Record tool invocation in session transcript (async, non-blocking)
+        success = info.state is ToolExecutionState.SUCCESS
+        result_str = str(info.result) if info.result is not None else None
+        error_str = info.error if info.error is not None else None
+
+        self.run_worker(
+            self.session_recorder.record_tool_invocation(
+                tool_name=info.tool_name,
+                parameters=info.parameters,
+                success=success,
+                result=result_str,
+                error=error_str,
+                agent_name=info.agent_name,
+            ),
+            exclusive=False,
+        )
+
         # Check if we have an existing widget for this execution
         widget = self._tool_widgets.get(info.id)
 
