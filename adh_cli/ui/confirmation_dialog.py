@@ -46,23 +46,23 @@ class ConfirmationDialog(ModalScreen):
     }
 
     ConfirmationDialog .risk-low {
-        background: $risk-low;
-        color: $text-on-success;
+        background: $success;
+        color: $foreground;
     }
 
     ConfirmationDialog .risk-medium {
-        background: $risk-medium;
-        color: $text-on-warning;
+        background: $warning;
+        color: $foreground;
     }
 
     ConfirmationDialog .risk-high {
-        background: $risk-high;
-        color: $text-on-error;
+        background: $warning-darken-2;
+        color: $foreground;
     }
 
     ConfirmationDialog .risk-critical {
-        background: $risk-critical;
-        color: $text-on-error;
+        background: $error;
+        color: $foreground;
         text-style: bold;
     }
 
@@ -198,25 +198,25 @@ class PolicyNotification(Widget):
     PolicyNotification.info {
         background: $primary-lighten-2;
         border: solid $primary;
-        color: $text-on-primary;
+        color: $foreground;
     }
 
     PolicyNotification.warning {
         background: $warning-lighten-2;
         border: solid $warning;
-        color: $text-on-warning;
+        color: $foreground;
     }
 
     PolicyNotification.error {
         background: $error-lighten-2;
         border: solid $error;
-        color: $text-on-error;
+        color: $foreground;
     }
 
     PolicyNotification.success {
         background: $success-lighten-2;
         border: solid $success;
-        color: $text-on-success;
+        color: $foreground;
     }
     """
 

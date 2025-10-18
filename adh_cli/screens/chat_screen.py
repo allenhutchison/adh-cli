@@ -114,7 +114,7 @@ class ChatScreen(Screen):
     }
 
     #chat-input:focus {
-        border: solid $border-focus;
+        border: solid $primary;
     }
 
     .info-message {

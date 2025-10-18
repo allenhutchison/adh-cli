@@ -16,7 +16,7 @@ class TestSettingsModal:
         """Create a test modal instance with mocked config path."""
         # Create mock app
         mock_app = Mock()
-        mock_app.theme = "adh-dark"
+        mock_app.theme = "textual-dark"
         mock_app.log = Mock()
 
         # Patch config path to use tmp_path
@@ -204,13 +204,13 @@ class TestSettingsModal:
 
         modal_instance.on_dark_mode_changed(mock_event)
 
-        assert modal_instance.app.theme == "adh-dark"
+        assert modal_instance.app.theme == "textual-dark"
 
         # Test light mode
         mock_event.value = False
         modal_instance.on_dark_mode_changed(mock_event)
 
-        assert modal_instance.app.theme == "adh-light"
+        assert modal_instance.app.theme == "textual-light"
 
     def test_load_existing_settings(self, modal, mock_ui_widgets):
         """Test loading existing settings on mount."""
