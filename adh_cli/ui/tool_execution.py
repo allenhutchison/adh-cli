@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, Tuple
 from adh_cli.policies.policy_types import PolicyDecision
 
 
@@ -48,6 +48,10 @@ class ToolExecutionInfo:
     result: Optional[Any] = None
     error: Optional[str] = None
     error_type: Optional[str] = None
+
+    # Streaming output
+    streaming_output: List[Tuple[str, str]] = field(default_factory=list)
+    # List of (stream_name, data) tuples collected during execution
 
     @property
     def duration(self) -> Optional[float]:

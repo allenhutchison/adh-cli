@@ -2,6 +2,7 @@
 
 import functools
 import inspect
+import time
 from typing import Callable, Optional, TYPE_CHECKING
 
 from google.adk.tools import FunctionTool
@@ -206,9 +207,58 @@ class PolicyAwareFunctionTool(FunctionTool):
             if self.execution_manager and execution_id:
                 self.execution_manager.start_execution(execution_id)
 
-            # 9. Execute original function
+            # 9. Set up streaming callback for supported tools
+            if (
+                tool_name == "execute_command"
+                and self.execution_manager
+                and execution_id
+            ):
+                # Rate limiting state
+                last_update_time = [
+                    0.0
+                ]  # Use list to allow mutation in nested function
+                pending_update = [False]
+
+                async def on_output(stream_name: str, data: str):
+                    """Callback for streaming output during command execution."""
+                    # Append to streaming output buffer
+                    execution_info = self.execution_manager.get_execution(execution_id)
+                    if execution_info:
+                        execution_info.streaming_output.append((stream_name, data))
+
+                        # Rate limit UI updates to avoid overwhelming the interface
+                        # Only update if 100ms have passed since last update
+                        current_time = time.time()
+                        time_since_last_update = current_time - last_update_time[0]
+
+                        if time_since_last_update >= 0.1:  # 100ms
+                            # Enough time has passed, update immediately
+                            self.execution_manager.update_execution(execution_id)
+                            last_update_time[0] = current_time
+                            pending_update[0] = False
+                        else:
+                            # Mark that we have a pending update
+                            # (will be flushed at command completion)
+                            pending_update[0] = True
+
+                # Add on_output callback to kwargs
+                kwargs["on_output"] = on_output
+
+            # 10. Execute original function
             try:
                 result = await func(**kwargs)
+
+                # Flush any pending streaming updates before marking complete
+                if (
+                    tool_name == "execute_command"
+                    and self.execution_manager
+                    and execution_id
+                    and "on_output" in kwargs
+                ):
+                    # Access the pending_update flag from closure
+                    # (it's set to True if updates were throttled)
+                    if pending_update[0]:
+                        self.execution_manager.update_execution(execution_id)
 
                 # Track successful completion
                 if self.execution_manager and execution_id:
