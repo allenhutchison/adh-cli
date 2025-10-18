@@ -8,6 +8,7 @@ from adh_cli.ui.tool_execution import (
     truncate_value,
     format_parameters_inline,
     format_parameters_expanded,
+    get_tool_context_summary,
 )
 
 
@@ -327,3 +328,149 @@ class TestFormatParametersExpanded:
         key, display, original_len = result[0]
         assert "..." not in display  # Not truncated
         assert original_len == 100
+
+
+class TestGetToolContextSummary:
+    """Test get_tool_context_summary utility function."""
+
+    def test_returns_none_for_empty_parameters(self):
+        """Test returns None when no parameters provided."""
+        result = get_tool_context_summary("read_file", {})
+        assert result is None
+
+    def test_execute_command_shows_command(self):
+        """Test execute_command shows the command being executed."""
+        result = get_tool_context_summary(
+            "execute_command", {"command": "pytest tests/"}
+        )
+        assert result == "pytest tests/"
+
+    def test_execute_command_truncates_long_command(self):
+        """Test execute_command truncates very long commands."""
+        long_command = "python -m pytest " + " ".join(
+            [f"test{i}.py" for i in range(20)]
+        )
+        result = get_tool_context_summary("execute_command", {"command": long_command})
+        assert len(result) <= 63  # 60 + "..."
+        assert result.endswith("...")
+
+    def test_write_file_shows_file_path(self):
+        """Test write_file shows the file path."""
+        result = get_tool_context_summary(
+            "write_file", {"file_path": "config.yaml", "content": "test"}
+        )
+        assert result == "config.yaml"
+
+    def test_read_file_shows_file_path(self):
+        """Test read_file shows the file path."""
+        result = get_tool_context_summary("read_file", {"file_path": "README.md"})
+        assert result == "README.md"
+
+    def test_delete_file_shows_file_path(self):
+        """Test delete_file shows the file path."""
+        result = get_tool_context_summary(
+            "delete_file", {"file_path": "temp.txt", "confirm": True}
+        )
+        assert result == "temp.txt"
+
+    def test_file_path_truncates_long_paths(self):
+        """Test file paths are truncated when very long."""
+        long_path = "/".join(["dir"] * 20) + "/file.txt"
+        result = get_tool_context_summary("write_file", {"file_path": long_path})
+        assert result.startswith("...")
+        assert len(result) <= 53  # 50 + "..."
+
+    def test_list_directory_shows_directory(self):
+        """Test list_directory shows the directory path."""
+        result = get_tool_context_summary("list_directory", {"directory": "/tmp"})
+        assert result == "/tmp"
+
+    def test_list_directory_skips_current_directory(self):
+        """Test list_directory returns None for current directory."""
+        result = get_tool_context_summary("list_directory", {"directory": "."})
+        assert result is None
+
+    def test_create_directory_shows_directory(self):
+        """Test create_directory shows the directory path."""
+        result = get_tool_context_summary(
+            "create_directory", {"directory": "new_folder"}
+        )
+        assert result == "new_folder"
+
+    def test_get_file_info_shows_file_path(self):
+        """Test get_file_info shows the file/directory path."""
+        result = get_tool_context_summary("get_file_info", {"file_path": "data.json"})
+        assert result == "data.json"
+
+    def test_fetch_url_shows_url(self):
+        """Test fetch_url shows the URL."""
+        result = get_tool_context_summary(
+            "fetch_url", {"url": "https://example.com/api"}
+        )
+        assert result == "https://example.com/api"
+
+    def test_fetch_url_truncates_long_url(self):
+        """Test fetch_url truncates very long URLs."""
+        long_url = "https://example.com/" + "a" * 100
+        result = get_tool_context_summary("fetch_url", {"url": long_url})
+        assert len(result) <= 63  # 60 + "..."
+        assert result.endswith("...")
+
+    def test_google_search_shows_query(self):
+        """Test google_search shows the search query."""
+        result = get_tool_context_summary(
+            "google_search", {"query": "Python async patterns"}
+        )
+        assert result == "Python async patterns"
+
+    def test_google_search_truncates_long_query(self):
+        """Test google_search truncates very long queries."""
+        long_query = "How to " + "really " * 30 + "do something"
+        result = get_tool_context_summary("google_search", {"query": long_query})
+        assert len(result) <= 63  # 60 + "..."
+        assert result.endswith("...")
+
+    def test_delegate_to_agent_shows_agent_name(self):
+        """Test delegate_to_agent shows the target agent."""
+        result = get_tool_context_summary(
+            "delegate_to_agent", {"agent": "tester", "task": "Run tests"}
+        )
+        assert result == "→ tester: Run tests"
+
+    def test_delegate_to_agent_truncates_long_task(self):
+        """Test delegate_to_agent truncates long task descriptions."""
+        long_task = "Please run all the tests and verify " * 5
+        result = get_tool_context_summary(
+            "delegate_to_agent", {"agent": "tester", "task": long_task}
+        )
+        assert result.startswith("→ tester:")
+        assert "..." in result
+
+    def test_delegate_to_agent_shows_first_line_of_multiline_task(self):
+        """Test delegate_to_agent shows only first line of multiline task."""
+        multiline_task = "Run tests\nThen check coverage\nAnd generate report"
+        result = get_tool_context_summary(
+            "delegate_to_agent", {"agent": "tester", "task": multiline_task}
+        )
+        assert result == "→ tester: Run tests"
+        assert "coverage" not in result
+
+    def test_delegate_to_agent_without_task_shows_agent_only(self):
+        """Test delegate_to_agent shows agent name even without task."""
+        result = get_tool_context_summary("delegate_to_agent", {"agent": "tester"})
+        assert result == "→ tester"
+
+    def test_unknown_tool_returns_none(self):
+        """Test unknown tool returns None."""
+        result = get_tool_context_summary("unknown_tool", {"param": "value"})
+        assert result is None
+
+    def test_known_tool_with_missing_key_returns_none(self):
+        """Test known tool with missing parameter key returns None."""
+        result = get_tool_context_summary("execute_command", {"timeout": 30})
+        assert result is None
+
+    def test_non_string_parameter_value_returns_none(self):
+        """Test non-string parameter values are handled safely."""
+        result = get_tool_context_summary("execute_command", {"command": 123})
+        assert result is None

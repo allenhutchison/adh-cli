@@ -1,13 +1,15 @@
 """Custom widgets for chat messages with copy functionality."""
 
 import pyperclip
+from typing import Any, Dict
+
 from textual import on
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Collapsible, Static
 from rich.markdown import Markdown
 
-from ..ui.tool_execution import ToolExecutionState
+from ..ui.tool_execution import ToolExecutionState, get_tool_context_summary
 
 
 class CopyableMessage(Vertical):
@@ -203,6 +205,7 @@ class ToolMessage(CopyableMessage):
         status: str = "success",
         collapsed: bool = False,
         agent_name: str = None,
+        parameters: Dict[str, Any] = None,
         **kwargs,
     ):
         """Initialize a tool message.
@@ -213,19 +216,20 @@ class ToolMessage(CopyableMessage):
             status: Execution status
             collapsed: Whether to start collapsed
             agent_name: Name of the agent that executed this tool (for delegation)
+            parameters: Tool parameters for contextual display
             **kwargs: Additional arguments
         """
-        # Create title with tool name and status
-        icon = self.STATUS_ICONS.get(status, "🔧")
-
-        # Add agent name if this was delegated to a sub-agent
-        if agent_name and agent_name != "orchestrator":
-            title = f"{icon} Tool: {tool_name} (via {agent_name})"
-        else:
-            title = f"{icon} Tool: {tool_name}"
-
         # Ensure content is a string
         content_str = str(content) if content is not None else ""
+
+        # Store attributes before calling super().__init__
+        self.tool_name = tool_name
+        self.status = status
+        self.agent_name = agent_name
+        self.parameters = parameters if parameters is not None else {}
+
+        # Build title using helper method
+        title = self._build_title(tool_name, status, agent_name, parameters)
 
         super().__init__(
             title=title,
@@ -234,9 +238,41 @@ class ToolMessage(CopyableMessage):
             collapsed=collapsed,
             **kwargs,
         )
-        self.tool_name = tool_name
-        self.status = status
-        self.agent_name = agent_name
+
+    def _build_title(
+        self,
+        tool_name: str,
+        status: str,
+        agent_name: str = None,
+        parameters: Dict[str, Any] = None,
+    ) -> str:
+        """Build the tool message title with contextual information.
+
+        Args:
+            tool_name: Name of the tool
+            status: Execution status
+            agent_name: Name of the agent that executed this tool
+            parameters: Tool parameters for contextual display
+
+        Returns:
+            Formatted title string
+        """
+        icon = self.STATUS_ICONS.get(status, "🔧")
+
+        # Start with icon and tool name
+        title = f"{icon} Tool: {tool_name}"
+
+        # Add contextual information from parameters
+        if parameters:
+            context = get_tool_context_summary(tool_name, parameters)
+            if context:
+                title += f": {context}"
+
+        # Add agent name if this was delegated to a sub-agent
+        if agent_name and agent_name != "orchestrator":
+            title += f" (via {agent_name})"
+
+        return title
 
     def update_status(self, status: str, content: str) -> None:
         """Update the tool message status and content.
@@ -249,14 +285,10 @@ class ToolMessage(CopyableMessage):
         self.status = status
         self.message_content = str(content) if content is not None else ""
 
-        # Update title with new status icon
-        icon = self.STATUS_ICONS.get(status, "🔧")
-
-        # Build new title
-        if self.agent_name and self.agent_name != "orchestrator":
-            new_title = f"{icon} Tool: {self.tool_name} (via {self.agent_name})"
-        else:
-            new_title = f"{icon} Tool: {self.tool_name}"
+        # Build new title using helper method
+        new_title = self._build_title(
+            self.tool_name, status, self.agent_name, self.parameters
+        )
 
         # Update the title widget in the header
         title_widget = self.query_one(".message-title", Static)

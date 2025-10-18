@@ -484,6 +484,7 @@ class ChatScreen(Screen):
             status=info.state.value,
             collapsed=True,  # Start collapsed
             agent_name=info.agent_name,
+            parameters=info.parameters,
         )
 
         self.chat_log.mount(widget)

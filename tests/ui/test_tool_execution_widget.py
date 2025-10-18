@@ -387,3 +387,121 @@ class TestToolExecutionWidget:
             # Set collapsed
             widget.set_expanded(False)
             assert widget.expanded is False
+
+    @pytest.mark.asyncio
+    async def test_header_shows_command_context(self):
+        """Test header displays command for execute_command tool."""
+        info = ToolExecutionInfo(
+            id="test-1",
+            tool_name="execute_command",
+            parameters={"command": "pytest tests/"},
+            state=ToolExecutionState.EXECUTING,
+        )
+
+        widget = ToolExecutionWidget(execution_info=info)
+
+        class _TestApp(ToolExecutionTestApp):
+            def compose(self):
+                yield widget
+
+        async with _TestApp().run_test() as pilot:
+            await pilot.pause()
+            header = widget.query_one("#header", Static)
+            header_text = str(header.render())
+            assert "execute_command" in header_text
+            assert "pytest tests/" in header_text
+
+    @pytest.mark.asyncio
+    async def test_header_shows_file_path_context(self):
+        """Test header displays file path for write_file tool."""
+        info = ToolExecutionInfo(
+            id="test-1",
+            tool_name="write_file",
+            parameters={"file_path": "config.yaml", "content": "test"},
+            state=ToolExecutionState.EXECUTING,
+        )
+
+        widget = ToolExecutionWidget(execution_info=info)
+
+        class _TestApp(ToolExecutionTestApp):
+            def compose(self):
+                yield widget
+
+        async with _TestApp().run_test() as pilot:
+            await pilot.pause()
+            header = widget.query_one("#header", Static)
+            header_text = str(header.render())
+            assert "write_file" in header_text
+            assert "config.yaml" in header_text
+
+    @pytest.mark.asyncio
+    async def test_header_shows_agent_delegation_context(self):
+        """Test header displays target agent for delegate_to_agent tool."""
+        info = ToolExecutionInfo(
+            id="test-1",
+            tool_name="delegate_to_agent",
+            parameters={"agent": "tester", "task": "Run all tests"},
+            state=ToolExecutionState.EXECUTING,
+        )
+
+        widget = ToolExecutionWidget(execution_info=info)
+
+        class _TestApp(ToolExecutionTestApp):
+            def compose(self):
+                yield widget
+
+        async with _TestApp().run_test() as pilot:
+            await pilot.pause()
+            header = widget.query_one("#header", Static)
+            header_text = str(header.render())
+            assert "delegate_to_agent" in header_text
+            assert "→ tester" in header_text
+            assert "Run all tests" in header_text
+
+    @pytest.mark.asyncio
+    async def test_header_shows_agent_name_for_delegated_execution(self):
+        """Test header displays agent name when tool executed by delegated agent."""
+        info = ToolExecutionInfo(
+            id="test-1",
+            tool_name="execute_command",
+            parameters={"command": "pytest"},
+            state=ToolExecutionState.EXECUTING,
+            agent_name="tester",
+        )
+
+        widget = ToolExecutionWidget(execution_info=info)
+
+        class _TestApp(ToolExecutionTestApp):
+            def compose(self):
+                yield widget
+
+        async with _TestApp().run_test() as pilot:
+            await pilot.pause()
+            header = widget.query_one("#header", Static)
+            header_text = str(header.render())
+            assert "execute_command" in header_text
+            assert "pytest" in header_text
+            assert "(via tester)" in header_text
+
+    @pytest.mark.asyncio
+    async def test_header_shows_search_query_context(self):
+        """Test header displays search query for google_search tool."""
+        info = ToolExecutionInfo(
+            id="test-1",
+            tool_name="google_search",
+            parameters={"query": "Python async patterns"},
+            state=ToolExecutionState.EXECUTING,
+        )
+
+        widget = ToolExecutionWidget(execution_info=info)
+
+        class _TestApp(ToolExecutionTestApp):
+            def compose(self):
+                yield widget
+
+        async with _TestApp().run_test() as pilot:
+            await pilot.pause()
+            header = widget.query_one("#header", Static)
+            header_text = str(header.render())
+            assert "google_search" in header_text
+            assert "Python async patterns" in header_text

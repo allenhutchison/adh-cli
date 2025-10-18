@@ -234,3 +234,121 @@ def format_parameters_expanded(
         display_val, original_len = truncate_value(value, max_value_length)
         result.append((key, display_val, original_len))
     return result
+
+
+# Constants for tool context summary truncation
+_MAX_COMMAND_LENGTH = 60
+_MAX_PATH_LENGTH = 50
+_MAX_TASK_LENGTH = 40
+
+
+def _truncate_from_end(value: str, max_length: int) -> str:
+    """Truncate string from the end with ellipsis.
+
+    Args:
+        value: String to truncate
+        max_length: Maximum length
+
+    Returns:
+        Truncated string with trailing "..."
+    """
+    if len(value) <= max_length:
+        return value
+    return value[: max_length - 3] + "..."
+
+
+def _truncate_from_start(value: str, max_length: int) -> str:
+    """Truncate string from the start with ellipsis.
+
+    Args:
+        value: String to truncate
+        max_length: Maximum length
+
+    Returns:
+        Truncated string with leading "..."
+    """
+    if len(value) <= max_length:
+        return value
+    return "..." + value[-(max_length - 3) :]
+
+
+def _get_string_param(parameters: Dict[str, Any], key: str) -> Optional[str]:
+    """Safely extract a string parameter.
+
+    Args:
+        parameters: Parameter dictionary
+        key: Parameter key
+
+    Returns:
+        String value or None if not found or not a string
+    """
+    value = parameters.get(key)
+    return value if isinstance(value, str) else None
+
+
+def get_tool_context_summary(
+    tool_name: str, parameters: Dict[str, Any]
+) -> Optional[str]:
+    """Extract contextual summary from tool parameters for display in header.
+
+    This provides quick scanability by showing the most relevant detail for each
+    tool type (e.g., command being executed, file being written, agent being called).
+
+    Args:
+        tool_name: Name of the tool being executed
+        parameters: Tool parameters
+
+    Returns:
+        Short contextual string (e.g., "pytest tests/") or None if no context
+    """
+    if not parameters:
+        return None
+
+    # Execute command - show the command
+    if tool_name == "execute_command":
+        cmd = _get_string_param(parameters, "command")
+        if cmd:
+            return _truncate_from_end(cmd, _MAX_COMMAND_LENGTH)
+
+    # File operations - show the file path
+    if tool_name in ("write_file", "read_file", "delete_file", "get_file_info"):
+        file_path = _get_string_param(parameters, "file_path")
+        if file_path:
+            return _truncate_from_start(file_path, _MAX_PATH_LENGTH)
+
+    # Directory operations - show the directory
+    if tool_name in ("list_directory", "create_directory"):
+        directory = _get_string_param(parameters, "directory")
+        if directory and (tool_name != "list_directory" or directory != "."):
+            return _truncate_from_start(directory, _MAX_PATH_LENGTH)
+
+    # URL fetch - show the URL
+    if tool_name == "fetch_url":
+        url = _get_string_param(parameters, "url")
+        if url:
+            return _truncate_from_end(url, _MAX_COMMAND_LENGTH)
+
+    # Google search - show the query
+    if tool_name == "google_search":
+        query = _get_string_param(parameters, "query")
+        if query:
+            return _truncate_from_end(query, _MAX_COMMAND_LENGTH)
+
+    # Agent delegation - show target agent and task preview
+    if tool_name == "delegate_to_agent":
+        agent = _get_string_param(parameters, "agent")
+        if not agent:
+            return None
+
+        result = f"→ {agent}"
+
+        task = _get_string_param(parameters, "task")
+        if task:
+            # Show first line only for multiline tasks
+            first_line = task.split("\n")[0] if "\n" in task else task
+            task_preview = _truncate_from_end(first_line, _MAX_TASK_LENGTH)
+            result += f": {task_preview}"
+
+        return result
+
+    return None
