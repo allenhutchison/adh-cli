@@ -50,7 +50,6 @@ class SettingsModal(ModalScreen):
         border: solid $border;
         padding: 2;
         width: 70;
-        max-width: 80;
         max-height: 80%;
         overflow: hidden;
     }
@@ -129,7 +128,7 @@ class SettingsModal(ModalScreen):
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the settings modal."""
-        with Container():
+        with Container(classes="form-constrained"):
             yield Static("Settings", id="settings-title")
 
             # Scrollable content area
