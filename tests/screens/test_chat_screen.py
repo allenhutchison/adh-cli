@@ -56,7 +56,6 @@ class TestChatScreen:
         mock_log = Mock()
         mock_input = Mock()
         mock_input.focus = Mock()
-        mock_thinking_display = Mock()
 
         # Make query_one return the appropriate mock based on selector
         def query_side_effect(selector, widget_type=None):
@@ -64,8 +63,6 @@ class TestChatScreen:
                 return mock_log
             elif "#chat-input" in selector:
                 return mock_input
-            elif "#thinking-display" in selector:
-                return mock_thinking_display
             return Mock()
 
         screen.query_one.side_effect = query_side_effect
@@ -75,6 +72,7 @@ class TestChatScreen:
         # Check agent was taken from app
         assert screen.agent == screen.app.agent
         assert screen.chat_log == mock_log
+        assert screen.chat_input == mock_input
 
         # Check initial messages were mounted (uses mount() instead of write())
         assert mock_log.mount.call_count >= 2
@@ -165,7 +163,8 @@ class TestChatScreen:
         screen.agent = Mock()
         screen.agent.chat = AsyncMock(side_effect=Exception("Test error"))
         screen.chat_log = Mock()
-        screen.thinking_display = Mock()
+        screen.chat_input = Mock()
+        screen.chat_input.border_title = "Something"
 
         mock_status = Mock()
         screen.query_one.return_value = mock_status
@@ -174,8 +173,8 @@ class TestChatScreen:
 
         # Check error was displayed (uses mount() instead of write())
         screen.chat_log.mount.assert_called()
-        # Check that thinking display was hidden
-        screen.thinking_display.remove_class.assert_called_with("visible")
+        # Check that thinking display was hidden (border_title reset to default)
+        assert screen.chat_input.border_title == ChatScreen.DEFAULT_INPUT_TITLE
 
     @pytest.mark.asyncio
     async def test_handle_confirmation_approved(self, screen):
