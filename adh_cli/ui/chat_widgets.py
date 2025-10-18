@@ -46,13 +46,6 @@ class CopyableMessage(Vertical):
         padding: 0 1;
     }
 
-    CopyableMessage .copy-button {
-        min-width: 10;
-        height: auto;
-        padding: 0 1;
-        margin: 0;
-    }
-
     CopyableMessage Collapsible {
         width: 100%;
         border: none;
@@ -99,7 +92,7 @@ class CopyableMessage(Vertical):
         # Header with title and copy button (always visible)
         with Horizontal(classes="message-header"):
             yield Static(self.message_title, classes="message-title")
-            yield Button("📋 Copy", classes="copy-button", variant="primary")
+            yield Button("📋", classes="message-icon-button")
 
         # Collapsible content
         with Collapsible(title="", collapsed=self.start_collapsed):
@@ -115,7 +108,7 @@ class CopyableMessage(Vertical):
         """
         yield Static(self.message_content, classes="message-content", markup=False)
 
-    @on(Button.Pressed, ".copy-button")
+    @on(Button.Pressed, ".message-icon-button")
     def copy_message(self, event: Button.Pressed) -> None:
         """Handle copy button press."""
         event.stop()  # Prevent event from bubbling

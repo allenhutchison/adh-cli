@@ -212,6 +212,30 @@ Button:focus {
     margin-top: 0;
 }
 
+/* Small icon-only buttons for inline actions (e.g., copy buttons) */
+.message-icon-button {
+    min-width: 3;
+    width: 3;
+    height: 1;
+    padding: 0 0;
+    margin: 0 0 0 1;
+    text-align: center;
+    border: none;
+    background: transparent;
+    color: $text-muted;
+}
+
+.message-icon-button:hover {
+    background: $boost;
+    color: $text;
+}
+
+.message-icon-button:focus {
+    border: solid $accent;
+    background: $boost;
+    color: $text;
+}
+
 /* ============================================================
  * INPUT AND FORM STYLES
  * ============================================================ */
