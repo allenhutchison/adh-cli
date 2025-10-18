@@ -154,6 +154,7 @@ class ChatScreen(Screen):
         self._message_history = []  # Track plain text messages for copying
         self._message_history_ids = {}  # Map execution ID -> message history index
         self._tool_widgets = {}  # Map execution ID -> ToolMessage widget
+        self._streaming_positions = {}  # Map execution ID -> last streaming position
         self.thinking_display: Optional[VerticalScroll] = None
 
     def compose(self) -> ComposeResult:

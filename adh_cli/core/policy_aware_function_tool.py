@@ -214,13 +214,13 @@ class PolicyAwareFunctionTool(FunctionTool):
                 and execution_id
             ):
                 # Rate limiting state
-                last_update_time = [
-                    0.0
-                ]  # Use list to allow mutation in nested function
-                pending_update = [False]
+                last_update_time = 0.0
+                pending_update = False
 
                 async def on_output(stream_name: str, data: str):
                     """Callback for streaming output during command execution."""
+                    nonlocal last_update_time, pending_update
+
                     # Append to streaming output buffer
                     execution_info = self.execution_manager.get_execution(execution_id)
                     if execution_info:
@@ -229,17 +229,17 @@ class PolicyAwareFunctionTool(FunctionTool):
                         # Rate limit UI updates to avoid overwhelming the interface
                         # Only update if 100ms have passed since last update
                         current_time = time.time()
-                        time_since_last_update = current_time - last_update_time[0]
+                        time_since_last_update = current_time - last_update_time
 
                         if time_since_last_update >= 0.1:  # 100ms
                             # Enough time has passed, update immediately
                             self.execution_manager.update_execution(execution_id)
-                            last_update_time[0] = current_time
-                            pending_update[0] = False
+                            last_update_time = current_time
+                            pending_update = False
                         else:
                             # Mark that we have a pending update
                             # (will be flushed at command completion)
-                            pending_update[0] = True
+                            pending_update = True
 
                 # Add on_output callback to kwargs
                 kwargs["on_output"] = on_output
@@ -257,7 +257,7 @@ class PolicyAwareFunctionTool(FunctionTool):
                 ):
                     # Access the pending_update flag from closure
                     # (it's set to True if updates were throttled)
-                    if pending_update[0]:
+                    if pending_update:
                         self.execution_manager.update_execution(execution_id)
 
                 # Track successful completion
