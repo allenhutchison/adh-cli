@@ -1,11 +1,12 @@
 # ADR 020: Session and Transcript Capture
 
-**Status:** Proposed - Not Implemented
+**Status:** Accepted - Implemented (Phase 1)
 **Date:** 2025-10-08
+**Updated:** 2025-10-18
 **Deciders:** Allen, ADH CLI Maintainers
 **Tags:** architecture, observability, privacy, multi-agent
 
-> **Implementation Status (2025-10-14):** This ADR describes a proposed session recording feature that has not yet been implemented. No `SessionRecorder` service, `session/recorder.py`, JSONL transcript files, or session management commands exist. Session capture and transcript functionality remain future work. Current audit logging in `PolicyAwareLlmAgent` provides basic tool execution tracking but not the comprehensive conversation transcripts described here.
+> **Implementation Status (2025-10-18):** Phase 1 (MVP) implemented. `SessionRecorder` service captures chat turns and tool invocations to JSONL files in `~/.adh-cli/sessions/`. Export to markdown supported. Chat screen integration complete with Ctrl+E export shortcut. Automatic session lifecycle management (new session on chat clear). All features tested with 10 new test cases. Future phases (configuration, retention, advanced querying) remain as described below.
 
 ---
 
@@ -94,8 +95,102 @@ Streaming transcripts to an external service (e.g., GCS, BigQuery) could central
 
 ---
 
+## Implementation Details (Phase 1)
+
+### Files Created
+
+**Core Session Module** (`adh_cli/session/`):
+- `__init__.py` - Module exports
+- `models.py` - Data models (`SessionMetadata`, `ChatTurn`, `ToolInvocation`)
+- `recorder.py` - `SessionRecorder` service with JSONL writer
+
+**Integration**:
+- `adh_cli/screens/chat_screen.py` - Session recording integrated:
+  - Records all chat turns (user/AI messages)
+  - Records tool invocations on completion
+  - Export action (`Ctrl+E`) to save markdown + JSONL
+  - Auto-restart session on chat clear
+
+**Tests** (`tests/session/`):
+- `test_session_recorder.py` - 10 comprehensive tests covering:
+  - Session initialization
+  - Chat turn recording
+  - Tool invocation recording
+  - Buffering and flushing
+  - Markdown export
+  - Result truncation
+  - Delegated agent tracking
+  - Session loading
+
+### Features Implemented
+
+✅ **Session Lifecycle**:
+- Auto-generated session IDs (UUID)
+- Session metadata (start time, agent name)
+- Automatic session creation on chat screen init
+- Session close and restart on clear
+
+✅ **Transcript Recording**:
+- Chat turns (user and AI messages)
+- Tool invocations (parameters, results, errors)
+- Agent delegation tracking (future-ready)
+- Buffered writes (configurable buffer size, default 10)
+
+✅ **Storage**:
+- JSONL format in `~/.adh-cli/sessions/`
+- One line per entry for easy streaming/parsing
+- Metadata at start and end of session file
+
+✅ **Export**:
+- Markdown export with formatted timestamps
+- Tool executions with parameters and results
+- Success/failure indicators
+- Exports saved to `~/.adh-cli/exports/`
+- Clipboard copy for convenience
+
+✅ **UI Integration**:
+- `Ctrl+E` keyboard shortcut
+- Notifications with file paths
+- Seamless integration with existing chat flow
+
+### Features Deferred (Future Phases)
+
+⏳ **Configuration** (Phase 2):
+- Opt-in/opt-out setting
+- Custom session directory
+- Retention policies
+- Redaction patterns
+
+⏳ **Query API** (Phase 3):
+- Load recent sessions
+- Search transcripts
+- Agent context retrieval
+- Session viewer UI
+
+⏳ **Maintenance** (Phase 3):
+- Automatic cleanup of old sessions
+- Session size limits
+- Compression for archived sessions
+
+### Test Coverage
+
+**10 new tests** added (100% pass rate):
+1. Session initialization and metadata
+2. Chat turn recording
+3. Tool invocation recording
+4. Buffering behavior
+5. Flush on close
+6. Markdown export format
+7. Long result truncation
+8. Delegated agent tracking
+9. Session loading
+10. Error handling
+
+**Total test suite**: 461 tests passing
+
 ## Revision History
 
 | Date | Change | Author |
 |------|--------|--------|
 | 2025-10-08 | Initial decision | Allen |
+| 2025-10-18 | Phase 1 implementation completed | Allen |
