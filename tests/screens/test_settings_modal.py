@@ -23,8 +23,15 @@ class TestSettingsModal:
         # Patch config path to use tmp_path
         config_file = tmp_path / "config.json"
 
-        with patch("adh_cli.screens.settings_modal.ConfigPaths") as mock_paths:
-            mock_paths.get_config_file.return_value = config_file
+        # Patch ConfigPaths at both import locations
+        with (
+            patch("adh_cli.screens.settings_modal.ConfigPaths") as mock_paths1,
+            patch(
+                "adh_cli.core.config_paths.ConfigPaths.get_config_file",
+                return_value=config_file,
+            ),
+        ):
+            mock_paths1.get_config_file.return_value = config_file
 
             # Patch the app property
             with patch.object(

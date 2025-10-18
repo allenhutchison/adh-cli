@@ -48,7 +48,9 @@ class TestADHApp:
         mock_agent = Mock()
         mock_agent_class.return_value = mock_agent
 
-        app._initialize_agent()
+        # Mock _load_config to return empty dict (isolate from user's config file)
+        with patch.object(app, "_load_config", return_value={}):
+            app._initialize_agent()
 
         # Check ADK agent was created
         mock_agent_class.assert_called_once_with(
