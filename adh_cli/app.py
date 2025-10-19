@@ -1,7 +1,6 @@
 """Main application module with policy-aware agent for ADH CLI."""
 
 import os
-import json
 from pathlib import Path
 from dotenv import load_dotenv
 from textual.app import App, ComposeResult
@@ -12,6 +11,7 @@ from .screens.chat_screen import ChatScreen
 from .core.policy_aware_llm_agent import PolicyAwareLlmAgent
 from .core.config_paths import ConfigPaths
 from .config.models import ModelRegistry
+from .config.settings_manager import get_theme_setting, load_config_data, set_settings
 
 
 def get_adh_commands_provider():
@@ -66,8 +66,8 @@ class ADHApp(App):
         """Initialize the application."""
         super().__init__()
 
-        # Set default theme to Textual's dark theme
-        self.theme = "textual-dark"
+        # Load persisted theme setting on startup <--- MODIFIED
+        self.theme = get_theme_setting()
 
         self.agent = None
         self.api_key = None
@@ -78,6 +78,28 @@ class ADHApp(App):
 
         # Check for API key in environment
         self._load_api_key()
+
+    @property
+    def theme(self) -> str:
+        """Get current theme."""
+        return super().theme
+
+    @theme.setter
+    def theme(self, value: str) -> None:
+        """Set theme and persist to settings.
+
+        This property override ensures that theme changes from any source
+        (command palette, settings modal, keyboard shortcuts) are automatically
+        saved to the settings file.
+
+        Raises:
+            IOError, OSError: If saving the theme preference fails
+        """
+        # Set the theme on the parent class first
+        super(ADHApp, self.__class__).theme.__set__(self, value)
+
+        # Save theme preference (let exceptions propagate for caller to handle)
+        set_settings({"theme": value})
 
     def _load_api_key(self):
         """Load API key from environment."""
@@ -94,14 +116,8 @@ class ADHApp(App):
         Returns:
             Dict with configuration values
         """
-        config_file = ConfigPaths.get_config_file()
-        if config_file.exists():
-            try:
-                with open(config_file, "r") as f:
-                    return json.load(f)
-            except (json.JSONDecodeError, IOError):
-                pass
-        return {}
+        # Use the centralized settings manager to load config data <--- MODIFIED
+        return load_config_data()
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
@@ -289,10 +305,10 @@ class ADHApp(App):
         self.notify("Policy configuration screen coming soon!", severity="information")
 
     def action_toggle_dark(self) -> None:
-        """Toggle dark mode."""
-        self.theme = (
-            "textual-dark" if self.theme == "textual-light" else "textual-light"
-        )
+        """Toggle dark mode (theme property setter handles persistence)."""
+        new_theme = "textual-dark" if self.theme == "textual-light" else "textual-light"
+        # Setting theme property automatically saves via property setter
+        self.theme = new_theme
 
     def update_api_key(self, api_key: str):
         """Update the API key and reinitialize the agent.

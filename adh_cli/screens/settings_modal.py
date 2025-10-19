@@ -1,6 +1,5 @@
 """Settings modal for configuring the ADH CLI application."""
 
-import json
 from pathlib import Path
 from textual import on
 from textual.app import ComposeResult
@@ -9,8 +8,12 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Select, Static, Switch
 from textual.binding import Binding
 
-from ..core.config_paths import ConfigPaths
 from ..config.models import ModelRegistry
+from ..config.settings_manager import (
+    load_config_data,
+    set_settings,
+    DEFAULT_THEME,
+)
 
 
 class SettingsModal(ModalScreen):
@@ -156,9 +159,31 @@ class SettingsModal(ModalScreen):
 
                 yield Label("\nInterface Settings")
 
-                with Horizontal():
-                    yield Label("Dark Mode:")
-                    yield Switch(value=True, id="dark-mode-switch")
+                # Theme Selection (all built-in Textual themes)
+                yield Label("Theme:")
+                yield Select(
+                    options=[
+                        ("Textual Dark", "textual-dark"),
+                        ("Textual Light", "textual-light"),
+                        ("Nord", "nord"),
+                        ("Gruvbox", "gruvbox"),
+                        ("Dracula", "dracula"),
+                        ("Tokyo Night", "tokyo-night"),
+                        ("Catppuccin Mocha", "catppuccin-mocha"),
+                        ("Catppuccin Latte", "catppuccin-latte"),
+                        ("Monokai", "monokai"),
+                        ("Solarized Light", "solarized-light"),
+                        ("Flexoki", "flexoki"),
+                        ("Textual ANSI", "textual-ansi"),
+                    ],
+                    id="theme-select",
+                    value=DEFAULT_THEME,
+                )
+
+                # REMOVED: Dark Mode Switch
+                # with Horizontal():
+                #     yield Label("Dark Mode:")
+                #     yield Switch(value=True, id="dark-mode-switch")
 
                 with Horizontal():
                     yield Label("Auto-scroll:")
@@ -170,9 +195,24 @@ class SettingsModal(ModalScreen):
                 yield Button("Reset", id="btn-reset", variant="warning")
                 yield Button("Close", id="btn-close", variant="default")
 
+    @on(Select.Changed, "#theme-select")
+    def on_theme_select_changed(self, event: Select.Changed) -> None:
+        """Apply the selected theme immediately (theme property setter handles persistence)."""
+        selected_theme = event.value
+        previous_theme = self.app.theme
+
+        try:
+            # Setting theme property automatically applies and saves
+            self.app.theme = selected_theme
+        except (IOError, OSError) as e:
+            # Rollback on failure
+            self.app.theme = previous_theme
+            self.query_one("#theme-select", Select).value = previous_theme
+            self.app.notify(f"Failed to save theme setting: {e}", severity="error")
+
     @on(Button.Pressed, "#btn-save")
     def on_save_pressed(self) -> None:
-        """Save settings."""
+        """Save settings (excluding theme, which is saved on change)."""
         api_key = self.query_one("#api-key-input", Input).value
         model = self.query_one("#model-select", Select).value
         valid, error = ModelRegistry.validate_model_id(model)
@@ -181,15 +221,15 @@ class SettingsModal(ModalScreen):
             return
         orchestrator_agent = self.query_one("#orchestrator-select", Select).value
 
-        settings = {
+        # Prepare updates dictionary
+        updates = {
             "api_key": api_key,
             "model": model,
             "orchestrator_agent": orchestrator_agent,
         }
 
-        config_file = ConfigPaths.get_config_file()
-        with open(config_file, "w") as f:
-            json.dump(settings, f, indent=2)
+        # Use the new centralized settings manager to save all updated values
+        set_settings(updates)  # <--- MODIFIED SAVE LOGIC
 
         self.notify(
             "Settings saved successfully! Restart required for agent change.",
@@ -199,10 +239,16 @@ class SettingsModal(ModalScreen):
 
     @on(Button.Pressed, "#btn-reset")
     def on_reset_pressed(self) -> None:
-        """Reset settings to defaults."""
+        """Reset settings to defaults and save them."""
+        # Reset form fields
         self.query_one("#api-key-input", Input).value = ""
         self.query_one("#model-select", Select).value = ModelRegistry.DEFAULT.id
         self.query_one("#orchestrator-select", Select).value = "orchestrator"
+        self.query_one("#theme-select", Select).value = DEFAULT_THEME
+
+        # Save the reset theme persistently (theme select handler will trigger)
+        # No need to manually save theme here - the Select.Changed event will fire
+
         self.notify("Settings reset to defaults", severity="warning")
 
     @on(Button.Pressed, "#btn-close")
@@ -210,44 +256,52 @@ class SettingsModal(ModalScreen):
         """Close the modal."""
         self.dismiss()
 
-    @on(Switch.Changed, "#dark-mode-switch")
-    def on_dark_mode_changed(self, event: Switch.Changed) -> None:
-        """Toggle dark mode."""
-        self.app.theme = "textual-dark" if event.value else "textual-light"
+    # REMOVED: The obsolete @on(Switch.Changed, "#dark-mode-switch") handler
 
     def on_mount(self) -> None:
         """Load existing settings when modal is mounted."""
-        config_path = ConfigPaths.get_config_file()
-        if config_path.exists():
-            try:
-                with open(config_path, "r") as f:
-                    settings = json.load(f)
+        # Use the new manager to load all settings
+        settings = load_config_data()  # <--- MODIFIED
 
-                if "api_key" in settings:
-                    self.query_one("#api-key-input", Input).value = settings["api_key"]
-                if "model" in settings:
-                    model_value = settings["model"]
-                    model_config = ModelRegistry.get_by_id(model_value)
-                    if model_config:
-                        try:
-                            self.query_one(
-                                "#model-select", Select
-                            ).value = model_config.id
-                        except Exception as exc:
-                            self.app.log.warning(
-                                "Failed to set model select value on mount: %s",
-                                exc,
-                            )
-                if "orchestrator_agent" in settings:
+        if settings:
+            # Load API Key
+            if "api_key" in settings:
+                self.query_one("#api-key-input", Input).value = settings["api_key"]
+
+            # Load Model
+            if "model" in settings:
+                model_value = settings["model"]
+                model_config = ModelRegistry.get_by_id(model_value)
+                if model_config:
                     try:
-                        self.query_one("#orchestrator-select", Select).value = settings[
-                            "orchestrator_agent"
-                        ]
+                        self.query_one("#model-select", Select).value = model_config.id
                     except Exception as exc:
-                        # If setting the value fails (agent not found), use default
                         self.app.log.warning(
-                            "Failed to set orchestrator select value on mount: %s",
+                            "Failed to set model select value on mount: %s",
                             exc,
                         )
-            except Exception as exc:
-                self.app.log.warning("Failed to load settings on mount: %s", exc)
+
+            # Load Orchestrator Agent
+            if "orchestrator_agent" in settings:
+                try:
+                    self.query_one("#orchestrator-select", Select).value = settings[
+                        "orchestrator_agent"
+                    ]
+                except Exception as exc:
+                    # If setting the value fails (agent not found), use default
+                    self.app.log.warning(
+                        "Failed to set orchestrator select value on mount: %s",
+                        exc,
+                    )
+
+            # --- NEW: Load Theme Select ---
+            if "theme" in settings:
+                try:
+                    # Set the select widget value to the saved theme
+                    self.query_one("#theme-select", Select).value = settings["theme"]
+                except Exception as exc:
+                    self.app.log.warning(
+                        "Failed to set theme select value on mount: %s",
+                        exc,
+                    )
+            # --- END NEW ---
