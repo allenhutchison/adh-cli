@@ -23,16 +23,11 @@ class TestSettingsModal:
         # Patch config path to use tmp_path
         config_file = tmp_path / "config.json"
 
-        # Patch ConfigPaths at both import locations
-        with (
-            patch("adh_cli.screens.settings_modal.ConfigPaths") as mock_paths1,
-            patch(
-                "adh_cli.core.config_paths.ConfigPaths.get_config_file",
-                return_value=config_file,
-            ),
+        # Patch ConfigPaths.get_config_file to use tmp_path
+        with patch(
+            "adh_cli.config.settings_manager.ConfigPaths.get_config_file",
+            return_value=config_file,
         ):
-            mock_paths1.get_config_file.return_value = config_file
-
             # Patch the app property
             with patch.object(
                 SettingsModal, "app", new_callable=PropertyMock
@@ -236,9 +231,10 @@ class TestSettingsModal:
         )
 
         # Patch ConfigPaths to use tmp_path for this test
-        with patch("adh_cli.config.settings_manager.ConfigPaths") as mock_paths:
-            mock_paths.get_config_file.return_value = config_file
-
+        with patch(
+            "adh_cli.config.settings_manager.ConfigPaths.get_config_file",
+            return_value=config_file,
+        ):
             # Trigger the change handler
             modal_instance.on_theme_select_changed(mock_event)
 
