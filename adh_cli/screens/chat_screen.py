@@ -7,7 +7,7 @@ from textual import on, events
 from textual.app import ComposeResult
 from textual.containers import Container, VerticalScroll
 from textual.screen import Screen
-from textual.widgets import TextArea, Footer, Static
+from textual.widgets import TextArea, Static
 from textual.binding import Binding
 from rich.text import Text
 
@@ -19,6 +19,7 @@ from ..ui.tool_execution import (
     format_parameters_inline,
 )
 from ..ui.chat_widgets import AIMessage, ToolMessage, UserMessage
+from ..ui.status_footer import StatusFooter
 from ..policies.policy_types import PolicyDecision
 from ..session import SessionRecorder
 
@@ -165,8 +166,8 @@ class ChatScreen(Screen):
         text_area.border_title = self.DEFAULT_INPUT_TITLE
         yield text_area
 
-        # Footer to display key bindings
-        yield Footer()
+        # Custom footer to display environment info and key shortcuts
+        yield StatusFooter()
 
     def on_mount(self) -> None:
         """Initialize services when screen is mounted."""
