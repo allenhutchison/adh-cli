@@ -132,6 +132,8 @@ class StatusFooter(Widget):
         """Update the footer when mounted."""
         self._update_env_info()
         self._update_shortcuts()
+        # Check git branch every 2 seconds to detect external changes
+        self.set_interval(2.0, self._update_git_branch)
 
     def _update_env_info(self) -> None:
         """Update the environment information display."""
