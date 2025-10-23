@@ -18,6 +18,37 @@ from .models import (
 MAX_RESULT_LENGTH = 1000
 
 
+def _sanitize_for_json(obj):
+    """Recursively sanitize an object for JSON serialization.
+
+    Filters out non-serializable types like functions, methods, etc.
+
+    Args:
+        obj: Object to sanitize
+
+    Returns:
+        Sanitized version safe for JSON serialization
+    """
+    if obj is None or isinstance(obj, (str, int, float, bool)):
+        return obj
+    elif callable(obj):
+        # Replace functions/callables with a placeholder
+        return "<function>"
+    elif isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [_sanitize_for_json(item) for item in obj]
+    elif isinstance(obj, (datetime,)):
+        return obj.isoformat()
+    else:
+        # For any other type, try to convert to string
+        try:
+            json.dumps(obj)
+            return obj
+        except (TypeError, ValueError):
+            return f"<{type(obj).__name__}>"
+
+
 class SessionRecorder:
     """Records session transcripts to JSONL files.
 
@@ -115,10 +146,13 @@ class SessionRecorder:
         if result and len(result) > MAX_RESULT_LENGTH:
             result = result[:MAX_RESULT_LENGTH] + "... (truncated)"
 
+        # Sanitize parameters to remove non-JSON-serializable objects (e.g., functions)
+        sanitized_parameters = _sanitize_for_json(parameters)
+
         entry = ToolInvocation(
             timestamp=datetime.now(),
             tool_name=tool_name,
-            parameters=parameters,
+            parameters=sanitized_parameters,
             success=success,
             result=result,
             error=error,
