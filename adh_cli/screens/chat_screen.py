@@ -269,15 +269,15 @@ class ChatScreen(Screen):
         input_widget.clear()
         self._add_message("You", message, is_user=True)
 
-        # Check agent availability (check app.agent directly in case it was async initialized)
-        agent = self.agent or (self.app.agent if hasattr(self.app, "agent") else None)
-        if not agent:
+        # If the screen's agent isn't set, try to get it from the app.
+        # This is the one-time binding when the agent finishes async initialization.
+        if not self.agent and hasattr(self.app, "agent") and self.app.agent:
+            self.update_agent(self.app.agent)
+
+        # Now, check if the agent is available on the screen.
+        if not self.agent:
             self._mount_info_message("[red]Agent not initialized.[/red]")
             return
-
-        # Update cached reference if it was None (first time agent is ready)
-        if not self.agent and agent:
-            self.update_agent(agent)
 
         # Process message asynchronously
         self.run_worker(self.get_ai_response(message), exclusive=False)
