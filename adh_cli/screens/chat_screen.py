@@ -219,7 +219,7 @@ class ChatScreen(Screen):
         shortcuts.append(" clear", style="dim")
         self._mount_info_message(shortcuts)
 
-    def update_agent(self, agent) -> None:
+    def update_agent(self, agent: "PolicyAwareLlmAgent") -> None:
         """Update the agent reference and register callbacks.
 
         This is called either during on_mount (if agent is already ready)
