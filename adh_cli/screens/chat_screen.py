@@ -177,73 +177,84 @@ class ChatScreen(Screen):
         # Set initial border title with safety status
         self._update_chat_title()
 
+        # Show initial messages (regardless of agent status)
+        self._mount_info_message(
+            "[dim]Tools will be executed according to configured policies.[/dim]"
+        )
+        self._show_keyboard_shortcuts()
+
         try:
-            # Get agent from app (already initialized with tools)
-            if hasattr(self.app, "agent"):
-                self.agent = self.app.agent
-
-                # Register execution manager callbacks if agent has manager
-                if (
-                    hasattr(self.agent, "execution_manager")
-                    and self.agent.execution_manager
-                ):
-                    self.agent.execution_manager.on_execution_start = (
-                        self.on_execution_start
-                    )
-                    self.agent.execution_manager.on_execution_update = (
-                        self.on_execution_update
-                    )
-                    self.agent.execution_manager.on_execution_complete = (
-                        self.on_execution_complete
-                    )
-                    self.agent.execution_manager.on_confirmation_required = (
-                        self.on_confirmation_required
-                    )
-
-                # Register thinking callback
-                if hasattr(self.agent, "on_thinking"):
-                    self.agent.on_thinking = self.on_thinking
-
-                # Display agent info
-                agent_name = getattr(self.agent, "agent_name", "orchestrator")
-
-                welcome = Text()
-                welcome.append("Policy-Aware Chat Ready ", style="dim")
-                welcome.append(f"(Agent: {agent_name})", style="dim cyan")
-                self._mount_info_message(welcome)
-
-                self._mount_info_message(
-                    "[dim]Tools will be executed according to configured policies.[/dim]"
-                )
-
-                # Keyboard shortcuts
-                shortcuts = Text()
-                shortcuts.append("Keyboard shortcuts: ", style="dim")
-                shortcuts.append("Enter", style="bold")
-                shortcuts.append(" send | ", style="dim")
-                shortcuts.append("Shift+Enter", style="bold")
-                shortcuts.append(" / ", style="dim")
-                shortcuts.append("Ctrl+J", style="bold")
-                shortcuts.append(" newline | ", style="dim")
-                shortcuts.append("Ctrl+Y", style="bold")
-                shortcuts.append(" copy | ", style="dim")
-                shortcuts.append("Ctrl+E", style="bold")
-                shortcuts.append(" export | ", style="dim")
-                shortcuts.append("Ctrl+/", style="bold")
-                shortcuts.append(" policies | ", style="dim")
-                shortcuts.append("Ctrl+S", style="bold")
-                shortcuts.append(" safety | ", style="dim")
-                shortcuts.append("Ctrl+L", style="bold")
-                shortcuts.append(" clear", style="dim")
-                self._mount_info_message(shortcuts)
+            # Get agent from app (may not be initialized yet if async loading)
+            if hasattr(self.app, "agent") and self.app.agent:
+                self.update_agent(self.app.agent)
             else:
-                raise Exception("App does not have an agent initialized")
+                # Agent is still initializing - show status in input border
+                self.chat_input.border_title = "⏳ Initializing agent..."
 
         except Exception as e:
             self._mount_info_message(f"[red]Error accessing agent: {str(e)}[/red]")
 
         # Focus input
         self.query_one("#chat-input", ChatTextArea).focus()
+
+    def _show_keyboard_shortcuts(self) -> None:
+        """Display keyboard shortcuts in the chat log."""
+        shortcuts = Text()
+        shortcuts.append("Keyboard shortcuts: ", style="dim")
+        shortcuts.append("Enter", style="bold")
+        shortcuts.append(" send | ", style="dim")
+        shortcuts.append("Shift+Enter", style="bold")
+        shortcuts.append(" / ", style="dim")
+        shortcuts.append("Ctrl+J", style="bold")
+        shortcuts.append(" newline | ", style="dim")
+        shortcuts.append("Ctrl+Y", style="bold")
+        shortcuts.append(" copy | ", style="dim")
+        shortcuts.append("Ctrl+E", style="bold")
+        shortcuts.append(" export | ", style="dim")
+        shortcuts.append("Ctrl+/", style="bold")
+        shortcuts.append(" policies | ", style="dim")
+        shortcuts.append("Ctrl+S", style="bold")
+        shortcuts.append(" safety | ", style="dim")
+        shortcuts.append("Ctrl+L", style="bold")
+        shortcuts.append(" clear", style="dim")
+        self._mount_info_message(shortcuts)
+
+    def update_agent(self, agent) -> None:
+        """Update the agent reference and register callbacks.
+
+        This is called either during on_mount (if agent is already ready)
+        or later when async agent initialization completes.
+
+        Args:
+            agent: The PolicyAwareLlmAgent instance
+        """
+        self.agent = agent
+
+        # Clear initialization message from input border
+        self.chat_input.border_title = ""
+
+        # Register execution manager callbacks if agent has manager
+        if hasattr(self.agent, "execution_manager") and self.agent.execution_manager:
+            self.agent.execution_manager.on_execution_start = self.on_execution_start
+            self.agent.execution_manager.on_execution_update = self.on_execution_update
+            self.agent.execution_manager.on_execution_complete = (
+                self.on_execution_complete
+            )
+            self.agent.execution_manager.on_confirmation_required = (
+                self.on_confirmation_required
+            )
+
+        # Register thinking callback
+        if hasattr(self.agent, "on_thinking"):
+            self.agent.on_thinking = self.on_thinking
+
+        # Display agent ready message
+        agent_name = getattr(self.agent, "agent_name", "orchestrator")
+
+        welcome = Text()
+        welcome.append("Policy-Aware Chat Ready ", style="dim")
+        welcome.append(f"(Agent: {agent_name})", style="dim cyan")
+        self._mount_info_message(welcome)
 
     @on(ChatTextArea.Submitted, "#chat-input")
     def on_input_submitted(self, event: ChatTextArea.Submitted) -> None:
@@ -258,10 +269,15 @@ class ChatScreen(Screen):
         input_widget.clear()
         self._add_message("You", message, is_user=True)
 
-        # Check agent availability
-        if not self.agent:
+        # Check agent availability (check app.agent directly in case it was async initialized)
+        agent = self.agent or (self.app.agent if hasattr(self.app, "agent") else None)
+        if not agent:
             self._mount_info_message("[red]Agent not initialized.[/red]")
             return
+
+        # Update cached reference if it was None (first time agent is ready)
+        if not self.agent and agent:
+            self.update_agent(agent)
 
         # Process message asynchronously
         self.run_worker(self.get_ai_response(message), exclusive=False)
