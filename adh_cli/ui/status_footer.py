@@ -123,15 +123,17 @@ class StatusFooter(Widget):
         # Left side: Environment info (CWD + git branch)
         yield Label("", id="env-info")
 
-        # Right side: Shortcuts
+        # Right side: Shortcuts (static, using CSS classes)
         with Horizontal(id="shortcuts"):
-            yield Label("", id="shortcut-palette")
-            yield Label("", id="shortcut-keys")
+            yield Label("^P", classes="shortcut-key")
+            yield Label("Command Palette", classes="shortcut-desc")
+            yield Label("│", classes="shortcut-separator")
+            yield Label("F1", classes="shortcut-key")
+            yield Label("Show Keys", classes="shortcut-desc")
 
     def on_mount(self) -> None:
         """Update the footer when mounted."""
         self._update_env_info()
-        self._update_shortcuts()
         # Check git branch every 2 seconds to detect external changes
         self.set_interval(2.0, self._update_git_branch)
 
@@ -154,27 +156,6 @@ class StatusFooter(Widget):
             text.append(self.git_branch, style="bold cyan")
 
         env_info.update(text)
-
-    def _update_shortcuts(self) -> None:
-        """Update the shortcuts display."""
-        # Command Palette shortcut
-        palette_label = self.query_one("#shortcut-palette", Label)
-        palette_text = Text.assemble(
-            ("^P", "bold magenta"),
-            (" ", ""),
-            ("Command Palette", ""),
-        )
-        palette_label.update(palette_text)
-
-        # Show Keys shortcut
-        keys_label = self.query_one("#shortcut-keys", Label)
-        keys_text = Text.assemble(
-            ("  │  ", "dim"),
-            ("F1", "bold magenta"),
-            (" ", ""),
-            ("Show Keys", ""),
-        )
-        keys_label.update(keys_text)
 
     def _watch_current_dir(self, new_dir: str) -> None:
         """React to directory changes.

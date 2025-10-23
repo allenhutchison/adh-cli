@@ -36,6 +36,22 @@ VALID_THEMES = {
     "textual-ansi",
 }
 
+# Theme options for UI dropdowns (display name, theme ID)
+THEME_OPTIONS = [
+    ("Textual Dark", "textual-dark"),
+    ("Textual Light", "textual-light"),
+    ("Nord", "nord"),
+    ("Gruvbox", "gruvbox"),
+    ("Dracula", "dracula"),
+    ("Tokyo Night", "tokyo-night"),
+    ("Catppuccin Mocha", "catppuccin-mocha"),
+    ("Catppuccin Latte", "catppuccin-latte"),
+    ("Monokai", "monokai"),
+    ("Solarized Light", "solarized-light"),
+    ("Flexoki", "flexoki"),
+    ("Textual ANSI", "textual-ansi"),
+]
+
 
 def load_config_data() -> Dict[str, Any]:
     """Loads configuration data from config.json."""

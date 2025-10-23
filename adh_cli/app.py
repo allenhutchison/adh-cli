@@ -96,7 +96,8 @@ class ADHApp(App):
             IOError, OSError: If saving the theme preference fails
         """
         # Set the theme on the parent class first
-        super(ADHApp, self.__class__).theme.__set__(self, value)
+        # Call the Reactive descriptor's __set__ method directly
+        App.theme.__set__(self, value)
 
         # Save theme preference (let exceptions propagate for caller to handle)
         set_settings({"theme": value})

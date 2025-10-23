@@ -13,6 +13,7 @@ from ..config.settings_manager import (
     load_config_data,
     set_settings,
     DEFAULT_THEME,
+    THEME_OPTIONS,
 )
 
 
@@ -162,20 +163,7 @@ class SettingsModal(ModalScreen):
                 # Theme Selection (all built-in Textual themes)
                 yield Label("Theme:")
                 yield Select(
-                    options=[
-                        ("Textual Dark", "textual-dark"),
-                        ("Textual Light", "textual-light"),
-                        ("Nord", "nord"),
-                        ("Gruvbox", "gruvbox"),
-                        ("Dracula", "dracula"),
-                        ("Tokyo Night", "tokyo-night"),
-                        ("Catppuccin Mocha", "catppuccin-mocha"),
-                        ("Catppuccin Latte", "catppuccin-latte"),
-                        ("Monokai", "monokai"),
-                        ("Solarized Light", "solarized-light"),
-                        ("Flexoki", "flexoki"),
-                        ("Textual ANSI", "textual-ansi"),
-                    ],
+                    options=THEME_OPTIONS,
                     id="theme-select",
                     value=DEFAULT_THEME,
                 )

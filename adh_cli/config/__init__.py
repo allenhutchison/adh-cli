@@ -9,6 +9,7 @@ from .settings_manager import (
     validate_theme,
     DEFAULT_THEME,
     VALID_THEMES,
+    THEME_OPTIONS,
 )
 
 __all__ = [
@@ -25,4 +26,5 @@ __all__ = [
     "validate_theme",
     "DEFAULT_THEME",
     "VALID_THEMES",
+    "THEME_OPTIONS",
 ]
