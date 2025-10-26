@@ -291,13 +291,11 @@ class TestPolicyIntegration:
                 == "_start_agent_initialization"
             )
 
-    def test_app_bindings_defined(self):
+    @staticmethod
+    def test_app_bindings_defined():
         """Test that all keybindings are defined."""
-        with patch("adh_cli.core.policy_aware_llm_agent.PolicyAwareLlmAgent"):
-            app = ADHApp()
-
-            binding_keys = [b.key for b in app.BINDINGS]
-            assert "q" in binding_keys
-            assert "d" in binding_keys
-            assert "s" in binding_keys
-            assert "p" in binding_keys
+        binding_keys = [b.key for b in ADHApp.BINDINGS]
+        assert "q" in binding_keys
+        assert "d" in binding_keys
+        assert "s" in binding_keys
+        assert "p" in binding_keys

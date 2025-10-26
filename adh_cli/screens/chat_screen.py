@@ -1,6 +1,6 @@
 """Chat screen with policy-aware agent integration."""
 
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from pathlib import Path
 import pyperclip
 from textual import on, events
@@ -22,6 +22,9 @@ from ..ui.chat_widgets import AIMessage, ToolMessage, UserMessage
 from ..ui.status_footer import StatusFooter
 from ..policies.policy_types import PolicyDecision
 from ..session import SessionRecorder
+
+if TYPE_CHECKING:
+    from ..core.policy_aware_llm_agent import PolicyAwareLlmAgent
 
 
 class ChatTextArea(TextArea):
