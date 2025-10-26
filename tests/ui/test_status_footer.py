@@ -1,5 +1,7 @@
 """Tests for the StatusFooter widget."""
 
+import os
+import subprocess
 import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -28,47 +30,49 @@ class TestStatusFooter:
 
     @pytest.fixture
     def footer(self):
-        """Create a StatusFooter instance."""
-        return StatusFooter()
+        """Create a StatusFooter instance with git update mocked."""
+        with patch("adh_cli.ui.status_footer.StatusFooter._update_git_branch"):
+            yield StatusFooter()
 
     def test_initialization(self, footer):
         """Test StatusFooter initializes with default values."""
-        import os
-
         assert footer.current_dir == os.getcwd()
         assert footer.git_branch == "" or isinstance(footer.git_branch, str)
 
-    def test_update_git_branch_success(self, footer):
+    def test_update_git_branch_success(self):
         """Test git branch detection in a git repository."""
         mock_result = Mock()
         mock_result.returncode = 0
         mock_result.stdout = "main\n"
 
         with patch("subprocess.run", return_value=mock_result):
+            # Create footer with subprocess already mocked so init doesn't make real calls
+            footer = StatusFooter()
             footer._update_git_branch()
             assert footer.git_branch == "main"
 
-    def test_update_git_branch_not_a_repo(self, footer):
+    def test_update_git_branch_not_a_repo(self):
         """Test git branch detection when not in a git repository."""
         mock_result = Mock()
         mock_result.returncode = 1
         mock_result.stdout = ""
 
         with patch("subprocess.run", return_value=mock_result):
+            footer = StatusFooter()
             footer._update_git_branch()
             assert footer.git_branch == ""
 
-    def test_update_git_branch_timeout(self, footer):
+    def test_update_git_branch_timeout(self):
         """Test git branch detection handles timeout."""
-        import subprocess
-
         with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("git", 1)):
+            footer = StatusFooter()
             footer._update_git_branch()
             assert footer.git_branch == ""
 
-    def test_update_git_branch_file_not_found(self, footer):
+    def test_update_git_branch_file_not_found(self):
         """Test git branch detection when git is not installed."""
         with patch("subprocess.run", side_effect=FileNotFoundError()):
+            footer = StatusFooter()
             footer._update_git_branch()
             assert footer.git_branch == ""
 
@@ -120,14 +124,16 @@ class TestStatusFooter:
         footer = app.app.query_one(StatusFooter)
         env_info = footer.query_one("#env-info", Label)
 
-        # Should have some content (directory at minimum)
-        # Label stores its content, check it's not empty
-        assert env_info is not None
+        # Should display the formatted current directory
+        formatted_path = footer._format_path(os.getcwd())
+        content = env_info.render()
+        assert formatted_path in str(content)
 
     @pytest.mark.asyncio
     async def test_watch_current_dir(self, app):
         """Test that changing current_dir triggers update."""
         footer = app.app.query_one(StatusFooter)
+        env_info = footer.query_one("#env-info", Label)
 
         # Change directory
         footer.current_dir = "/tmp"
@@ -135,13 +141,15 @@ class TestStatusFooter:
         # Give it a moment to update
         await app.pause()
 
-        # Directory change should trigger _update_env_info
-        assert footer.current_dir == "/tmp"
+        # Directory change should be reflected in displayed content
+        content = env_info.render()
+        assert "/tmp" in str(content)
 
     @pytest.mark.asyncio
     async def test_watch_git_branch(self, app):
         """Test that changing git_branch triggers update."""
         footer = app.app.query_one(StatusFooter)
+        env_info = footer.query_one("#env-info", Label)
 
         # Change branch
         footer.git_branch = "feature/test"
@@ -149,18 +157,21 @@ class TestStatusFooter:
         # Give it a moment to update
         await app.pause()
 
-        # Branch change should be reflected
-        assert footer.git_branch == "feature/test"
+        # Branch change should be reflected in displayed content
+        content = env_info.render()
+        assert "feature/test" in str(content)
 
     @pytest.mark.asyncio
-    async def test_interval_updates_git_branch(self, app):
-        """Test that git branch is periodically updated."""
-        # Just verify the interval was set up - the footer is created and mounted
-        footer = app.app.query_one(StatusFooter)
-        assert footer.is_mounted
-
-        # The actual update is tested in test_update_git_branch_success
-        # This test just verifies the interval mechanism is in place
+    async def test_interval_updates_git_branch(self):
+        """Test that git branch update interval is set on mount."""
+        app = StatusFooterTestApp()
+        with patch.object(StatusFooter, "set_interval") as mock_set_interval:
+            async with app.run_test():
+                footer = app.query_one(StatusFooter)
+                # Verify set_interval was called with 2 second interval
+                mock_set_interval.assert_called_once_with(
+                    2.0, footer._update_git_branch
+                )
 
     def test_css_classes_defined(self, footer):
         """Test that CSS classes are properly defined."""
@@ -179,9 +190,14 @@ class TestStatusFooter:
         """Test that shortcut labels have correct content."""
         footer = app.app.query_one(StatusFooter)
 
-        # Just verify the labels exist with the right classes
+        # Check shortcut keys have correct text
         shortcut_keys = footer.query(".shortcut-key")
-        assert len(shortcut_keys) == 2
+        key_texts = [str(label.render()) for label in shortcut_keys]
+        assert "^P" in key_texts[0]
+        assert "F1" in key_texts[1]
 
+        # Check shortcut descriptions have correct text
         shortcut_descs = footer.query(".shortcut-desc")
-        assert len(shortcut_descs) == 2
+        desc_texts = [str(label.render()) for label in shortcut_descs]
+        assert "Command Palette" in desc_texts[0]
+        assert "Show Keys" in desc_texts[1]
