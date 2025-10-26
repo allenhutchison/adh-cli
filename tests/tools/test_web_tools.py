@@ -11,42 +11,34 @@ from adh_cli.tools.web_tools import _validate_http_url, _fetch_sync, fetch_url
 class TestValidateHttpUrl:
     """Test URL validation."""
 
-    def test_valid_http_url(self):
-        """Test that valid HTTP URLs pass validation."""
-        _validate_http_url("http://example.com")
-        _validate_http_url("http://example.com/path")
-        _validate_http_url("http://example.com:8080/path?query=1")
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://example.com",
+            "http://example.com/path",
+            "http://example.com:8080/path?query=1",
+            "https://example.com",
+            "https://example.com/path",
+            "https://example.com:443/path?query=1",
+        ],
+    )
+    def test_valid_urls(self, url):
+        """Test that valid HTTP/HTTPS URLs pass validation."""
+        _validate_http_url(url)  # Should not raise
 
-    def test_valid_https_url(self):
-        """Test that valid HTTPS URLs pass validation."""
-        _validate_http_url("https://example.com")
-        _validate_http_url("https://example.com/path")
-        _validate_http_url("https://example.com:443/path?query=1")
-
-    def test_invalid_scheme_ftp(self):
-        """Test that FTP URLs are rejected."""
+    @pytest.mark.parametrize(
+        "url", ["ftp://example.com", "file:///etc/passwd", "example.com"]
+    )
+    def test_invalid_schemes(self, url):
+        """Test that URLs with invalid schemes are rejected."""
         with pytest.raises(ValueError, match="Only http/https URLs are allowed"):
-            _validate_http_url("ftp://example.com")
+            _validate_http_url(url)
 
-    def test_invalid_scheme_file(self):
-        """Test that file URLs are rejected."""
-        with pytest.raises(ValueError, match="Only http/https URLs are allowed"):
-            _validate_http_url("file:///etc/passwd")
-
-    def test_invalid_scheme_empty(self):
-        """Test that URLs without scheme are rejected."""
-        with pytest.raises(ValueError, match="Only http/https URLs are allowed"):
-            _validate_http_url("example.com")
-
-    def test_missing_host(self):
-        """Test that URLs without host are rejected."""
+    @pytest.mark.parametrize("url", ["http://", "http:///path"])
+    def test_missing_host(self, url):
+        """Test that URLs without a host are rejected."""
         with pytest.raises(ValueError, match="URL must include a host"):
-            _validate_http_url("http://")
-
-    def test_missing_host_with_path(self):
-        """Test that URLs without host but with path are rejected."""
-        with pytest.raises(ValueError, match="URL must include a host"):
-            _validate_http_url("http:///path")
+            _validate_http_url(url)
 
 
 class TestFetchSync:
@@ -372,5 +364,5 @@ class TestFetchUrl:
         # Should succeed with replacement characters
         assert result["success"] is True
         assert "error" not in result
-        # Content will have replacement characters for invalid bytes
-        assert result["content"] is not None
+        # Verify replacement character is used for invalid bytes
+        assert result["content"] == "\ufffd\ufffd Invalid UTF-8"
