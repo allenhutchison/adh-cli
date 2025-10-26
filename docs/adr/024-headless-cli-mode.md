@@ -131,8 +131,8 @@ Implement headless CLI mode via **three-layer architecture** that cleanly separa
 │              │ (agent_factory.py)       │                   │
 │              │                          │                   │
 │              │ - create_agent()         │                   │
-│              │ - register_default_tools │                   │
-│              │ - apply_config()         │                   │
+│              │   (includes tool         │                   │
+│              │    registration)         │                   │
 │              └──────────────────────────┘                   │
 │                            │                                │
 │                            ▼                                │
@@ -193,13 +193,18 @@ class AgentFactory:
         audit_log_path: Optional[Path] = None,
         agent_name: str = "orchestrator",
         safety_enabled: bool = True,
+        register_tools: bool = True,
         config: Optional[Dict[str, Any]] = None,
     ) -> PolicyAwareLlmAgent:
-        """Create and configure a PolicyAwareLlmAgent."""
+        """Create and configure a PolicyAwareLlmAgent.
 
-    @staticmethod
-    def register_default_tools(agent: PolicyAwareLlmAgent) -> None:
-        """Register the default tool set with the agent."""
+        Args:
+            register_tools: If True, automatically register default tools.
+                           Set to False only for testing or custom tool sets.
+
+        Returns:
+            Fully initialized and ready-to-use PolicyAwareLlmAgent.
+        """
 ```
 
 **Benefits**:
@@ -359,18 +364,35 @@ Directories:
 
 #### JSON Format (for scripting)
 
+When using `--output json`, the response field contains structured data suitable for programmatic consumption:
+
 ```bash
-$ adh-cli run "List files" --output json
+$ adh-cli run "List files in current directory" --output json
 {
   "success": true,
-  "response": "Current directory contains 15 files and 3 directories:\n\nFiles:\n- README.md (2.3 KB)\n- setup.py (1.1 KB)...",
+  "response": {
+    "summary": "Current directory contains 15 files and 3 directories",
+    "files": [
+      {"name": "README.md", "size_kb": 2.3, "type": "file"},
+      {"name": "setup.py", "size_kb": 1.1, "type": "file"},
+      {"name": "pyproject.toml", "size_kb": 0.86, "type": "file"}
+    ],
+    "directories": [
+      {"name": "adh_cli", "type": "directory"},
+      {"name": "tests", "type": "directory"},
+      {"name": "docs", "type": "directory"}
+    ]
+  },
   "metadata": {
     "execution_time_ms": 234,
     "tools_used": ["list_directory"],
-    "model": "gemini-2.0-flash-exp"
+    "model": "gemini-2.0-flash-exp",
+    "agent": "orchestrator"
   }
 }
 ```
+
+**Note**: The structure of the `response` field varies based on the agent's output. For unstructured responses, the field will contain a simple string. Tool outputs that naturally map to structured data (file listings, JSON parsing, etc.) will be represented as objects or arrays for easier consumption.
 
 #### Markdown Format (for documentation)
 
@@ -556,8 +578,8 @@ $ echo $?
 ### Neutral
 
 **Testing Requirements:**
-- Need tests for `AgentFactory.create_agent()`
-- Need tests for `AgentFactory.register_default_tools()`
+- Need tests for `AgentFactory.create_agent()` with and without tool registration
+- Need tests for tool registration integration
 - Need tests for `HeadlessRunner.run()`
 - Need tests for confirmation handlers
 - Need CLI integration tests
@@ -678,12 +700,14 @@ Add a "headless prompt" screen to TUI that reads commands from stdin.
 
 ## Implementation Notes
 
+> **Note**: This ADR serves as the architectural foundation and should be approved **before** implementation begins. The ADR guides the implementation phases below, not the reverse.
+
 ### Implementation Phases
 
 **Phase 1: Refactor for Separation of Concerns** (No user-visible changes)
 1. Create `AgentFactory` in `adh_cli/core/agent_factory.py`
 2. Extract `ADHApp._build_agent()` → `AgentFactory.create_agent()`
-3. Extract `ADHApp._register_default_tools()` → `AgentFactory.register_default_tools()`
+3. Integrate tool registration into `create_agent()` (with `register_tools` parameter)
 4. Refactor `ADHApp` to use factory
 5. Verify all existing tests pass
 6. Add tests for factory methods
@@ -703,12 +727,12 @@ Add a "headless prompt" screen to TUI that reads commands from stdin.
 16. Add CLI integration tests
 
 **Phase 4: Documentation & Polish** (Production ready)
-17. Create ADR-024 (this document)
-18. Update README.md with headless mode docs
-19. Update CLAUDE.md with architecture
-20. Create example scripts
-21. Performance profiling and optimization
-22. Beta testing and feedback incorporation
+17. Update README.md with headless mode docs
+18. Update CLAUDE.md with architecture description
+19. Create example scripts (shell, CI/CD, batch processing)
+20. Performance profiling and optimization
+21. Beta testing and feedback incorporation
+22. Update ADR-024 status to "Accepted" upon completion
 
 ### File Structure
 
@@ -730,7 +754,7 @@ adh_cli/
 
 docs/
 └── adr/
-    └── 024-headless-cli-mode.md       (NEW - Phase 4)
+    └── 024-headless-cli-mode.md       (PREREQUISITE - approved before implementation)
 
 examples/                              (NEW - Phase 4)
 └── headless/
@@ -757,7 +781,8 @@ tests/
 def test_create_agent_with_defaults()
 def test_create_agent_with_custom_policy_dir()
 def test_create_agent_with_custom_model()
-def test_register_default_tools()
+def test_create_agent_with_tools_registered()
+def test_create_agent_without_tools()
 def test_safety_disabled()
 
 # tests/headless/test_runner.py
@@ -899,4 +924,5 @@ Users can adopt headless mode gradually:
 
 | Date | Change | Author |
 |------|--------|--------|
+| 2025-10-26 | Address review feedback: integrate tool registration into AgentFactory.create_agent(), update JSON output to use structured data, clarify ADR as prerequisite (not Phase 4 deliverable) | Project Team |
 | 2025-10-26 | Initial proposal | Project Team |
