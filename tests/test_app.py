@@ -16,7 +16,7 @@ class TestADHApp:
     @pytest.fixture
     def app(self):
         """Create a test app instance."""
-        with patch("adh_cli.app.PolicyAwareLlmAgent"):
+        with patch("adh_cli.core.policy_aware_llm_agent.PolicyAwareLlmAgent"):
             app = ADHApp()
             # Mock the Textual app methods
             app.notify = Mock()
@@ -41,7 +41,7 @@ class TestADHApp:
             app = ADHApp()
             assert app.api_key == "gemini_key"
 
-    @patch("adh_cli.app.PolicyAwareLlmAgent")
+    @patch("adh_cli.core.policy_aware_llm_agent.PolicyAwareLlmAgent")
     def test_initialize_agent(self, mock_agent_class, app):
         """Test agent initialization with ADK agent."""
         app.api_key = "test_key"
@@ -188,7 +188,7 @@ class TestADHApp:
         app.action_toggle_dark()
         assert app.theme == "textual-light"
 
-    @patch("adh_cli.app.PolicyAwareLlmAgent")
+    @patch("adh_cli.core.policy_aware_llm_agent.PolicyAwareLlmAgent")
     def test_load_config_with_orchestrator_agent(
         self, mock_agent_class, app, monkeypatch
     ):
@@ -244,7 +244,9 @@ class TestPolicyIntegration:
     @pytest.mark.asyncio
     async def test_full_initialization(self, temp_policy_dir):
         """Test full app initialization with ADK agent."""
-        with patch("adh_cli.app.PolicyAwareLlmAgent") as mock_agent_class:
+        with patch(
+            "adh_cli.core.policy_aware_llm_agent.PolicyAwareLlmAgent"
+        ) as mock_agent_class:
             app = ADHApp()
             app.policy_dir = temp_policy_dir
             app.api_key = "test_key"
@@ -270,8 +272,9 @@ class TestPolicyIntegration:
         from adh_cli.screens.chat_screen import ChatScreen
 
         with (
-            patch("adh_cli.app.PolicyAwareLlmAgent"),
+            patch("adh_cli.core.policy_aware_llm_agent.PolicyAwareLlmAgent"),
             patch("adh_cli.app.ADHApp.push_screen") as mock_push_screen,
+            patch("adh_cli.app.ADHApp.call_after_refresh") as mock_call_after,
         ):
             app = ADHApp()
             # Manually trigger on_mount to test its behavior in isolation
@@ -281,11 +284,17 @@ class TestPolicyIntegration:
             mock_push_screen.assert_called_once()
             assert isinstance(mock_push_screen.call_args.args[0], ChatScreen)
 
-    def test_app_bindings_defined(self):
-        """Test that all keybindings are defined."""
-        app = ADHApp()
+            # Check that agent initialization is deferred until after refresh
+            mock_call_after.assert_called_once()
+            assert (
+                mock_call_after.call_args.args[0].__name__
+                == "_start_agent_initialization"
+            )
 
-        binding_keys = [b.key for b in app.BINDINGS]
+    @staticmethod
+    def test_app_bindings_defined():
+        """Test that all keybindings are defined."""
+        binding_keys = [b.key for b in ADHApp.BINDINGS]
         assert "q" in binding_keys
         assert "d" in binding_keys
         assert "s" in binding_keys
