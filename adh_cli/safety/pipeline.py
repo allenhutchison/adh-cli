@@ -21,7 +21,10 @@ class PipelineResult:
     @property
     def is_safe(self) -> bool:
         """Check if execution can proceed."""
-        return self.overall_status != SafetyStatus.FAILED
+        return (
+            self.overall_status != SafetyStatus.FAILED
+            and len(self.blocking_issues) == 0
+        )
 
     @property
     def has_warnings(self) -> bool:
@@ -149,6 +152,8 @@ class SafetyPipeline:
                 # Handle exceptions from gather
                 blocking_issues.append(f"Check error: {str(result)}")
                 overall_status = SafetyStatus.ERROR
+                # Exceptions are treated as MEDIUM risk
+                risk_scores.append(0.5)
                 continue
 
             # Track warnings
@@ -164,6 +169,8 @@ class SafetyPipeline:
                     overall_status = SafetyStatus.FAILED
                 else:
                     warnings.append(f"[Overridable] {result.message}")
+                    if overall_status == SafetyStatus.PASSED:
+                        overall_status = SafetyStatus.WARNING
 
             # Calculate risk score
             risk_value = {

@@ -224,7 +224,7 @@ class TestSafetyPipeline:
         result = await pipeline.run_checks(tool_call, safety_checks)
 
         # Overridable failures become warnings
-        assert result.overall_status == SafetyStatus.PASSED
+        assert result.overall_status == SafetyStatus.WARNING
         assert result.is_safe is True
         assert len(result.warnings) == 1
         assert "[Overridable] Overridable failure" in result.warnings
@@ -426,9 +426,14 @@ class TestSafetyPipeline:
         pipeline_result = pipeline._aggregate_results(results)
 
         assert pipeline_result.overall_status == SafetyStatus.ERROR
+        assert not pipeline_result.is_safe
         assert len(pipeline_result.blocking_issues) == 1
         assert "Check error" in pipeline_result.blocking_issues[0]
         assert "Test error" in pipeline_result.blocking_issues[0]
+
+        # An exception should contribute to the risk score. Assuming it's a MEDIUM risk (0.5).
+        # The other result is LOW risk (0.25). The average should be (0.5 + 0.25) / 2.
+        assert pipeline_result.risk_score == pytest.approx(0.375)
 
     def test_aggregate_results_risk_score_calculation(self):
         """Test risk score calculation with different risk levels."""
